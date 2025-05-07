@@ -1,2 +1,2 @@
 # fullforce-private-ai-agent
-As title says
+Inhouse AI chatbot omgeving voor CS Rental, schaalbaar voor meerdere klanten.
