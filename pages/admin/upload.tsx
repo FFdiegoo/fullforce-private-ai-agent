@@ -1,63 +1,35 @@
-import React, { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import UploadForm from '../../components/UploadForm';
+import { supabase } from '../../lib/supabaseClient';
 
-// Initialiseer Supabase client (je kunt dit later naar een aparte config file verplaatsen)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+export default function UploadPage() {
+  const router = useRouter();
 
-export default function UploadForm() {
-  const [file, setFile] = useState<File | null>(null);
-  const [metadata, setMetadata] = useState({
-    afdeling: '',
-    categorie: '',
-    onderwerp: '',
-    versie: ''
-  });
+  useEffect(() => {
+    checkAuth();
+  }, []);
 
-  const handleUpload = async () => {
-    if (!file) return;
-
-    try {
-      // Upload het bestand naar Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .upload(`${Date.now()}-${file.name}`, file);
-
-      if (error) throw error;
-
-      // Sla metadata op in de database
-      const { error: dbError } = await supabase
-        .from('documents')
-        .insert([
-          {
-            filename: file.name,
-            storage_path: data?.path,
-            ...metadata
-          }
-        ]);
-
-      if (dbError) throw dbError;
-
-      // Reset form
-      setFile(null);
-      setMetadata({
-        afdeling: '',
-        categorie: '',
-        onderwerp: '',
-        versie: ''
-      });
-
-      alert('Bestand succesvol geüpload!');
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Er ging iets mis bij het uploaden.');
+  async function checkAuth() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      router.push('/login');
     }
-  };
+  }
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-4">Document Upload</h2>
-      
-      {/* Bestand selectie */}
+    <div className="min-h-screen bg-gray-100 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Document Upload Portal
+          </h1>
+          <p className="mt-2 text-gray-600">
+            Upload en categoriseer bedrijfsdocumenten
+          </p>
+        </div>
+        <UploadForm />
+      </div>
+    </div>
+  );
+}
