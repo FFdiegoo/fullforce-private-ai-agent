@@ -1,6 +1,6 @@
 // components/UploadForm.tsx
 import { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 export default function UploadForm() {
   const [file, setFile] = useState<File | null>(null);
