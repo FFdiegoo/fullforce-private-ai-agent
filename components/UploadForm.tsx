@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
+// TypeScript interfaces
 interface Metadata {
   afdeling: string;
   categorie: string;
@@ -8,7 +9,22 @@ interface Metadata {
   versie: string;
 }
 
+interface DocumentMetadata extends Metadata {
+  filename: string;
+  safe_filename: string;
+  storage_path: string;
+  file_size: number;
+  mime_type: string;
+  uploaded_by: string;
+  last_updated: string;
+  ready_for_indexing: boolean;
+}
+
 export default function UploadForm() {
+  // Initialize Supabase client
+  const supabase = createClientComponentClient();
+  
+  // State management
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [metadata, setMetadata] = useState<Metadata>({
@@ -27,12 +43,12 @@ export default function UploadForm() {
     try {
       setIsUploading(true);
 
-      // Creëer een veilige bestandsnaam
+      // Create safe filename
       const timestamp = Date.now();
       const safeFileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       const path = `${metadata.afdeling}/${metadata.categorie}/${safeFileName}`;
 
-      // Upload naar Supabase Storage
+      // Upload to Supabase Storage
       const { data: storageData, error: storageError } = await supabase.storage
         .from('company-docs')
         .upload(path, file);
@@ -41,22 +57,30 @@ export default function UploadForm() {
         throw new Error(`Storage error: ${storageError.message}`);
       }
 
-      // Sla metadata op in de database
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        throw new Error(`Auth error: ${userError.message}`);
+      }
+
+      // Prepare metadata for database
+      const documentMetadata: DocumentMetadata = {
+        filename: file.name,
+        safe_filename: safeFileName,
+        storage_path: path,
+        file_size: file.size,
+        mime_type: file.type,
+        ...metadata,
+        uploaded_by: user?.email || 'unknown',
+        last_updated: new Date().toISOString(),
+        ready_for_indexing: true
+      };
+
+      // Save metadata to database
       const { error: dbError } = await supabase
         .from('documents_metadata')
-        .insert([
-          {
-            filename: file.name,
-            safe_filename: safeFileName,
-            storage_path: path,
-            file_size: file.size,
-            mime_type: file.type,
-            ...metadata,
-            uploaded_by: (await supabase.auth.getUser()).data.user?.email || 'unknown',
-            last_updated: new Date().toISOString(),
-            ready_for_indexing: true
-          }
-        ]);
+        .insert([documentMetadata]);
 
       if (dbError) {
         throw new Error(`Database error: ${dbError.message}`);
@@ -85,7 +109,7 @@ export default function UploadForm() {
     <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">Document Upload</h2>
 
-      {/* Bestandsselectie */}
+      {/* File selection */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Selecteer document
@@ -103,8 +127,9 @@ export default function UploadForm() {
         )}
       </div>
 
-      {/* Metadata formulier */}
+      {/* Metadata form */}
       <div className="grid grid-cols-1 gap-6 mb-6">
+        {/* Afdeling field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Afdeling
@@ -119,6 +144,7 @@ export default function UploadForm() {
           />
         </div>
 
+        {/* Categorie field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Categorie
@@ -133,6 +159,7 @@ export default function UploadForm() {
           />
         </div>
 
+        {/* Onderwerp field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Onderwerp
@@ -147,6 +174,7 @@ export default function UploadForm() {
           />
         </div>
 
+        {/* Versie field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Versie
@@ -162,7 +190,7 @@ export default function UploadForm() {
         </div>
       </div>
 
-      {/* Upload knop */}
+      {/* Upload button */}
       <button
         onClick={handleUpload}
         disabled={!file || isUploading || !metadata.afdeling || !metadata.categorie}
