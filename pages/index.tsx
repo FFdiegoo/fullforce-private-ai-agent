@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import { Session } from '@supabase/supabase-js';
 
 export default async function Home() {
   const supabase = createServerComponentClient({ cookies });
-  
+  const [session, setSession] = useState<Session | null>(null);
+
   // Check authentication status
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data } = await supabase.auth.getSession();
+  setSession(data.session);
 
   return (
     <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
