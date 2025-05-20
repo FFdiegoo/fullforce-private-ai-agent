@@ -10,6 +10,12 @@ export const config = {
 }
 
 export function middleware(req: NextRequest) {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  if (isDevelopment) {
+    return NextResponse.next();
+  }
+
   // Skip all checks if ALLOWED_IPS is not set
   if (!process.env.ALLOWED_IPS) {
     return NextResponse.next()
