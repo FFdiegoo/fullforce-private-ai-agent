@@ -40,7 +40,17 @@ export default function ChatPage() {
         body: JSON.stringify({ prompt: text, mode: validMode }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
+      
+      // Check of we een error response hebben
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       setMessages(prev => [...prev, { text: data.reply, isUser: false }]);
     } catch (error) {
       console.error('Error:', error);
@@ -56,8 +66,6 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <ChatHeader mode={validMode} />
-     
-
       
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="max-w-4xl mx-auto">
