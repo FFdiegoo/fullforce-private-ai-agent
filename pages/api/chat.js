@@ -34,6 +34,8 @@ export default async function handler(req, res) {
     res.status(200).json({ reply });
   } catch (error) {
     console.error('OpenAI API Error:', error);
-    res.status(500).json({ reply: 'Sorry, er is een fout opgetreden met de AI service. Probeer het later opnieuw.' });
+    res.status(500).json({ 
+      reply: 'Sorry, er is een fout opgetreden met de AI service. Probeer het later opnieuw.' 
+    });
   }
 }
