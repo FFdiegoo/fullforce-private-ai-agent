@@ -35,7 +35,7 @@ export default function LoginPage() {
     setLoading(true);
     setMessage('');
     // Supabase v2 wachtwoord reset
-    const { error } = await supabase.auth.resetPasswordForEmail({ email });
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) {
       setMessage('Er ging iets mis: ' + error.message);
     } else {
