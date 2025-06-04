@@ -1,5 +1,6 @@
 import { OpenAI } from 'openai';
 
+// Initialiseer OpenAI client met je API key uit de env
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -16,10 +17,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Kies de juiste system prompt op basis van de mode
     const systemPrompt = mode === 'technical' 
       ? 'Je bent CeeS, een technische AI-assistent voor CS Rental. Help gebruikers met technische documentatie en ondersteuning. Geef duidelijke, praktische antwoorden.'
       : 'Je bent ChriS, een inkoop AI-assistent voor CS Rental. Help gebruikers met inkoop en onderdelen informatie. Focus op praktische inkoop-gerelateerde vragen.';
 
+    // Vraag een completion aan bij OpenAI
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
       messages: [
@@ -30,10 +33,14 @@ export default async function handler(req, res) {
       temperature: 0.7,
     });
 
-    const reply = completion.choices[0]?.message?.content || 'Sorry, er ging iets mis.';
+    // Haal het antwoord op uit de response
+    const reply = completion.choices?.[0]?.message?.content || 'Sorry, er ging iets mis.';
     res.status(200).json({ reply });
   } catch (error) {
+    // Log de error voor debugging
     console.error('OpenAI API Error:', error);
+
+    // Stuur een nette foutmelding terug naar de frontend
     res.status(500).json({ 
       reply: 'Sorry, er is een fout opgetreden met de AI service. Probeer het later opnieuw.' 
     });
