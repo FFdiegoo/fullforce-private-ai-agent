@@ -24,4 +24,4 @@ export default async function handler(req, res) {
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
       messages: [
-        { role: 'system
+        { role: 'system', content: systemPrompt },
