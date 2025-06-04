@@ -36,14 +36,12 @@ export function middleware(req: NextRequest) {
 
   // Toegestane IP-adressen (makkelijk uit te breiden)
   const allowedIPs: IPAddress[] = [
-    '127.0.0.1',                           // Localhost
-    '::1',                                 // IPv6 Localhost
-    '2a02:a46e:549e:0:e4c4:26b3:e601:6782', // Jouw IPv6 adres
-    // Voeg hier meer IP-adressen toe:
-    // '192.168.1.100',                    // Voorbeeld IPv4
-    // '203.0.113.50',                     // Bedrijfs IP
-    // '10.0.0.0/8',                       // IP range (later uit te breiden)
-  ];
+  '127.0.0.1', // Localhost
+  '::1',       // IPv6 Localhost
+  '2a02:a46e:549e:0:e4c4:26b3:e601:6782', // Jouw IPv6
+  '84.86.144.131', // Jouw IPv4
+  // ...andere IP's
+];
 
   // Ook environment variable ondersteuning behouden (optioneel)
   if (process.env.ALLOWED_IPS) {
@@ -85,7 +83,7 @@ export function middleware(req: NextRequest) {
   if (!isAllowed) {
     console.warn(`🚫 Unauthorized access attempt from IP: ${ip}`);
     return new NextResponse(JSON.stringify({ 
-      error: 'ninjaaaa',
+      error: 'IP restriction hahaha >> rIP ;)',
       message: 'Your IP is not authorized to access this resource',
       ip: ip,
       timestamp: new Date().toISOString()
