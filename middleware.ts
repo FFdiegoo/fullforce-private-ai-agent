@@ -25,13 +25,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // Haal IP-adres op (meerdere methodes proberen)
+  // Haal IP-adres op (meerdere methodes proberen) - FIX: || null toegevoegd
   const ip: IPAddress | null = 
     req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
     req.headers.get('x-real-ip') ||
     req.headers.get('cf-connecting-ip') ||
-    req.ip
+    req.ip ||
+    null; // FIX: Expliciete null fallback
 
   // Toegestane IP-adressen (makkelijk uit te breiden)
   const allowedIPs: IPAddress[] = [
