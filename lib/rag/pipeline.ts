@@ -5,11 +5,13 @@ import { VectorStore } from './vectorStore';
 import { DocumentMetadata, ProcessingOptions } from './types';
 
 export class RAGPipeline {
+  private supabase: SupabaseClient; // <-- voeg deze regel toe!
   private documentProcessor: DocumentProcessor;
   private embeddingGenerator: EmbeddingGenerator;
   private vectorStore: VectorStore;
 
   constructor(supabaseClient: SupabaseClient, openAIKey: string) {
+    this.supabase = supabaseClient; // <-- voeg deze regel toe!
     this.documentProcessor = new DocumentProcessor(supabaseClient);
     this.embeddingGenerator = new EmbeddingGenerator(openAIKey);
     this.vectorStore = new VectorStore(supabaseClient);
