@@ -8,10 +8,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   // Inloggen
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
+    // Supabase v2 login
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -33,7 +34,8 @@ export default function LoginPage() {
     }
     setLoading(true);
     setMessage('');
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    // Supabase v2 wachtwoord reset
+    const { error } = await supabase.auth.resetPasswordForEmail({ email });
     if (error) {
       setMessage('Er ging iets mis: ' + error.message);
     } else {
