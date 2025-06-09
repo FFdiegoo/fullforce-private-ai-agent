@@ -3,8 +3,6 @@
 
 generator client {
     provider = "prisma-client-js"
-    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
-    output = "/home/ubuntu/cs-rental-ai-agent/node_modules/.prisma/client"
 }
 
 datasource db {
