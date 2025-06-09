@@ -55,7 +55,7 @@ supabase.auth.setSession({
 
     try {
       // Gebruik de oudere API voor het updaten van het wachtwoord
-      const { error: updateError } = await supabase.auth.update({
+      const { error: updateError } = await supabase.auth.updateUser({
         password: password
       });
 
