@@ -9,17 +9,29 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [tokensChecked, setTokensChecked] = useState(false);
 
   useEffect(() => {
-    // Check if we have the necessary hash fragments for password reset
+    // Haal tokens uit de URL hash
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get('access_token');
     const refreshToken = hashParams.get('refresh_token');
     const type = hashParams.get('type');
 
-    if (type !== 'recovery' || !accessToken) {
+    if (type !== 'recovery' || !accessToken || !refreshToken) {
       setError('Invalid or expired reset link. Please request a new password reset.');
+      setTokensChecked(true);
+      return;
     }
+
+    // Gebruik de oudere API voor het zetten van de session
+    supabase.auth.setAuth(accessToken).then(() => {
+      setTokensChecked(true);
+    }).catch((err: any) => {
+      console.error('Auth error:', err);
+      setError('Failed to validate reset link. Please request a new password reset.');
+      setTokensChecked(true);
+    });
   }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -41,16 +53,17 @@ export default function ResetPassword() {
     }
 
     try {
-      const { error } = await supabase.auth.updateUser({
+      // Gebruik de oudere API voor het updaten van het wachtwoord
+      const { error: updateError } = await supabase.auth.update({
         password: password
       });
 
-      if (error) {
-        throw error;
+      if (updateError) {
+        throw updateError;
       }
 
       setSuccess(true);
-      
+
       // Redirect to login after 3 seconds
       setTimeout(() => {
         router.push('/login');
@@ -63,6 +76,14 @@ export default function ResetPassword() {
       setLoading(false);
     }
   };
+
+  if (!tokensChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <span>Even geduld...</span>
+      </div>
+    );
+  }
 
   if (success) {
     return (
@@ -79,7 +100,6 @@ export default function ResetPassword() {
               Your password has been updated successfully. You will be redirected to the login page in a few seconds.
             </p>
           </div>
-          
           <button
             onClick={() => router.push('/login')}
             className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl py-3 px-4 hover:opacity-90 transition-all duration-200 font-medium"
