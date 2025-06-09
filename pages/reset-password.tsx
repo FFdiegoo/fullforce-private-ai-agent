@@ -24,14 +24,15 @@ export default function ResetPassword() {
       return;
     }
 
-    // Gebruik de oudere API voor het zetten van de session
-    supabase.auth.setAuth(accessToken).then(() => {
-      setTokensChecked(true);
-    }).catch((err: any) => {
-      console.error('Auth error:', err);
-      setError('Failed to validate reset link. Please request a new password reset.');
-      setTokensChecked(true);
-    });
+supabase.auth.setSession({
+  access_token: accessToken!,
+  refresh_token: refreshToken!,
+}).then(({ error }) => {
+  if (error) {
+    setError('Failed to validate reset link. Please request a new password reset.');
+  }
+  setTokensChecked(true);
+});
   }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
