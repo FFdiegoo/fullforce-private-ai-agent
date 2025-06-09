@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/cs-rental-ai-agent/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  documents    Document[]
+  chatSessions ChatSession[]
+  authEvents   AuthEvent[]
+
+  @@map("users")
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  fileSize    Int
+  mimeType    String
+  uploadPath  String
+  status      DocumentStatus @default(PENDING)
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Metadata
+  department  String?
+  category    String?
+  subject     String?
+  description String?
+
+  // Relations
+  uploadedBy   String
+  user         User @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+  chunks       DocumentChunk[]
+
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String   @id @default(cuid())
+  content    String
+  embedding  String?  // JSON string of embedding vector
+  chunkIndex Int
+  createdAt  DateTime @default(now())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_chunks")
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  messages  String   // JSON array of message objects
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_sessions")
+}
+
+model AuthEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  eventType String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_events")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
