@@ -23,7 +23,7 @@ export class RAGPipeline {
       const chunks = await this.documentProcessor.processDocument(metadata, options);
 
       // Step 2: Generate embeddings for chunks
-      const embeddedChunks = await this.embeddingGenerator.generateEmbeddings(chunks);
+     const embeddedChunks = await this.embeddingGenerator.generateEmbeddings(chunks, RAG_CONFIG.embeddingModel);
 
       // Step 3: Store chunks with embeddings in vector store
       await this.vectorStore.storeChunks(embeddedChunks);
