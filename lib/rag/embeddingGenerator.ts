@@ -1,32 +1,31 @@
-import { Configuration, OpenAIApi } from 'openai';
+import OpenAI from 'openai';
 import { TextChunk } from './types';
 
 export class EmbeddingGenerator {
-  private openai: OpenAIApi;
+  private openai: OpenAI;
 
   constructor(apiKey: string) {
-    const config = new Configuration({ apiKey });
-    this.openai = new OpenAIApi(config);
+    this.openai = new OpenAI({ apiKey });
   }
 
   async generateEmbeddings(chunks: TextChunk[], model: string): Promise<string[]> {
-    try {
-      const embeddings: string[] = [];
+    const embeddings: string[] = [];
 
-      for (const chunk of chunks) {
-        const response = await this.openai.createEmbedding({
+    for (const chunk of chunks) {
+      try {
+        const response = await this.openai.embeddings.create({
           model,
           input: chunk.content,
         });
 
-        const embedding = response.data.data[0].embedding;
-        embeddings.push(JSON.stringify(embedding)); // JSON string opslaan voor Prisma
+        const embedding = response.data[0].embedding;
+        embeddings.push(JSON.stringify(embedding)); // serialize for storage
+      } catch (error) {
+        console.error('Error generating embedding:', error);
+        throw error;
       }
-
-      return embeddings;
-    } catch (error) {
-      console.error('Embedding generation failed:', error);
-      throw error;
     }
+
+    return embeddings;
   }
 }
