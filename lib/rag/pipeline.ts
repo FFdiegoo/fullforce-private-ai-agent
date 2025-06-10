@@ -3,6 +3,8 @@ import { DocumentProcessor } from './documentProcessor';
 import { EmbeddingGenerator } from './embeddingGenerator';
 import { VectorStore } from './vectorStore';
 import { DocumentMetadata, ProcessingOptions } from './types';
+import { RAG_CONFIG } from '@/lib/rag/config';
+
 
 export class RAGPipeline {
   private supabase: SupabaseClient; // <-- voeg deze regel toe!
