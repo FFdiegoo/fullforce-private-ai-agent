@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -28,39 +25,39 @@ model User {
 }
 
 model Document {
-  id          String   @id @default(cuid())
-  filename    String
+  id           String          @id @default(cuid())
+  filename     String
   originalName String
-  fileSize    Int
-  mimeType    String
-  uploadPath  String
-  status      DocumentStatus @default(PENDING)
-  processedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  fileSize     Int
+  mimeType     String
+  uploadPath   String
+  status       DocumentStatus  @default(PENDING)
+  processedAt  DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   // Metadata
-  department  String?
-  category    String?
-  subject     String?
-  description String?
+  department   String?
+  category     String?
+  subject      String?
+  description  String?
 
   // Relations
   uploadedBy   String
-  user         User @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+  user         User            @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
   chunks       DocumentChunk[]
 
   @@map("documents")
 }
 
 model DocumentChunk {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   content    String
-  embedding  String?  // JSON string of embedding vector
+  embedding  Json?     // Was: String?, nu: Json? → geschikt voor vectorformaten
   chunkIndex Int
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   documentId String
-  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@map("document_chunks")
 }
@@ -68,7 +65,7 @@ model DocumentChunk {
 model ChatSession {
   id        String   @id @default(cuid())
   userId    String
-  messages  String   // JSON array of message objects
+  messages  Json     // Was: String, nu: Json → betere AI-compatibiliteit
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
