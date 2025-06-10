@@ -18,11 +18,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const pipeline = new RAGPipeline(supabase, openaiApiKey);
-    await pipeline.processDocument(metadata, {
-      chunkSize: RAG_CONFIG.chunkSize,
-      chunkOverlap: RAG_CONFIG.overlap,
-      skipExisting: false,
-    });
+  await pipeline.processDocument(metadata, {
+  chunkSize: RAG_CONFIG.chunkSize,
+  chunkOverlap: RAG_CONFIG.chunkOverlap, // Correct!
+  skipExisting: false,
+});
+
 
     return res.status(200).json({ success: true });
   } catch (error: any) {
