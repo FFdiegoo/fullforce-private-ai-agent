@@ -2,18 +2,17 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { DocumentProcessor } from './documentProcessor';
 import { EmbeddingGenerator } from './embeddingGenerator';
 import { VectorStore } from './vectorStore';
-import { DocumentMetadata, ProcessingOptions } from './types';
+import { DocumentMetadata, ProcessingOptions, TextChunk } from './types';
 import { RAG_CONFIG } from '@/lib/rag/config';
 
-
 export class RAGPipeline {
-  private supabase: SupabaseClient; // <-- voeg deze regel toe!
+  private supabase: SupabaseClient;
   private documentProcessor: DocumentProcessor;
   private embeddingGenerator: EmbeddingGenerator;
   private vectorStore: VectorStore;
 
   constructor(supabaseClient: SupabaseClient, openAIKey: string) {
-    this.supabase = supabaseClient; // <-- voeg deze regel toe!
+    this.supabase = supabaseClient;
     this.documentProcessor = new DocumentProcessor(supabaseClient);
     this.embeddingGenerator = new EmbeddingGenerator(openAIKey);
     this.vectorStore = new VectorStore(supabaseClient);
@@ -21,19 +20,26 @@ export class RAGPipeline {
 
   async processDocument(metadata: DocumentMetadata, options: ProcessingOptions): Promise<void> {
     try {
-      // Step 1: Process document and create chunks
-      const chunks = await this.documentProcessor.processDocument(metadata, options);
+      // Step 1: Process document and create raw chunks (strings)
+      const rawChunks = await this.documentProcessor.processDocument(metadata, options);
 
-      // Step 2: Generate embeddings for chunks
-     const embeddedChunks = await this.embeddingGenerator.generateEmbeddings(
-  chunks as TextChunk[],
-  RAG_CONFIG.embeddingModel
-);
+      // Step 2: Map raw chunks to TextChunk[]
+      const textChunks: TextChunk[] = rawChunks.map((content, index) => ({
+        content,
+        metadata,
+        chunk_index: index,
+      }));
 
-      // Step 3: Store chunks with embeddings in vector store
+      // Step 3: Generate embeddings
+      const embeddedChunks = await this.embeddingGenerator.generateEmbeddings(
+        textChunks,
+        RAG_CONFIG.embeddingModel
+      );
+
+      // Step 4: Store chunks in vector DB
       await this.vectorStore.storeChunks(embeddedChunks);
 
-      // Update document status
+      // Step 5: Mark as processed
       await this.updateDocumentStatus(metadata.id, true);
     } catch (error) {
       console.error('Error in RAG pipeline:', error);
@@ -45,7 +51,7 @@ export class RAGPipeline {
   private async updateDocumentStatus(documentId: string, success: boolean): Promise<void> {
     const { error } = await this.supabase
       .from('documents_metadata')
-      .update({ 
+      .update({
         processed: success,
         processed_at: new Date().toISOString(),
       })
