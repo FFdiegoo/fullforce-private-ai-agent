@@ -17,8 +17,8 @@ export const openaiModel = process.env.OPENAI_MODEL || 'gpt-4-turbo';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const ragConfig = {
-  chunkSize: 1000,
-  chunkOverlap: 200,
-  skipExisting: true,
-} as const;
+export const RAG_CONFIG = {
+  chunkSize: 500,
+  overlap: 50,
+  embeddingModel: 'text-embedding-ada-002',
+};
