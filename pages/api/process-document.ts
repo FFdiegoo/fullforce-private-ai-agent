@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { RAGPipeline } from '../../lib/rag/pipeline';
-import { supabase, openaiApiKey, ragConfig } from '../../lib/rag/config';
+import { supabase, openaiApiKey, RAG_CONFIG } from '../../lib/rag/config';
 
 export default async function handler(
   req: NextApiRequest,
@@ -30,7 +30,7 @@ export default async function handler(
 
     // Initialize and run the RAG pipeline
     const pipeline = new RAGPipeline(supabase, openaiApiKey);
-    await pipeline.processDocument(metadata, ragConfig);
+    await pipeline.processDocument(metadata, RAG_CONFIG);
 
     res.status(200).json({ success: true });
   } catch (error) {
