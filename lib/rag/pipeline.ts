@@ -20,21 +20,18 @@ export class RAGPipeline {
 
   async processDocument(metadata: DocumentMetadata, options: ProcessingOptions): Promise<void> {
     try {
-      // Step 1: Process document and create raw chunks (strings)
-      const rawChunks = await this.documentProcessor.processDocument(metadata, options);
 
-      // Step 2: Map raw chunks to TextChunk[]
-      const textChunks: TextChunk[] = rawChunks.map((content, index) => ({
-        content,
-        metadata,
-        chunk_index: index,
-      }));
+ // Step 1: Process document and create chunks
+const rawChunks = await this.documentProcessor.processDocument(metadata, options);
 
-      // Step 3: Generate embeddings
-      const embeddedChunks = await this.embeddingGenerator.generateEmbeddings(
-        textChunks,
-        RAG_CONFIG.embeddingModel
-      );
+// Step 2: Generate embeddings for chunks
+const embeddedChunks = await this.embeddingGenerator.generateEmbeddings(
+  rawChunks,
+  RAG_CONFIG.embeddingModel
+);
+
+// Step 3: Store chunks with embeddings in vector store
+await this.vectorStore.storeChunks(embeddedChunks);
 
       // Step 4: Store chunks in vector DB
       await this.vectorStore.storeChunks(embeddedChunks);
