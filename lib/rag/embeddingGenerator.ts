@@ -21,7 +21,8 @@ export class EmbeddingGenerator {
 
       embeddedChunks.push({
         ...chunk,
-        embedding: JSON.stringify(embedding.embedding), // voeg de embedding toe
+        embedding: embedding.embedding,
+ // voeg de embedding toe
       });
     }
 
