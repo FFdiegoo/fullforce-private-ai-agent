@@ -8,24 +8,23 @@ export class EmbeddingGenerator {
     this.openai = new OpenAI({ apiKey });
   }
 
-  async generateEmbeddings(chunks: TextChunk[], model: string): Promise<string[]> {
-    const embeddings: string[] = [];
+  async generateEmbeddings(chunks: TextChunk[], model: string): Promise<TextChunk[]> {
+    const embeddedChunks: TextChunk[] = [];
 
     for (const chunk of chunks) {
-      try {
-        const response = await this.openai.embeddings.create({
-          model,
-          input: chunk.content,
-        });
+      const embeddingResponse = await this.openai.embeddings.create({
+        model,
+        input: chunk.content,
+      });
 
-        const embedding = response.data[0].embedding;
-        embeddings.push(JSON.stringify(embedding)); // serialize for storage
-      } catch (error) {
-        console.error('Error generating embedding:', error);
-        throw error;
-      }
+      const [embedding] = embeddingResponse.data;
+
+      embeddedChunks.push({
+        ...chunk,
+        embedding: JSON.stringify(embedding.embedding), // voeg de embedding toe
+      });
     }
 
-    return embeddings;
+    return embeddedChunks;
   }
 }
