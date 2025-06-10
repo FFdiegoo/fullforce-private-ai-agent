@@ -19,6 +19,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const RAG_CONFIG = {
   chunkSize: 500,
-  overlap: 50,
+  chunkOverlap: 50,
   embeddingModel: 'text-embedding-ada-002',
+  skipExisting: true, // zorgt ervoor dat documenten niet opnieuw worden verwerkt
 };
