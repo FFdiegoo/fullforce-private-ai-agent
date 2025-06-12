@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import formidable from 'formidable';
+import formidable, { File } from 'formidable';
 import fs from 'fs';
 import { supabase } from '@/lib/rag/config';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,13 +23,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'File upload failed' });
     }
 
-    const file = files.file as formidable.File;
+    const file = Array.isArray(files.file) ? files.file[0] : (files.file as File);
+    if (!file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
     const stream = fs.createReadStream(file.filepath);
     const fileExt = file.originalFilename?.split('.').pop();
     const safeName = `${uuidv4()}.${fileExt}`;
     const storagePath = `uploads/${safeName}`;
 
-    // Upload to Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from('company-docs')
       .upload(storagePath, stream, {
@@ -42,7 +45,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to upload file to storage' });
     }
 
-    // Insert metadata into DB
     const { error: dbError, data } = await supabase
       .from('documents_metadata')
       .insert({
@@ -51,11 +53,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         storage_path: storagePath,
         file_size: file.size,
         mime_type: file.mimetype,
-        afdeling: fields.afdeling || '',
-        categorie: fields.categorie || '',
-        onderwerp: fields.onderwerp || '',
-        versie: fields.versie || '',
-        uploaded_by: fields.user_id || 'unknown',
+        afdeling: fields.afdeling?.toString() || '',
+        categorie: fields.categorie?.toString() || '',
+        onderwerp: fields.onderwerp?.toString() || '',
+        versie: fields.versie?.toString() || '',
+        uploaded_by: fields.user_id?.toString() || 'unknown',
         last_updated: new Date().toISOString(),
       })
       .select()
