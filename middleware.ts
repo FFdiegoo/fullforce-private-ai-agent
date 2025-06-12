@@ -34,13 +34,14 @@ export function middleware(req: NextRequest) {
     req.ip ||
     null; // FIX: Expliciete null fallback
 
-  // Toegestane IP-adressen (makkelijk uit te breiden)
-  const allowedIPs: IPAddress[] = [
+// Toegestane IP-adressen (makkelijk uit te breiden)
+const allowedIPs: IPAddress[] = [
   '127.0.0.1', // Localhost
   '::1',       // IPv6 Localhost
   '2a02:a46e:549e:0:e4c4:26b3:e601:6782', // Jouw IPv6
   '84.86.144.131', // Jouw IPv4
-  // ...andere IP's
+  '185.56.55.239', // Nieuwe IPv4
+  '45.147.87.232', // Nieuwe IPv4
 ];
 
   // Ook environment variable ondersteuning behouden (optioneel)
