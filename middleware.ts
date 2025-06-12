@@ -39,9 +39,9 @@ const allowedIPs: IPAddress[] = [
   '127.0.0.1', // Localhost
   '::1',       // IPv6 Localhost
   '2a02:a46e:549e:0:e4c4:26b3:e601:6782', // Jouw IPv6
-  '84.86.144.131', // Jouw IPv4
-  '185.56.55.239', // Nieuwe IPv4
-  '45.147.87.232', // Nieuwe IPv4
+  '84.86.144.131', // Jouw IPv4 Diego thuis
+  '185.56.55.239', // Nieuwe IPv4 ABC
+  '45.147.87.232', // Nieuwe IPv4 CS
 ];
 
   // Ook environment variable ondersteuning behouden (optioneel)
