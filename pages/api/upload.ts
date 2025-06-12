@@ -23,10 +23,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'File upload failed' });
     }
 
-    const file = Array.isArray(files.file) ? files.file[0] : (files.file as File);
-    if (!file) {
-      return res.status(400).json({ error: 'No file provided' });
-    }
+ const fileInput = files.file;
+const file = Array.isArray(fileInput) ? fileInput[0] : fileInput;
+
+if (!file || typeof file !== 'object' || !('filepath' in file)) {
+  return res.status(400).json({ error: 'No valid file provided' });
+}
 
     const stream = fs.createReadStream(file.filepath);
     const fileExt = file.originalFilename?.split('.').pop();
