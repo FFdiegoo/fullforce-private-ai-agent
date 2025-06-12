@@ -2,12 +2,13 @@ import { useRouter } from 'next/router';
 import { useState, useEffect, useRef } from 'react';
 import ChatHeader from '../components/ChatHeader';
 import ChatBubble from '../components/ChatBubble';
-import ChatInput from '../components/ChatInput';
+import ChatInputWithSelector from '../components/ChatInputWithSelector';
 import SystemNotice from '../components/SystemNotice';
 
 interface Message {
   text: string;
   isUser: boolean;
+  modelUsed?: string;
 }
 
 type ChatMode = 'technical' | 'procurement';
@@ -29,15 +30,15 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, model: 'simple' | 'complex') => {
     setIsLoading(true);
     setMessages(prev => [...prev, { text, isUser: true }]);
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chat-enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: text, mode: validMode }),
+        body: JSON.stringify({ prompt: text, mode: validMode, model }),
       });
 
       if (!response.ok) {
@@ -51,7 +52,11 @@ export default function ChatPage() {
         throw new Error(data.error);
       }
 
-      setMessages(prev => [...prev, { text: data.reply, isUser: false }]);
+      setMessages(prev => [...prev, { 
+        text: data.reply, 
+        isUser: false,
+        modelUsed: data.modelUsed 
+      }]);
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, { 
@@ -74,19 +79,30 @@ export default function ChatPage() {
               <h2 className="text-2xl font-semibold text-gray-700 mb-2">
                 {validMode === 'technical' ? 'Welcome to CeeS' : 'Welcome to ChriS'}
               </h2>
-              <p className="text-gray-500">
+              <p className="text-gray-500 mb-4">
                 {validMode === 'technical' 
                   ? 'Ask me anything about technical documentation and support'
                   : 'Ask me about procurement and parts information'}
               </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-md mx-auto">
+                <p className="text-sm text-blue-700">
+                  <strong>Nieuw:</strong> Kies tussen "Simpele vragen" (GPT-4 Turbo) en "Complexe vragen" (GPT-o3) voor optimale resultaten!
+                </p>
+              </div>
             </div>
           )}
           {messages.map((message, index) => (
-            <ChatBubble
-              key={index}
-              message={message.text}
-              isUser={message.isUser}
-            />
+            <div key={index}>
+              <ChatBubble
+                message={message.text}
+                isUser={message.isUser}
+              />
+              {!message.isUser && message.modelUsed && (
+                <div className="text-xs text-gray-400 text-right mr-4 mb-2">
+                  Powered by {message.modelUsed}
+                </div>
+              )}
+            </div>
           ))}
           {isLoading && (
             <SystemNotice text="AI is aan het typen..." />
@@ -97,7 +113,7 @@ export default function ChatPage() {
 
       <div className="border-t border-gray-200 bg-white/80 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto w-full">
-          <ChatInput
+          <ChatInputWithSelector
             onSendMessage={handleSendMessage}
             disabled={isLoading}
           />
