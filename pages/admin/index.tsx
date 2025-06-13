@@ -3,7 +3,6 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
 import { format } from 'date-fns';
 import UserChatModal from '../../components/UserChatModal';
-import OpenAICostTracker from '../../components/OpenAICostTracker';
 
 interface User {
   id: string;
@@ -192,7 +191,7 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600 mt-1">Beheer gebruikers, kosten en documenten</p>
+            <p className="text-gray-600 mt-1">Beheer gebruikers en documenten</p>
           </div>
           <button
             onClick={() => router.push('/select-assistant')}
@@ -204,11 +203,6 @@ export default function AdminDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Cost Overview */}
-        <div className="mb-8">
-          <OpenAICostTracker />
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Users Section */}
           <div className="bg-white rounded-xl shadow-lg p-6">
