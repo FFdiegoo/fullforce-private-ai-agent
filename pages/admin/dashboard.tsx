@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false); // Nieuw
 
   useEffect(() => {
     checkAuth();
@@ -44,6 +45,8 @@ export default function Dashboard() {
 
     if (data?.role !== 'admin') {
       router.push('/');
+    } else {
+      setIsAdmin(true); // Nieuw
     }
   }
 
@@ -81,7 +84,13 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-6 relative">
+      {/* Rood admin-stipje rechtsboven */}
+      {isAdmin && (
+        <div className="absolute top-4 right-4">
+          <span className="inline-block w-4 h-4 rounded-full bg-red-500 border-2 border-white shadow-lg" title="Admin user"></span>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Admin Dashboard</h1>
 
