@@ -18,34 +18,16 @@ export default function SelectAssistant() {
 
       setCurrentUser(user);
 
-      // Check if user exists in profiles table
-      let { data: profile, error: profileError } = await supabase
+      // Check if user has admin role
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('email', user.email)
         .single();
 
-      if (profileError || !profile) {
-        // Create admin profile if it doesn't exist and email is admin@csrental.nl
-        if (user.email === 'admin@csrental.nl') {
-          const { data: newProfile, error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: user.id,
-              email: user.email,
-              name: 'Admin User',
-              role: 'admin'
-            })
-            .select('role')
-            .single();
-
-          if (!insertError && newProfile) {
-            profile = newProfile;
-          }
-        }
+      if (!profileError && profile) {
+        setIsAdmin(profile.role === 'admin');
       }
-
-      setIsAdmin(profile?.role === 'admin');
     } catch (error) {
       console.error('Error checking admin status:', error);
     }

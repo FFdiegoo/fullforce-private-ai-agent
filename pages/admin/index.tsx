@@ -54,52 +54,26 @@ export default function AdminDashboard() {
       setCurrentUser(user);
       console.log('Current user:', user.email);
 
-      // Check if user exists in profiles table
-      let { data: profile, error: profileError } = await supabase
+      // Check if user has admin role
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('email', user.email)
         .single();
 
-      if (profileError || !profile) {
-        console.log('Profile not found, creating admin profile for:', user.email);
-        
-        // Create admin profile if it doesn't exist and email is admin@csrental.nl
-        if (user.email === 'admin@csrental.nl') {
-          const { data: newProfile, error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: user.id,
-              email: user.email,
-              name: 'Admin User',
-              role: 'admin'
-            })
-            .select()
-            .single();
-
-          if (insertError) {
-            console.error('Error creating admin profile:', insertError);
-            router.push('/select-assistant');
-            return;
-          }
-          
-          profile = newProfile;
-          console.log('Created admin profile:', profile);
-        } else {
-          console.log('Not admin email, redirecting');
-          router.push('/select-assistant');
-          return;
-        }
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        router.push('/select-assistant');
+        return;
       }
 
-      console.log('User profile:', profile);
-
-      if (profile.role !== 'admin') {
+      if (!profile || profile.role !== 'admin') {
         console.log('User is not admin, redirecting');
         router.push('/select-assistant');
         return;
       }
 
+      console.log('User is admin, loading dashboard');
       setIsAdmin(true);
       await fetchData();
     } catch (error) {
@@ -110,7 +84,7 @@ export default function AdminDashboard() {
 
   async function fetchData() {
     try {
-      // Fetch users (create dummy users if none exist)
+      // Fetch users
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('*')
@@ -118,11 +92,8 @@ export default function AdminDashboard() {
 
       if (usersError) {
         console.error('Error fetching users:', usersError);
-      } else if (usersData && usersData.length > 0) {
+      } else if (usersData) {
         setUsers(usersData);
-      } else {
-        // Create dummy users if none exist
-        await createDummyUsers();
       }
 
       // Fetch documents
@@ -142,33 +113,6 @@ export default function AdminDashboard() {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function createDummyUsers() {
-    const dummyUsers = [
-      { id: '11111111-1111-1111-1111-111111111111', email: 'john.doe@csrental.nl', name: 'John Doe', role: 'user' },
-      { id: '22222222-2222-2222-2222-222222222222', email: 'jane.smith@csrental.nl', name: 'Jane Smith', role: 'user' },
-      { id: '33333333-3333-3333-3333-333333333333', email: 'mike.johnson@csrental.nl', name: 'Mike Johnson', role: 'user' },
-      { id: '44444444-4444-4444-4444-444444444444', email: 'sarah.wilson@csrental.nl', name: 'Sarah Wilson', role: 'user' },
-      { id: '55555555-5555-5555-5555-555555555555', email: 'david.brown@csrental.nl', name: 'David Brown', role: 'user' },
-      { id: '66666666-6666-6666-6666-666666666666', email: 'lisa.davis@csrental.nl', name: 'Lisa Davis', role: 'user' },
-      { id: '77777777-7777-7777-7777-777777777777', email: 'tom.miller@csrental.nl', name: 'Tom Miller', role: 'user' },
-      { id: '88888888-8888-8888-8888-888888888888', email: 'emma.garcia@csrental.nl', name: 'Emma Garcia', role: 'user' },
-      { id: '99999999-9999-9999-9999-999999999999', email: 'alex.martinez@csrental.nl', name: 'Alex Martinez', role: 'user' }
-    ];
-
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert(dummyUsers)
-        .select();
-
-      if (!error && data) {
-        setUsers(prev => [...prev, ...data]);
-      }
-    } catch (error) {
-      console.error('Error creating dummy users:', error);
     }
   }
 
