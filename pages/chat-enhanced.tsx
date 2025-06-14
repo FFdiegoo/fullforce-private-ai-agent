@@ -105,7 +105,7 @@ export default function ChatEnhancedPage() {
             </div>
           ))}
           {isLoading && (
-            <SystemNotice text="AI is aan het typen..." />
+            <SystemNotice text="CeeS is aan het typen..." />
           )}
           <div ref={messagesEndRef} />
         </div>
