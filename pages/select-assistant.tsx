@@ -5,26 +5,64 @@ import { supabase } from '../lib/supabaseClient';
 export default function SelectAssistant() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     checkAdminStatus();
   }, []);
 
   async function checkAdminStatus() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+      setCurrentUser(user);
 
-    setIsAdmin(data?.role === 'admin');
+      // Check if user exists in profiles table
+      let { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', user.email)
+        .single();
+
+      if (profileError || !profile) {
+        // Create admin profile if it doesn't exist and email is admin@csrental.nl
+        if (user.email === 'admin@csrental.nl') {
+          const { data: newProfile, error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              email: user.email,
+              name: 'Admin User',
+              role: 'admin'
+            })
+            .select('role')
+            .single();
+
+          if (!insertError && newProfile) {
+            profile = newProfile;
+          }
+        }
+      }
+
+      setIsAdmin(profile?.role === 'admin');
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-6 relative">
+      {/* Red admin indicator - top right */}
+      {isAdmin && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className="flex items-center space-x-2 bg-red-600 text-white px-3 py-1 rounded-full shadow-lg">
+            <span className="w-2 h-2 bg-white rounded-full"></span>
+            <span className="text-sm font-medium">Admin</span>
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-5xl">
         {/* Admin Dashboard Button */}
         {isAdmin && (
@@ -35,6 +73,9 @@ export default function SelectAssistant() {
             >
               🛠️ Admin Dashboard
             </button>
+            {currentUser && (
+              <p className="text-white/80 text-sm mt-2">Ingelogd als admin: {currentUser.email}</p>
+            )}
           </div>
         )}
 

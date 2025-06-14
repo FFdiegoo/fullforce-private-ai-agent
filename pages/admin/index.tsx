@@ -35,27 +35,76 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showChatModal, setShowChatModal] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     checkAuth();
-    fetchData();
   }, []);
 
   async function checkAuth() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No user found, redirecting to login');
+        router.push('/login');
+        return;
+      }
+
+      setCurrentUser(user);
+      console.log('Current user:', user.email);
+
+      // Check if user exists in profiles table
+      let { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+
+      if (profileError || !profile) {
+        console.log('Profile not found, creating admin profile for:', user.email);
+        
+        // Create admin profile if it doesn't exist and email is admin@csrental.nl
+        if (user.email === 'admin@csrental.nl') {
+          const { data: newProfile, error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              email: user.email,
+              name: 'Admin User',
+              role: 'admin'
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('Error creating admin profile:', insertError);
+            router.push('/select-assistant');
+            return;
+          }
+          
+          profile = newProfile;
+          console.log('Created admin profile:', profile);
+        } else {
+          console.log('Not admin email, redirecting');
+          router.push('/select-assistant');
+          return;
+        }
+      }
+
+      console.log('User profile:', profile);
+
+      if (profile.role !== 'admin') {
+        console.log('User is not admin, redirecting');
+        router.push('/select-assistant');
+        return;
+      }
+
+      setIsAdmin(true);
+      await fetchData();
+    } catch (error) {
+      console.error('Auth check error:', error);
       router.push('/login');
-      return;
-    }
-
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (data?.role !== 'admin') {
-      router.push('/select-assistant');
     }
   }
 
@@ -98,16 +147,15 @@ export default function AdminDashboard() {
 
   async function createDummyUsers() {
     const dummyUsers = [
-      { email: 'john.doe@csrental.nl', name: 'John Doe', role: 'user' },
-      { email: 'jane.smith@csrental.nl', name: 'Jane Smith', role: 'user' },
-      { email: 'mike.johnson@csrental.nl', name: 'Mike Johnson', role: 'user' },
-      { email: 'sarah.wilson@csrental.nl', name: 'Sarah Wilson', role: 'user' },
-      { email: 'david.brown@csrental.nl', name: 'David Brown', role: 'user' },
-      { email: 'lisa.davis@csrental.nl', name: 'Lisa Davis', role: 'user' },
-      { email: 'tom.miller@csrental.nl', name: 'Tom Miller', role: 'user' },
-      { email: 'emma.garcia@csrental.nl', name: 'Emma Garcia', role: 'user' },
-      { email: 'alex.martinez@csrental.nl', name: 'Alex Martinez', role: 'user' },
-      { email: 'admin@csrental.nl', name: 'Admin User', role: 'admin' }
+      { id: '11111111-1111-1111-1111-111111111111', email: 'john.doe@csrental.nl', name: 'John Doe', role: 'user' },
+      { id: '22222222-2222-2222-2222-222222222222', email: 'jane.smith@csrental.nl', name: 'Jane Smith', role: 'user' },
+      { id: '33333333-3333-3333-3333-333333333333', email: 'mike.johnson@csrental.nl', name: 'Mike Johnson', role: 'user' },
+      { id: '44444444-4444-4444-4444-444444444444', email: 'sarah.wilson@csrental.nl', name: 'Sarah Wilson', role: 'user' },
+      { id: '55555555-5555-5555-5555-555555555555', email: 'david.brown@csrental.nl', name: 'David Brown', role: 'user' },
+      { id: '66666666-6666-6666-6666-666666666666', email: 'lisa.davis@csrental.nl', name: 'Lisa Davis', role: 'user' },
+      { id: '77777777-7777-7777-7777-777777777777', email: 'tom.miller@csrental.nl', name: 'Tom Miller', role: 'user' },
+      { id: '88888888-8888-8888-8888-888888888888', email: 'emma.garcia@csrental.nl', name: 'Emma Garcia', role: 'user' },
+      { id: '99999999-9999-9999-9999-999999999999', email: 'alex.martinez@csrental.nl', name: 'Alex Martinez', role: 'user' }
     ];
 
     try {
@@ -117,7 +165,7 @@ export default function AdminDashboard() {
         .select();
 
       if (!error && data) {
-        setUsers(data);
+        setUsers(prev => [...prev, ...data]);
       }
     } catch (error) {
       console.error('Error creating dummy users:', error);
@@ -185,13 +233,26 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
+      {/* Red admin indicator - top right */}
+      {isAdmin && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className="flex items-center space-x-2 bg-red-600 text-white px-3 py-1 rounded-full shadow-lg">
+            <span className="w-2 h-2 bg-white rounded-full"></span>
+            <span className="text-sm font-medium">Admin</span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
             <p className="text-gray-600 mt-1">Beheer gebruikers en documenten</p>
+            {currentUser && (
+              <p className="text-sm text-gray-500 mt-1">Ingelogd als: {currentUser.email}</p>
+            )}
           </div>
           <button
             onClick={() => router.push('/select-assistant')}
