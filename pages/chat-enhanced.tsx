@@ -86,7 +86,7 @@ export default function ChatEnhancedPage() {
               </p>
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-md mx-auto">
                 <p className="text-sm text-blue-700">
-                  <strong>Nieuw:</strong> Kies tussen "Simpele vragen" (sneller) en "Complexe vragen" (diepgaander) voor optimale resultaten!
+                  <strong>Nieuw:</strong> Kies tussen "Simpele vragen" (GPT-4 Turbo) en "Complexe vragen" (GPT-4.1) voor optimale resultaten!
                 </p>
               </div>
             </div>

@@ -49,7 +49,7 @@ export default function ChatInputWithSelector({ onSendMessage, disabled }: ChatI
       
       {/* Model indicator */}
       <div className="mt-2 text-xs text-gray-500 text-center">
-        {selectedModel === 'simple' ? 'GPT-4 Turbo' : 'GPT-o3'} geselecteerd
+        {selectedModel === 'simple' ? 'GPT-4 Turbo' : 'GPT-4.1'} geselecteerd
       </div>
     </form>
   );

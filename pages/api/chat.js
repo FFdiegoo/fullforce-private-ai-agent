@@ -24,7 +24,7 @@ export default async function handler(req, res) {
 
     // Vraag een completion aan bij OpenAI
     const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-o3',
+      model: process.env.OPENAI_MODEL || 'gpt-4-turbo',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }

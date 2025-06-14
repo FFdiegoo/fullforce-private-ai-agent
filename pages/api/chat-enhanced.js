@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     // Bepaal welk model te gebruiken
     let selectedModel;
     if (model === 'complex') {
-      selectedModel = process.env.OPENAI_MODEL_COMPLEX || 'o3';
+      selectedModel = process.env.OPENAI_MODEL_COMPLEX || 'gpt-4.1';
     } else {
       selectedModel = process.env.OPENAI_MODEL_SIMPLE || 'gpt-4-turbo';
     }
