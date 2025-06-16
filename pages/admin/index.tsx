@@ -54,11 +54,11 @@ export default function AdminDashboard() {
       setCurrentUser(user);
       console.log('Current user:', user.email);
 
-      // Check if user has admin role
+      // Check if user has admin role by email
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('email', user.email)
+        .eq('email', user.email) // Changed from id to email
         .single();
 
       if (profileError) {

@@ -26,35 +26,54 @@ export function useChatSession(mode: 'technical' | 'procurement') {
     return words.join(' ') + (firstMessage.split(' ').length > 6 ? '...' : '');
   };
 
-  // Create a new chat session
-  const createNewSession = async (firstMessage: string): Promise<string | null> => {
+  // Get user profile ID by email
+  const getUserProfileId = async (): Promise<string | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      // Get user profile
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('id')
         .eq('email', user.email)
         .single();
 
-      if (!profile) return null;
+      if (error) {
+        console.error('Error getting user profile:', error);
+        return null;
+      }
+
+      return profile?.id || null;
+    } catch (error) {
+      console.error('Error in getUserProfileId:', error);
+      return null;
+    }
+  };
+
+  // Create a new chat session
+  const createNewSession = async (firstMessage: string): Promise<string | null> => {
+    try {
+      const userId = await getUserProfileId();
+      if (!userId) return null;
 
       const title = generateTitle(firstMessage);
 
       const { data, error } = await supabase
         .from('chat_sessions')
         .insert({
-          user_id: profile.id,
+          user_id: userId,
           title,
           mode
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating chat session:', error);
+        return null;
+      }
 
+      console.log('Created new chat session:', data.id);
       return data.id;
     } catch (error) {
       console.error('Error creating chat session:', error);
@@ -64,7 +83,10 @@ export function useChatSession(mode: 'technical' | 'procurement') {
 
   // Save a message to the current session
   const saveMessage = async (content: string, role: 'user' | 'assistant', modelUsed?: string) => {
-    if (!currentSessionId) return;
+    if (!currentSessionId) {
+      console.warn('No current session ID, cannot save message');
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -76,7 +98,11 @@ export function useChatSession(mode: 'technical' | 'procurement') {
           model_used: modelUsed
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error saving message:', error);
+      } else {
+        console.log('Message saved successfully');
+      }
     } catch (error) {
       console.error('Error saving message:', error);
     }
@@ -103,6 +129,7 @@ export function useChatSession(mode: 'technical' | 'procurement') {
 
       setMessages(loadedMessages);
       setCurrentSessionId(sessionId);
+      console.log('Loaded session:', sessionId, 'with', loadedMessages.length, 'messages');
     } catch (error) {
       console.error('Error loading session:', error);
     } finally {
@@ -114,6 +141,7 @@ export function useChatSession(mode: 'technical' | 'procurement') {
   const startNewChat = () => {
     setCurrentSessionId(null);
     setMessages([]);
+    console.log('Started new chat');
   };
 
   // Send a message (handles session creation if needed)
@@ -122,6 +150,8 @@ export function useChatSession(mode: 'technical' | 'procurement') {
     model: 'simple' | 'complex',
     apiEndpoint: string
   ): Promise<void> => {
+    console.log('Sending message:', text);
+    
     // Add user message to UI immediately
     const userMessage: Message = { text, isUser: true };
     setMessages(prev => [...prev, userMessage]);
@@ -131,9 +161,13 @@ export function useChatSession(mode: 'technical' | 'procurement') {
       // Create session if this is the first message
       let sessionId = currentSessionId;
       if (!sessionId) {
+        console.log('Creating new session for first message');
         sessionId = await createNewSession(text);
         if (sessionId) {
           setCurrentSessionId(sessionId);
+          console.log('New session created:', sessionId);
+        } else {
+          console.error('Failed to create new session');
         }
       }
 
@@ -171,6 +205,8 @@ export function useChatSession(mode: 'technical' | 'procurement') {
       if (sessionId) {
         await saveMessage(data.reply, 'assistant', data.modelUsed);
       }
+
+      console.log('Message exchange completed successfully');
 
     } catch (error) {
       console.error('Error:', error);

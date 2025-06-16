@@ -11,24 +11,35 @@ export default function AdminButton() {
   }, []);
 
   async function checkAdminStatus() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+      // Check by email instead of user.id
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', user.email) // Changed from id to email
+        .single();
 
-    setIsAdmin(data?.role === 'admin');
+      if (error) {
+        console.error('Error checking admin status:', error);
+        return;
+      }
+
+      setIsAdmin(data?.role === 'admin');
+    } catch (error) {
+      console.error('Error in checkAdminStatus:', error);
+    }
   }
 
   if (!isAdmin) return null;
 
   return (
     <button
-      onClick={() => router.push('/admin/dashboard')}
-      className="fixed bottom-4 right-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-200"
+      onClick={() => router.push('/admin')}
+      className="fixed bottom-4 right-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-200 z-50"
+      title="Admin Dashboard"
     >
       <span className="sr-only">Open Admin Dashboard</span>
       ⚙️

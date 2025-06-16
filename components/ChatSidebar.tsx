@@ -39,14 +39,17 @@ export default function ChatSidebar({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get user profile to get the correct user_id
-      const { data: profile } = await supabase
+      // Get user profile to get the correct user_id by email
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
         .eq('email', user.email)
         .single();
 
-      if (!profile) return;
+      if (profileError || !profile) {
+        console.error('Error fetching profile:', profileError);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('chat_sessions')
@@ -61,6 +64,7 @@ export default function ChatSidebar({
       }
 
       setSessions(data || []);
+      console.log('Fetched', data?.length || 0, 'chat sessions for mode:', mode);
     } catch (error) {
       console.error('Error in fetchChatSessions:', error);
     } finally {
@@ -106,6 +110,29 @@ export default function ChatSidebar({
       return format(date, 'dd/MM');
     }
   };
+
+  // Refresh sessions when a new message is sent (listen for changes)
+  useEffect(() => {
+    const channel = supabase
+      .channel('chat_sessions_changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'chat_sessions',
+          filter: `mode=eq.${mode}`
+        }, 
+        () => {
+          console.log('Chat sessions changed, refreshing...');
+          fetchChatSessions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [mode]);
 
   return (
     <>
