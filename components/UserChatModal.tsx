@@ -13,13 +13,16 @@ interface ChatMessage {
   id: string;
   content: string;
   role: 'user' | 'assistant';
-  timestamp: string;
+  created_at: string;
   model_used?: string;
 }
 
 interface ChatSession {
   id: string;
+  title: string;
+  mode: 'technical' | 'procurement';
   created_at: string;
+  updated_at: string;
   messages: ChatMessage[];
 }
 
@@ -38,63 +41,42 @@ export default function UserChatModal({ user, onClose }: UserChatModalProps) {
 
   async function fetchChatHistory() {
     try {
-      // Since we don't have actual chat sessions stored yet, we'll create dummy data
-      // In a real implementation, you would fetch from your chat_sessions table
-      const dummyChatSessions: ChatSession[] = [
-        {
-          id: '1',
-          created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          messages: [
-            {
-              id: '1',
-              content: 'Hoe kan ik de hydraulische druk controleren op machine X?',
-              role: 'user',
-              timestamp: new Date(Date.now() - 86400000).toISOString(),
-            },
-            {
-              id: '2',
-              content: 'Om de hydraulische druk te controleren op machine X, volg je deze stappen:\n\n1. Zorg ervoor dat de machine uitgeschakeld is\n2. Lokaliseer de drukmeters aan de zijkant van de machine\n3. Controleer of de druk tussen 150-200 bar ligt\n4. Als de druk te laag is, controleer dan de hydraulische vloeistof niveau',
-              role: 'assistant',
-              timestamp: new Date(Date.now() - 86400000 + 30000).toISOString(),
-              model_used: 'gpt-4-turbo'
-            },
-            {
-              id: '3',
-              content: 'Dank je! Waar vind ik de hydraulische vloeistof?',
-              role: 'user',
-              timestamp: new Date(Date.now() - 86400000 + 60000).toISOString(),
-            },
-            {
-              id: '4',
-              content: 'De hydraulische vloeistof tank bevindt zich aan de achterkant van de machine, links van de motor. Het is een blauwe tank met een doorzichtig venster om het niveau te controleren.',
-              role: 'assistant',
-              timestamp: new Date(Date.now() - 86400000 + 90000).toISOString(),
-              model_used: 'gpt-4-turbo'
-            }
-          ]
-        },
-        {
-          id: '2',
-          created_at: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-          messages: [
-            {
-              id: '5',
-              content: 'Wat zijn de onderhoudsintervallen voor de graafmachine?',
-              role: 'user',
-              timestamp: new Date(Date.now() - 3600000).toISOString(),
-            },
-            {
-              id: '6',
-              content: 'De onderhoudsintervallen voor de graafmachine zijn als volgt:\n\n**Dagelijks:**\n- Visuele inspectie\n- Olie niveau controleren\n\n**Wekelijks:**\n- Smeren van alle smeerpunten\n- Luchtfilter controleren\n\n**Maandelijks:**\n- Hydraulische vloeistof vervangen\n- Rupsbanden controleren\n\n**Jaarlijks:**\n- Volledige service door technicus',
-              role: 'assistant',
-              timestamp: new Date(Date.now() - 3600000 + 15000).toISOString(),
-              model_used: 'o3'
-            }
-          ]
-        }
-      ];
+      // Fetch chat sessions for this user
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
 
-      setChatSessions(dummyChatSessions);
+      if (sessionsError) {
+        console.error('Error fetching sessions:', sessionsError);
+        return;
+      }
+
+      if (!sessions || sessions.length === 0) {
+        setChatSessions([]);
+        return;
+      }
+
+      // Fetch messages for each session
+      const sessionsWithMessages = await Promise.all(
+        sessions.map(async (session) => {
+          const { data: messages, error: messagesError } = await supabase
+            .from('chat_messages')
+            .select('*')
+            .eq('session_id', session.id)
+            .order('created_at', { ascending: true });
+
+          if (messagesError) {
+            console.error('Error fetching messages for session:', session.id, messagesError);
+            return { ...session, messages: [] };
+          }
+
+          return { ...session, messages: messages || [] };
+        })
+      );
+
+      setChatSessions(sessionsWithMessages);
     } catch (error) {
       console.error('Error fetching chat history:', error);
     } finally {
@@ -102,9 +84,17 @@ export default function UserChatModal({ user, onClose }: UserChatModalProps) {
     }
   }
 
+  const getModeIcon = (mode: string) => {
+    return mode === 'technical' ? '🔧' : '📦';
+  };
+
+  const getModeLabel = (mode: string) => {
+    return mode === 'technical' ? 'CeeS (Technical)' : 'ChriS (Procurement)';
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>
@@ -112,7 +102,7 @@ export default function UserChatModal({ user, onClose }: UserChatModalProps) {
               Chat History - {user.name || user.email}
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              {chatSessions.length} chat sessie(s)
+              {chatSessions.length} chat sessie(s) • {chatSessions.reduce((total, session) => total + session.messages.length, 0)} berichten
             </p>
           </div>
           <button
@@ -134,39 +124,68 @@ export default function UserChatModal({ user, onClose }: UserChatModalProps) {
               Geen chat geschiedenis gevonden voor deze gebruiker
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-8">
               {chatSessions.map((session) => (
-                <div key={session.id} className="border rounded-lg p-4 bg-gray-50">
-                  <div className="text-sm text-gray-500 mb-4 font-medium">
-                    Sessie van {format(new Date(session.created_at), 'dd-MM-yyyy HH:mm')}
-                  </div>
-                  <div className="space-y-4">
-                    {session.messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[70%] rounded-lg p-3 ${
-                            message.role === 'user'
-                              ? 'bg-indigo-600 text-white'
-                              : 'bg-white text-gray-800 border'
-                          }`}
-                        >
-                          <div className="whitespace-pre-wrap text-sm">
-                            {message.content}
-                          </div>
-                          <div className={`text-xs mt-2 ${
-                            message.role === 'user' ? 'text-indigo-200' : 'text-gray-500'
-                          }`}>
-                            {format(new Date(message.timestamp), 'HH:mm')}
-                            {message.model_used && message.role === 'assistant' && (
-                              <span className="ml-2">• {message.model_used}</span>
-                            )}
-                          </div>
+                <div key={session.id} className="border rounded-lg bg-gray-50">
+                  {/* Session Header */}
+                  <div className="p-4 border-b bg-gray-100 rounded-t-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg">{getModeIcon(session.mode)}</span>
+                        <div>
+                          <h3 className="font-medium text-gray-900">{session.title}</h3>
+                          <p className="text-sm text-gray-600">{getModeLabel(session.mode)}</p>
                         </div>
                       </div>
-                    ))}
+                      <div className="text-right">
+                        <div className="text-sm text-gray-500">
+                          {format(new Date(session.created_at), 'dd-MM-yyyy HH:mm')}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {session.messages.length} berichten
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="p-4">
+                    {session.messages.length === 0 ? (
+                      <div className="text-center text-gray-500 py-4">
+                        Geen berichten in deze sessie
+                      </div>
+                    ) : (
+                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                        {session.messages.map((message) => (
+                          <div
+                            key={message.id}
+                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[70%] rounded-lg p-3 ${
+                                message.role === 'user'
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-white text-gray-800 border'
+                              }`}
+                            >
+                              <div className="whitespace-pre-wrap text-sm">
+                                {message.content}
+                              </div>
+                              <div className={`text-xs mt-2 flex items-center justify-between ${
+                                message.role === 'user' ? 'text-indigo-200' : 'text-gray-500'
+                              }`}>
+                                <span>{format(new Date(message.created_at), 'HH:mm')}</span>
+                                {message.model_used && message.role === 'assistant' && (
+                                  <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
+                                    {message.model_used}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
