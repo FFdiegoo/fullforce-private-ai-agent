@@ -58,7 +58,7 @@ export default function AdminDashboard() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('email', user.email) // Changed from id to email
+        .eq('email', user.email)
         .single();
 
       if (profileError) {
@@ -119,12 +119,13 @@ export default function AdminDashboard() {
   async function handleDocumentAction(documentId: string, action: 'approve' | 'reject') {
     try {
       if (action === 'approve') {
-        // Mark as processed
+        // Mark as processed and ready for indexing
         const { error } = await supabase
           .from('documents_metadata')
           .update({ 
             processed: true, 
-            processed_at: new Date().toISOString() 
+            processed_at: new Date().toISOString(),
+            ready_for_indexing: true
           })
           .eq('id', documentId);
 
@@ -138,6 +139,8 @@ export default function AdminDashboard() {
               : doc
           )
         );
+
+        alert('Document goedgekeurd! Het wordt nu verwerkt voor de AI.');
       } else {
         // Delete document
         const document = documents.find(d => d.id === documentId);
@@ -155,6 +158,8 @@ export default function AdminDashboard() {
 
           // Update local state
           setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+          
+          alert('Document afgekeurd en verwijderd.');
         }
       }
     } catch (error) {
@@ -175,6 +180,9 @@ export default function AdminDashboard() {
       </div>
     );
   }
+
+  const pendingDocuments = documents.filter(d => d.status === 'pending');
+  const approvedDocuments = documents.filter(d => d.status === 'approved');
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
@@ -208,6 +216,57 @@ export default function AdminDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <span className="text-blue-600 text-xl">👥</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Gebruikers</p>
+                <p className="text-2xl font-bold text-gray-900">{users.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <span className="text-yellow-600 text-xl">⏳</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Wachtend</p>
+                <p className="text-2xl font-bold text-gray-900">{pendingDocuments.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <span className="text-green-600 text-xl">✅</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Goedgekeurd</p>
+                <p className="text-2xl font-bold text-gray-900">{approvedDocuments.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <span className="text-purple-600 text-xl">📄</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Totaal Docs</p>
+                <p className="text-2xl font-bold text-gray-900">{documents.length}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Users Section */}
           <div className="bg-white rounded-xl shadow-lg p-6">
@@ -243,11 +302,16 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Documents Section */}
+          {/* Document Review Section */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-xl font-semibold mb-6 flex items-center">
               <span className="mr-2">📄</span>
-              Document Review ({documents.filter(d => d.status === 'pending').length} pending)
+              Document Review 
+              {pendingDocuments.length > 0 && (
+                <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                  {pendingDocuments.length} nieuw
+                </span>
+              )}
             </h2>
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {documents.length === 0 ? (
@@ -261,9 +325,7 @@ export default function AdminDashboard() {
                     className={`p-4 rounded-lg border-2 ${
                       doc.status === 'pending' 
                         ? 'border-yellow-200 bg-yellow-50' 
-                        : doc.status === 'approved'
-                        ? 'border-green-200 bg-green-50'
-                        : 'border-red-200 bg-red-50'
+                        : 'border-green-200 bg-green-50'
                     }`}
                   >
                     <div className="flex items-start justify-between">
@@ -301,14 +363,10 @@ export default function AdminDashboard() {
                         </div>
                       )}
                       
-                      {doc.status !== 'pending' && (
+                      {doc.status === 'approved' && (
                         <div className="ml-4">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            doc.status === 'approved' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {doc.status === 'approved' ? 'Goedgekeurd' : 'Afgekeurd'}
+                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                            Goedgekeurd
                           </span>
                         </div>
                       )}
