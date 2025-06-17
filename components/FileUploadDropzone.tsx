@@ -39,10 +39,18 @@ export default function FileUploadDropzone({ onUploadSuccess, onUploadError }: F
     }
   }, []);
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const handleFileUpload = async (file: File) => {
     if (!file) return;
 
-    // Validate file type
+    // Validate file type - allow all common document types
     const allowedTypes = [
       'application/pdf',
       'application/msword',
@@ -50,17 +58,32 @@ export default function FileUploadDropzone({ onUploadSuccess, onUploadError }: F
       'text/plain',
       'text/csv',
       'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/rtf',
+      'text/rtf',
+      'application/zip',
+      'application/x-zip-compressed',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/bmp',
+      'image/tiff'
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      onUploadError?.('Alleen PDF, Word, Excel en tekstbestanden zijn toegestaan');
+      onUploadError?.('Bestandstype niet ondersteund. Probeer PDF, Word, Excel, PowerPoint, afbeeldingen of tekstbestanden.');
       return;
     }
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      onUploadError?.('Bestand is te groot. Maximum 10MB toegestaan');
+    // Validate file size (max 1GB for safety)
+    const maxSize = 1024 * 1024 * 1024; // 1GB
+    if (file.size > maxSize) {
+      onUploadError?.(
+        `Bestand is te groot. Maximum ${formatFileSize(maxSize)} toegestaan. ` +
+        `Jouw bestand: ${formatFileSize(file.size)}`
+      );
       return;
     }
 
@@ -85,18 +108,33 @@ export default function FileUploadDropzone({ onUploadSuccess, onUploadError }: F
         throw new Error('Gebruikersprofiel niet gevonden');
       }
 
-      // Create safe filename
+      // Create safe filename with timestamp
       const timestamp = Date.now();
       const safeFileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       const storagePath = `uploads/${safeFileName}`;
 
-      // Upload to Supabase Storage
-const { data: storageData, error: storageError } = await supabase.storage
-  .from('company-docs')
-  .upload(storagePath, file, {
-    contentType: file.type,
-    upsert: false
-  });
+      // Simulate progress for better UX
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + Math.random() * 10;
+        });
+      }, 200);
+
+      // Upload to Supabase Storage with optimized settings
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from('company-docs')
+        .upload(storagePath, file, {
+          contentType: file.type,
+          upsert: false,
+          duplex: 'half' // Optimize for large files
+        });
+
+      clearInterval(progressInterval);
+      setUploadProgress(95);
 
       if (storageError) {
         throw new Error(`Upload fout: ${storageError.message}`);
@@ -125,19 +163,26 @@ const { data: storageData, error: storageError } = await supabase.storage
         throw new Error(`Database fout: ${dbError.message}`);
       }
 
-      onUploadSuccess?.(file.name);
+      setUploadProgress(100);
       
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      // Small delay to show 100% progress
+      setTimeout(() => {
+        onUploadSuccess?.(file.name);
+        
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }, 500);
 
     } catch (error) {
       console.error('Upload error:', error);
       onUploadError?.(error instanceof Error ? error.message : 'Upload mislukt');
     } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadProgress(0);
+      }, 1000);
     }
   };
 
@@ -147,7 +192,7 @@ const { data: storageData, error: storageError } = await supabase.storage
         ref={fileInputRef}
         type="file"
         onChange={handleFileSelect}
-        accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+        accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.rtf,.zip,.jpg,.jpeg,.png,.gif,.bmp,.tiff"
         className="hidden"
       />
       
@@ -157,9 +202,9 @@ const { data: storageData, error: storageError } = await supabase.storage
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
         className={`
-          relative border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all duration-200
+          relative border-2 border-dashed rounded-xl p-6 cursor-pointer transition-all duration-200
           ${isDragging 
-            ? 'border-indigo-500 bg-indigo-50' 
+            ? 'border-indigo-500 bg-indigo-50 scale-[1.02]' 
             : 'border-gray-300 hover:border-gray-400 bg-gray-50 hover:bg-gray-100'
           }
           ${isUploading ? 'pointer-events-none opacity-75' : ''}
@@ -167,25 +212,35 @@ const { data: storageData, error: storageError } = await supabase.storage
       >
         {isUploading ? (
           <div className="text-center">
-            <div className="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-            <p className="text-sm text-gray-600">Uploading... {Math.round(uploadProgress)}%</p>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="animate-spin w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full mx-auto mb-3"></div>
+            <p className="text-sm text-gray-600 font-medium">
+              Uploading... {Math.round(uploadProgress)}%
+            </p>
+            <div className="w-full bg-gray-200 rounded-full h-3 mt-3">
               <div 
-                className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 h-3 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${uploadProgress}%` }}
               ></div>
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Grote bestanden kunnen even duren...
+            </p>
           </div>
         ) : (
           <div className="text-center">
-            <div className="w-8 h-8 mx-auto mb-2 text-gray-400">
-              📎
+            <div className="w-12 h-12 mx-auto mb-3 text-gray-400 flex items-center justify-center">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
             </div>
-            <p className="text-sm text-gray-600 font-medium">
+            <p className="text-base text-gray-700 font-medium mb-1">
               {isDragging ? 'Drop bestand hier' : 'Klik of sleep bestand hierheen'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              PDF, Word, Excel, TXT (max 10MB)
+            <p className="text-sm text-gray-500">
+              Alle documenttypen ondersteund • Max 1GB
+            </p>
+            <p className="text-xs text-gray-400 mt-2">
+              PDF, Word, Excel, PowerPoint, afbeeldingen, tekst, ZIP
             </p>
           </div>
         )}
