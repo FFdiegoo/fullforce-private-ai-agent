@@ -91,13 +91,12 @@ export default function FileUploadDropzone({ onUploadSuccess, onUploadError }: F
       const storagePath = `uploads/${safeFileName}`;
 
       // Upload to Supabase Storage
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from('company-docs')
-        .upload(storagePath, file, {
-          onUploadProgress: (progress) => {
-            setUploadProgress((progress.loaded / progress.total) * 100);
-          }
-        });
+const { data: storageData, error: storageError } = await supabase.storage
+  .from('company-docs')
+  .upload(storagePath, file, {
+    contentType: file.type,
+    upsert: false
+  });
 
       if (storageError) {
         throw new Error(`Upload fout: ${storageError.message}`);
