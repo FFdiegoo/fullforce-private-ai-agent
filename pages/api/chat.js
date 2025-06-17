@@ -1,5 +1,10 @@
 import { OpenAI } from 'openai';
 
+// Check if API key is properly configured
+if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
+  console.error('OPENAI_API_KEY is not properly configured. Please set it in your .env.local file.');
+}
+
 // Initialiseer OpenAI client met je API key uit de env
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -14,6 +19,14 @@ export default async function handler(req, res) {
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt is required' });
+  }
+
+  // Check if API key is configured
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
+    console.error('OpenAI API key not configured');
+    return res.status(500).json({ 
+      reply: 'OpenAI API key is not configured. Please contact your administrator.' 
+    });
   }
 
   try {
@@ -36,7 +49,6 @@ Bijvoorbeeld: "Bestel een filter voor pomp X", of "Wat is de goedkoopste optie v
 
 Je handelt nooit zelfstandig aankopen af, maar bereidt alles voor zodat de gebruiker snel actie kan ondernemen.`;
 
-
     // Vraag een completion aan bij OpenAI
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-4-turbo',
@@ -55,9 +67,17 @@ Je handelt nooit zelfstandig aankopen af, maar bereidt alles voor zodat de gebru
     // Log de error voor debugging
     console.error('OpenAI API Error:', error);
 
+    // Check for specific authentication errors
+    if (error.status === 401) {
+      return res.status(500).json({ 
+        reply: 'OpenAI API authentication failed. Please check your API key configuration.' 
+      });
+    }
+
     // Stuur een nette foutmelding terug naar de frontend
     res.status(500).json({ 
       reply: 'Sorry, er is een fout opgetreden met de AI service. Probeer het later opnieuw.' 
     });
   }
 }
+</parameter>
