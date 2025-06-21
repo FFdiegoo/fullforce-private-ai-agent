@@ -5,6 +5,7 @@ interface Message {
   text: string;
   isUser: boolean;
   modelUsed?: string;
+  messageId?: string; // Add message ID for feedback
 }
 
 interface ChatSession {
@@ -82,29 +83,34 @@ export function useChatSession(mode: 'technical' | 'procurement') {
   };
 
   // Save a message to the current session
-  const saveMessage = async (content: string, role: 'user' | 'assistant', modelUsed?: string) => {
+  const saveMessage = async (content: string, role: 'user' | 'assistant', modelUsed?: string): Promise<string | null> => {
     if (!currentSessionId) {
       console.warn('No current session ID, cannot save message');
-      return;
+      return null;
     }
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('chat_messages')
         .insert({
           session_id: currentSessionId,
           content,
           role,
           model_used: modelUsed
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) {
         console.error('Error saving message:', error);
+        return null;
       } else {
-        console.log('Message saved successfully');
+        console.log('Message saved successfully with ID:', data.id);
+        return data.id;
       }
     } catch (error) {
       console.error('Error saving message:', error);
+      return null;
     }
   };
 
@@ -124,7 +130,8 @@ export function useChatSession(mode: 'technical' | 'procurement') {
       const loadedMessages: Message[] = data.map(msg => ({
         text: msg.content,
         isUser: msg.role === 'user',
-        modelUsed: msg.model_used
+        modelUsed: msg.model_used,
+        messageId: msg.id
       }));
 
       setMessages(loadedMessages);
@@ -172,8 +179,9 @@ export function useChatSession(mode: 'technical' | 'procurement') {
       }
 
       // Save user message
+      let userMessageId: string | null = null;
       if (sessionId) {
-        await saveMessage(text, 'user');
+        userMessageId = await saveMessage(text, 'user');
       }
 
       // Call API
@@ -193,18 +201,20 @@ export function useChatSession(mode: 'technical' | 'procurement') {
         throw new Error(data.error);
       }
 
+      // Save assistant message and get its ID
+      let assistantMessageId: string | null = null;
+      if (sessionId) {
+        assistantMessageId = await saveMessage(data.reply, 'assistant', data.modelUsed);
+      }
+
       const assistantMessage: Message = { 
         text: data.reply, 
         isUser: false,
-        modelUsed: data.modelUsed 
+        modelUsed: data.modelUsed,
+        messageId: assistantMessageId || undefined
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-
-      // Save assistant message
-      if (sessionId) {
-        await saveMessage(data.reply, 'assistant', data.modelUsed);
-      }
 
       console.log('Message exchange completed successfully');
 

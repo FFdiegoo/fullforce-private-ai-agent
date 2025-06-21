@@ -3,6 +3,8 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
 import { format } from 'date-fns';
 import UserChatModal from '../../components/UserChatModal';
+import FeedbackStats from '../../components/FeedbackStats';
+import NegativeFeedbackPanel from '../../components/NegativeFeedbackPanel';
 
 interface User {
   id: string;
@@ -225,7 +227,7 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -273,9 +275,12 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+
+          {/* Feedback Stats Card */}
+          <FeedbackStats />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Users Section */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-xl font-semibold mb-6 flex items-center">
@@ -327,7 +332,7 @@ export default function AdminDashboard() {
                   Geen documenten gevonden
                 </div>
               ) : (
-                documents.map((doc) => (
+                documents.slice(0, 10).map((doc) => (
                   <div
                     key={doc.id}
                     className={`p-4 rounded-lg border-2 ${
@@ -384,6 +389,14 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+
+          {/* Negative Feedback Panel */}
+          <NegativeFeedbackPanel 
+            onFeedbackViewed={() => {
+              // Refresh stats when feedback is viewed
+              console.log('Feedback viewed, stats will refresh automatically');
+            }}
+          />
         </div>
       </div>
 

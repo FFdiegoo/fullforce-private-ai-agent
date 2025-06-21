@@ -1,11 +1,14 @@
 import React from 'react';
+import MessageFeedback from './MessageFeedback';
 
 interface ChatBubbleProps {
   message: string;
   isUser: boolean;
+  messageId?: string;
+  sessionId?: string;
 }
 
-export default function ChatBubble({ message, isUser }: ChatBubbleProps) {
+export default function ChatBubble({ message, isUser, messageId, sessionId }: ChatBubbleProps) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-6 animate-fade-in`}>
       <div
@@ -16,6 +19,17 @@ export default function ChatBubble({ message, isUser }: ChatBubbleProps) {
         }`}
       >
         <p className="text-base leading-relaxed whitespace-pre-wrap">{message}</p>
+        
+        {/* Show feedback buttons only for AI messages */}
+        {!isUser && messageId && sessionId && (
+          <MessageFeedback 
+            messageId={messageId}
+            sessionId={sessionId}
+            onFeedbackSubmitted={(type) => {
+              console.log(`Feedback submitted: ${type} for message ${messageId}`);
+            }}
+          />
+        )}
       </div>
     </div>
   );

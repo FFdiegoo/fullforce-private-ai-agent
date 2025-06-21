@@ -124,6 +124,8 @@ export default function ChatPage() {
                 <ChatBubble
                   message={message.text}
                   isUser={message.isUser}
+                  messageId={message.messageId}
+                  sessionId={currentSessionId || undefined}
                 />
                 {!message.isUser && message.modelUsed && (
                   <div className="text-xs text-gray-400 dark:text-gray-500 text-right mr-4 mb-2">
