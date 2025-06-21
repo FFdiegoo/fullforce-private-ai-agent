@@ -54,8 +54,8 @@ export default function AdminDashboard() {
       setCurrentUser(user);
       console.log('Current user:', user.email);
 
-      // Check if user has admin role in raw_app_meta_data first
-      if (user.raw_app_meta_data?.role === 'admin') {
+      // Check if user has admin role in app_metadata first
+      if (user.app_metadata?.role === 'admin') {
         console.log('User has admin role in auth metadata');
         setIsAdmin(true);
         await fetchData();

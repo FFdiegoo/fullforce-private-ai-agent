@@ -20,8 +20,8 @@ export default function SelectAssistant() {
       setCurrentUser(user);
       console.log('Checking admin status for user:', user.email);
 
-      // First check if user has admin role in raw_app_meta_data
-      if (user.raw_app_meta_data?.role === 'admin') {
+      // First check if user has admin role in app_metadata
+      if (user.app_metadata?.role === 'admin') {
         console.log('User has admin role in auth metadata');
         setIsAdmin(true);
         return;

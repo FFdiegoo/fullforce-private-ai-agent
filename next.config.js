@@ -8,14 +8,6 @@ const nextConfig = {
     largePageDataBytes: 128 * 1024, // 128KB
   },
   
-  // Increase API body size limit for uploads
-  api: {
-    bodyParser: {
-      sizeLimit: '1gb', // 1GB limit
-    },
-    responseLimit: false,
-  },
-  
   // Performance optimizations
   compress: true,
   poweredByHeader: false,
