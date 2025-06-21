@@ -146,12 +146,12 @@ export default function ChatSidebar({
 
       {/* Sidebar */}
       <div className={`
-        fixed left-0 top-0 h-full bg-gray-900 text-white z-50 transition-transform duration-300 ease-in-out
+        fixed left-0 top-0 h-full bg-gray-900 dark:bg-gray-950 text-white z-50 transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         w-80 lg:w-64
       `}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-700">
+        <div className="p-4 border-b border-gray-700 dark:border-gray-800">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">
               {mode === 'technical' ? 'CeeS Chats' : 'ChriS Chats'}
@@ -166,7 +166,7 @@ export default function ChatSidebar({
           
           <button
             onClick={onNewChat}
-            className="w-full bg-gray-800 hover:bg-gray-700 text-white rounded-lg py-2 px-3 text-sm font-medium transition-colors flex items-center justify-center"
+            className="w-full bg-gray-800 dark:bg-gray-900 hover:bg-gray-700 dark:hover:bg-gray-800 text-white rounded-lg py-2 px-3 text-sm font-medium transition-colors flex items-center justify-center"
           >
             <span className="mr-2">+</span>
             New Chat
@@ -192,8 +192,8 @@ export default function ChatSidebar({
                   className={`
                     group relative p-3 rounded-lg cursor-pointer transition-colors mb-1
                     ${currentSessionId === session.id 
-                      ? 'bg-gray-700 text-white' 
-                      : 'hover:bg-gray-800 text-gray-300'
+                      ? 'bg-gray-700 dark:bg-gray-800 text-white' 
+                      : 'hover:bg-gray-800 dark:hover:bg-gray-900 text-gray-300'
                     }
                   `}
                 >
@@ -222,7 +222,7 @@ export default function ChatSidebar({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-gray-700 dark:border-gray-800">
           <div className="text-xs text-gray-400 text-center">
             {sessions.length} chat{sessions.length !== 1 ? 's' : ''}
           </div>
