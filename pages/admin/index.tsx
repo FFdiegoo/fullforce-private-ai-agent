@@ -54,7 +54,15 @@ export default function AdminDashboard() {
       setCurrentUser(user);
       console.log('Current user:', user.email);
 
-      // Check if user has admin role by email
+      // Check if user has admin role in raw_app_meta_data first
+      if (user.raw_app_meta_data?.role === 'admin') {
+        console.log('User has admin role in auth metadata');
+        setIsAdmin(true);
+        await fetchData();
+        return;
+      }
+
+      // Then check profiles table by email
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')

@@ -15,11 +15,20 @@ export default function AdminButton() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Check by email instead of user.id
+      console.log('Checking admin status for user:', user.email);
+
+      // First check if user has admin role in raw_app_meta_data
+      if (user.raw_app_meta_data?.role === 'admin') {
+        console.log('User has admin role in auth metadata');
+        setIsAdmin(true);
+        return;
+      }
+
+      // Then check profiles table by email
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
-        .eq('email', user.email) // Changed from id to email
+        .eq('email', user.email)
         .single();
 
       if (error) {
@@ -27,7 +36,9 @@ export default function AdminButton() {
         return;
       }
 
-      setIsAdmin(data?.role === 'admin');
+      const isAdminRole = data?.role === 'admin';
+      console.log('Profile check result:', isAdminRole, 'for user:', user.email);
+      setIsAdmin(isAdminRole);
     } catch (error) {
       console.error('Error in checkAdminStatus:', error);
     }

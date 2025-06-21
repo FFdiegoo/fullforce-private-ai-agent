@@ -18,17 +18,26 @@ export default function SelectAssistant() {
       if (!user) return;
 
       setCurrentUser(user);
+      console.log('Checking admin status for user:', user.email);
 
-      // Check if user has admin role by email
+      // First check if user has admin role in raw_app_meta_data
+      if (user.raw_app_meta_data?.role === 'admin') {
+        console.log('User has admin role in auth metadata');
+        setIsAdmin(true);
+        return;
+      }
+
+      // Then check profiles table by email
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
-        .eq('email', user.email) // Changed from id to email
+        .eq('email', user.email)
         .single();
 
       if (!profileError && profile) {
-        setIsAdmin(profile.role === 'admin');
-        console.log('Admin check result:', profile.role === 'admin', 'for user:', user.email);
+        const isAdminRole = profile.role === 'admin';
+        setIsAdmin(isAdminRole);
+        console.log('Profile check result:', isAdminRole, 'for user:', user.email);
       } else {
         console.error('Profile error:', profileError);
       }
