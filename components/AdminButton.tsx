@@ -18,7 +18,7 @@ export default function AdminButton() {
       console.log('Checking admin status for user:', user.email);
 
       // First check if user has admin role in raw_app_meta_data
-      if (user.raw_app_meta_data?.role === 'admin') {
+      if (user.app_meta_data?.role === 'admin') {
         console.log('User has admin role in auth metadata');
         setIsAdmin(true);
         return;
