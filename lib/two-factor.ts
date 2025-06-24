@@ -91,7 +91,7 @@ export class TwoFactorAuth {
       // Remove backup code if used
       let updatedBackupCodes = user.backup_codes || []
       if (isValidBackupCode) {
-        updatedBackupCodes = updatedBackupCodes.filter(code => code !== token)
+        updatedBackupCodes = updatedBackupCodes.filter((code: string) => code !== token)
       }
 
       // Update user record
@@ -147,7 +147,7 @@ export class TwoFactorAuth {
       // Check backup code
       if (this.verifyBackupCode(user.backup_codes || [], token)) {
         // Remove used backup code
-        const updatedBackupCodes = (user.backup_codes || []).filter(code => code !== token)
+        const updatedBackupCodes = (user.backup_codes || []).filter((code: string) => code !== token)
         
         await supabaseAdmin
           .from('profiles')
