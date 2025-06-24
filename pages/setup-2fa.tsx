@@ -41,7 +41,8 @@ export default function Setup2FAPage() {
       }
 
       setUser(profile)
-      initiate2FASetup(session.access_token)
+      // Auto-start 2FA setup when component loads
+      await initiate2FASetup(session.access_token)
     } catch (error) {
       console.error('Auth check error:', error)
       router.push('/login')
@@ -53,7 +54,7 @@ export default function Setup2FAPage() {
       setLoading(true)
       setError('')
       
-      console.log('Initiating 2FA setup...')
+      console.log('🔄 Initiating 2FA setup...')
       
       const response = await fetch('/api/auth/setup-2fa', {
         method: 'POST',
@@ -63,22 +64,34 @@ export default function Setup2FAPage() {
         }
       })
 
-      console.log('Response status:', response.status)
+      console.log('📡 Response status:', response.status)
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()))
       
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('Response error:', errorText)
+        console.error('❌ Response error:', errorText)
         throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
       const data = await response.json()
-      console.log('2FA setup data received:', { hasQrCode: !!data.qrCodeUrl, hasSecret: !!data.secret })
+      console.log('✅ 2FA setup data received:', { 
+        hasQrCode: !!data.qrCodeUrl, 
+        hasSecret: !!data.secret,
+        backupCodesCount: data.backupCodes?.length || 0
+      })
+      
+      if (!data.qrCodeUrl) {
+        throw new Error('QR code niet ontvangen van server')
+      }
       
       setQrCodeUrl(data.qrCodeUrl)
-      setBackupCodes(data.backupCodes)
+      setBackupCodes(data.backupCodes || [])
       setSecret(data.secret)
+      
+      console.log('🎯 QR Code URL set:', data.qrCodeUrl.substring(0, 50) + '...')
+      
     } catch (error) {
-      console.error('2FA setup error:', error)
+      console.error('❌ 2FA setup error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Onbekende fout'
       setError(`2FA setup mislukt: ${errorMessage}`)
     } finally {
@@ -154,7 +167,14 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
     alert('Backup codes gedownload')
   }
 
-  if (loading && !qrCodeUrl) {
+  const retrySetup = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      await initiate2FASetup(session.access_token)
+    }
+  }
+
+  if (loading && !qrCodeUrl && !error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center">
         <div className="text-center">
@@ -182,7 +202,13 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-600 text-sm">{error}</p>
+            <p className="text-red-600 text-sm mb-3">{error}</p>
+            <button
+              onClick={retrySetup}
+              className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
+            >
+              🔄 Opnieuw proberen
+            </button>
           </div>
         )}
 
@@ -198,12 +224,33 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
               
               {qrCodeUrl ? (
                 <div className="flex justify-center mb-4">
-                  <img src={qrCodeUrl} alt="2FA QR Code" className="border rounded-lg" />
+                  <div className="p-4 bg-white border-2 border-gray-200 rounded-lg">
+                    <img 
+                      src={qrCodeUrl} 
+                      alt="2FA QR Code" 
+                      className="w-48 h-48"
+                      onLoad={() => console.log('✅ QR Code image loaded successfully')}
+                      onError={(e) => {
+                        console.error('❌ QR Code image failed to load:', e)
+                        setError('QR code kon niet worden geladen')
+                      }}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="flex justify-center mb-4">
-                  <div className="w-48 h-48 bg-gray-100 border rounded-lg flex items-center justify-center">
-                    <span className="text-gray-500">QR Code wordt geladen...</span>
+                  <div className="w-48 h-48 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <span className="text-gray-500 text-sm">QR Code wordt geladen...</span>
+                      {!loading && (
+                        <button
+                          onClick={retrySetup}
+                          className="block mt-2 text-xs text-indigo-600 hover:text-indigo-800"
+                        >
+                          🔄 Opnieuw laden
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -228,7 +275,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
 
             <button
               onClick={() => setStep(2)}
-              disabled={!qrCodeUrl}
+              disabled={!qrCodeUrl || loading}
               className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               Volgende: Code Verifiëren
