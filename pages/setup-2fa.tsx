@@ -12,6 +12,7 @@ export default function Setup2FAPage() {
   const [verificationCode, setVerificationCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [error, setError] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -40,37 +41,45 @@ export default function Setup2FAPage() {
       }
 
       setUser(profile)
-      initiate2FASetup()
+      initiate2FASetup(session.access_token)
     } catch (error) {
       console.error('Auth check error:', error)
       router.push('/login')
     }
   }
 
-  const initiate2FASetup = async () => {
+  const initiate2FASetup = async (accessToken: string) => {
     try {
       setLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
+      setError('')
+      
+      console.log('Initiating 2FA setup...')
       
       const response = await fetch('/api/auth/setup-2fa', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         }
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        setQrCodeUrl(data.qrCodeUrl)
-        setBackupCodes(data.backupCodes)
-        setSecret(data.secret)
-      } else {
-        const error = await response.json()
-        alert(error.error || '2FA setup mislukt')
+      console.log('Response status:', response.status)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Response error:', errorText)
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
+
+      const data = await response.json()
+      console.log('2FA setup data received:', { hasQrCode: !!data.qrCodeUrl, hasSecret: !!data.secret })
+      
+      setQrCodeUrl(data.qrCodeUrl)
+      setBackupCodes(data.backupCodes)
+      setSecret(data.secret)
     } catch (error) {
       console.error('2FA setup error:', error)
-      alert('2FA setup mislukt')
+      setError(`2FA setup mislukt: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -78,12 +87,14 @@ export default function Setup2FAPage() {
 
   const verify2FA = async () => {
     if (!verificationCode || verificationCode.length !== 6) {
-      alert('Voer een geldige 6-cijferige code in')
+      setError('Voer een geldige 6-cijferige code in')
       return
     }
 
     try {
       setLoading(true)
+      setError('')
+      
       const { data: { session } } = await supabase.auth.getSession()
       
       const response = await fetch('/api/auth/setup-2fa', {
@@ -100,15 +111,14 @@ export default function Setup2FAPage() {
       })
 
       if (response.ok) {
-        alert('2FA succesvol ingeschakeld!')
         setStep(3)
       } else {
         const error = await response.json()
-        alert(error.error || 'Verificatie mislukt')
+        setError(error.error || 'Verificatie mislukt')
       }
     } catch (error) {
       console.error('2FA verification error:', error)
-      alert('Verificatie mislukt')
+      setError('Verificatie mislukt')
     } finally {
       setLoading(false)
     }
@@ -168,6 +178,12 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
           </p>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
         {step === 1 && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -178,31 +194,40 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
                 Scan deze QR code met uw authenticator app (Google Authenticator, Authy, etc.)
               </p>
               
-              {qrCodeUrl && (
+              {qrCodeUrl ? (
                 <div className="flex justify-center mb-4">
                   <img src={qrCodeUrl} alt="2FA QR Code" className="border rounded-lg" />
                 </div>
+              ) : (
+                <div className="flex justify-center mb-4">
+                  <div className="w-48 h-48 bg-gray-100 border rounded-lg flex items-center justify-center">
+                    <span className="text-gray-500">QR Code wordt geladen...</span>
+                  </div>
+                </div>
               )}
 
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-600 mb-2">Of voer deze code handmatig in:</p>
-                <div className="flex items-center justify-between">
-                  <code className="text-sm font-mono bg-white px-2 py-1 rounded border break-all">
-                    {secret}
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard(secret)}
-                    className="ml-2 px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition-colors"
-                  >
-                    📋
-                  </button>
+              {secret && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-600 mb-2">Of voer deze code handmatig in:</p>
+                  <div className="flex items-center justify-between">
+                    <code className="text-sm font-mono bg-white px-2 py-1 rounded border break-all">
+                      {secret}
+                    </code>
+                    <button
+                      onClick={() => copyToClipboard(secret)}
+                      className="ml-2 px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition-colors"
+                    >
+                      📋
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <button
               onClick={() => setStep(2)}
-              className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+              disabled={!qrCodeUrl}
+              className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               Volgende: Code Verifiëren
             </button>

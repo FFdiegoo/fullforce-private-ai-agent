@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../lib/supabaseClient';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { TwoFactorAuth } from '../../../lib/two-factor';
 import { auditLogger } from '../../../lib/audit-logger';
 import { rateLimitByType } from '../../../lib/rate-limit';
@@ -15,17 +16,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(429).json({ error: 'Too many requests' });
       }
 
-      // Get current user from session
+      // Create supabase client for server-side auth
+      const supabase = createServerComponentClient({ cookies: () => new Map() });
+      
+      // Get session from cookies/headers
       const authHeader = req.headers.authorization;
-      if (!authHeader) {
-        return res.status(401).json({ error: 'Unauthorized' });
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No authorization header' });
       }
 
       const token = authHeader.replace('Bearer ', '');
+      
+      // Verify the token and get user
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
       if (userError || !user) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        console.error('Auth error:', userError);
+        return res.status(401).json({ error: 'Invalid token' });
       }
 
       // Get user email
@@ -41,12 +48,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({
         qrCodeUrl: twoFactorSetup.qrCodeUrl,
         backupCodes: twoFactorSetup.backupCodes,
-        secret: twoFactorSetup.secret // Only for setup, remove in production
+        secret: twoFactorSetup.secret
       });
 
     } catch (error) {
       console.error('2FA setup error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
   }
 
@@ -58,17 +65,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(429).json({ error: 'Too many requests' });
       }
 
-      // Get current user from session
+      // Create supabase client for server-side auth
+      const supabase = createServerComponentClient({ cookies: () => new Map() });
+      
       const authHeader = req.headers.authorization;
-      if (!authHeader) {
-        return res.status(401).json({ error: 'Unauthorized' });
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No authorization header' });
       }
 
       const token = authHeader.replace('Bearer ', '');
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
       if (userError || !user) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        return res.status(401).json({ error: 'Invalid token' });
       }
 
       const { secret, token: verificationToken, backupCodes } = req.body;
@@ -104,7 +113,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     } catch (error) {
       console.error('2FA enable error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
   }
 
