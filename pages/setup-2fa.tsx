@@ -24,6 +24,8 @@ interface DebugInfo {
   apiUrl?: string;
   requestMethod?: string;
   authHeaderPresent?: boolean;
+  profileCreated?: boolean;
+  profileCreationError?: string;
 }
 
 export default function Setup2FAPage() {
@@ -101,10 +103,45 @@ export default function Setup2FAPage() {
         profileError: profileError?.message
       }))
 
+      // If profile doesn't exist, try to create it
+      if (profileError && profileError.code === 'PGRST116') {
+        console.log('🔧 Profile not found, attempting to create...')
+        setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'creating_profile' }))
+        
+        const profileCreated = await createUserProfile(session.access_token)
+        if (profileCreated) {
+          // Retry getting the profile
+          const { data: newProfile, error: newProfileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', session.user.email)
+            .single()
+
+          if (newProfile) {
+            console.log('✅ Profile created and retrieved successfully')
+            setUser(newProfile)
+            setDebugInfo((prev: DebugInfo) => ({ 
+              ...prev, 
+              profileCreated: true,
+              hasProfile: true,
+              profileEmail: newProfile.email,
+              twoFactorEnabled: newProfile.two_factor_enabled
+            }))
+            
+            // Continue with 2FA setup
+            await initiate2FASetup(session.access_token)
+            return
+          }
+        }
+        
+        setError('Failed to create user profile. Please contact support.')
+        return
+      }
+
       if (profileError) {
         console.error('❌ Profile error:', profileError)
         setError(`Profile error: ${profileError.message}`)
-        // Don't redirect on profile error, let user try to set up 2FA anyway
+        return
       }
 
       // Check if 2FA is already enabled
@@ -130,6 +167,43 @@ export default function Setup2FAPage() {
         authCheckError: errorMessage,
         step: 'auth_check_failed'
       }))
+    }
+  }
+
+  const createUserProfile = async (accessToken: string): Promise<boolean> => {
+    try {
+      console.log('🔧 Creating user profile...')
+      
+      const response = await fetch('/api/auth/create-profile', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+      
+      if (response.ok) {
+        console.log('✅ Profile created successfully:', data.profile)
+        setDebugInfo((prev: DebugInfo) => ({ ...prev, profileCreated: true }))
+        return true
+      } else {
+        console.error('❌ Profile creation failed:', data)
+        setDebugInfo((prev: DebugInfo) => ({ 
+          ...prev, 
+          profileCreationError: data.error || 'Unknown error'
+        }))
+        return false
+      }
+    } catch (error) {
+      console.error('❌ Profile creation error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setDebugInfo((prev: DebugInfo) => ({ 
+        ...prev, 
+        profileCreationError: errorMessage
+      }))
+      return false
     }
   }
 
@@ -308,6 +382,17 @@ These codes can be used if you don't have access to your authenticator app.
     setError('')
   }
 
+  const createProfileManually = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const success = await createUserProfile(session.access_token)
+      if (success) {
+        // Retry the whole auth check
+        await checkAuth()
+      }
+    }
+  }
+
   if (loading && !qrCodeUrl && !error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center">
@@ -350,12 +435,18 @@ These codes can be used if you don't have access to your authenticator app.
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-600 text-sm mb-3">{error}</p>
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={retrySetup}
                 className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
               >
                 🔄 Retry
+              </button>
+              <button
+                onClick={createProfileManually}
+                className="text-sm bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded transition-colors"
+              >
+                👤 Create Profile
               </button>
               <button
                 onClick={forceSkipToSetup}
