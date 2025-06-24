@@ -15,9 +15,25 @@ export default function Login() {
   }, []);
 
   async function checkUser() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      router.push('/select-assistant');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Check if 2FA is enabled
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('two_factor_enabled')
+          .eq('email', session.user.email)
+          .single();
+
+        if (!profile?.two_factor_enabled) {
+          router.push('/setup-2fa');
+        } else {
+          router.push('/select-assistant');
+        }
+      }
+    } catch (error) {
+      console.error('Auth check error:', error);
+      // Continue with login form
     }
   }
 
@@ -43,7 +59,20 @@ export default function Login() {
           event_type: 'login'
         });
 
-        router.push('/select-assistant');
+        // Check if 2FA is enabled for this user
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('two_factor_enabled')
+          .eq('email', email)
+          .single();
+
+        if (!profile?.two_factor_enabled) {
+          // Redirect to 2FA setup
+          router.push('/setup-2fa');
+        } else {
+          // Redirect to main app
+          router.push('/select-assistant');
+        }
       }
     } catch (error: any) {
       console.error('Login error:', error);

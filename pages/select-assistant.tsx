@@ -7,43 +7,67 @@ export default function SelectAssistant() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkAdminStatus();
+    checkAuthAndSetup();
   }, []);
 
-  async function checkAdminStatus() {
+  async function checkAuthAndSetup() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      setCurrentUser(user);
-      console.log('Checking admin status for user:', user.email);
-
-      // First check if user has admin role in app_metadata
-      if (user.app_metadata?.role === 'admin') {
-        console.log('User has admin role in auth metadata');
-        setIsAdmin(true);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session) {
+        console.log('No valid session, redirecting to login');
+        router.push('/login');
         return;
       }
 
-      // Then check profiles table by email
+      setCurrentUser(session.user);
+
+      // Check user profile and 2FA status
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role')
-        .eq('email', user.email)
+        .select('*')
+        .eq('email', session.user.email)
         .single();
 
-      if (!profileError && profile) {
-        const isAdminRole = profile.role === 'admin';
-        setIsAdmin(isAdminRole);
-        console.log('Profile check result:', isAdminRole, 'for user:', user.email);
-      } else {
+      if (profileError) {
         console.error('Profile error:', profileError);
+        // If no profile exists, redirect to 2FA setup
+        router.push('/setup-2fa');
+        return;
       }
+
+      // Check if 2FA is enabled
+      if (!profile.two_factor_enabled) {
+        console.log('2FA not enabled, redirecting to setup');
+        router.push('/setup-2fa');
+        return;
+      }
+
+      // Check admin status
+      const isAdminRole = profile.role === 'admin';
+      setIsAdmin(isAdminRole);
+      console.log('User authenticated and 2FA enabled:', session.user.email);
+
     } catch (error) {
-      console.error('Error checking admin status:', error);
+      console.error('Error in auth check:', error);
+      router.push('/login');
+    } finally {
+      setLoading(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-3 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-white">Checking authentication...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -78,6 +102,14 @@ export default function SelectAssistant() {
             )}
           </div>
         )}
+
+        {/* 2FA Status Indicator */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center space-x-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+            <span>🛡️</span>
+            <span>2FA Enabled</span>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <button
@@ -122,6 +154,16 @@ export default function SelectAssistant() {
                 <span className="ml-2 transform group-hover:translate-x-1 transition-transform">→</span>
               </div>
             </div>
+          </button>
+        </div>
+
+        {/* 2FA Management Link */}
+        <div className="text-center mt-8">
+          <button
+            onClick={() => router.push('/setup-2fa')}
+            className="text-white/80 hover:text-white text-sm underline"
+          >
+            Manage 2FA Settings
           </button>
         </div>
       </div>
