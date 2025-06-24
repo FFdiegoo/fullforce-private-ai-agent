@@ -14,12 +14,15 @@ export default function CreateDiegoComplete() {
       setError('');
       setResult(null);
 
+      console.log('🚀 Starting Diego user creation...');
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         setError('Not authenticated');
         return;
       }
 
+      console.log('📡 Calling API...');
       const response = await fetch('/api/admin/create-diego-complete', {
         method: 'POST',
         headers: {
@@ -28,16 +31,20 @@ export default function CreateDiegoComplete() {
         }
       });
 
+      console.log('📡 Response status:', response.status);
       const data = await response.json();
+      console.log('📡 Response data:', data);
 
       if (response.ok) {
         setResult(data);
+        console.log('✅ User created successfully!');
       } else {
         setError(data.error || 'Failed to create user');
+        console.error('❌ API Error:', data);
       }
 
     } catch (error) {
-      console.error('Create Diego complete user error:', error);
+      console.error('❌ Create Diego complete user error:', error);
       setError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setLoading(false);
@@ -52,33 +59,35 @@ export default function CreateDiegoComplete() {
   const sendWhatsAppMessage = () => {
     if (!result?.loginCredentials) return;
     
-    const message = `Hoi Diego! 👋
+    const message = `🎉 CSrental AI Account Ready!
 
-Je complete admin account voor CSrental AI is aangemaakt! 🎉
+Hoi Diego! Je admin account is aangemaakt:
 
 📧 Email: ${result.loginCredentials.email}
 🔑 Wachtwoord: ${result.loginCredentials.password}
 👤 Naam: Diego  
 📱 Telefoon: 0614759664
 🛡️ Role: Admin
-🆔 UUID: ${result.user.id}
 
-🔗 Direct inloggen:
-${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login
+🔗 Login hier:
+${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/login
 
-⚠️ Belangrijk na inloggen:
-• Je MOET 2FA instellen voor volledige toegang
-• Scan de QR-code met Google Authenticator
-• Bewaar je backup codes veilig
-• Verander je wachtwoord na eerste login
-
-🚀 Na 2FA setup heb je volledige admin toegang!
+⚠️ Na inloggen:
+1. Verplichte 2FA setup
+2. Scan QR-code met Google Authenticator  
+3. Bewaar backup codes
+4. Volledige admin toegang!
 
 Groeten,
-Het CSrental AI Team`;
+CSrental AI Team`;
 
     const whatsappUrl = `https://wa.me/31614759664?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const testLogin = () => {
+    const loginUrl = typeof window !== 'undefined' ? `${window.location.origin}/login` : '/login';
+    window.open(loginUrl, '_blank');
   };
 
   return (
@@ -87,16 +96,33 @@ Het CSrental AI Team`;
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Create Complete Diego User
+              🚀 Create Complete Diego User
             </h1>
             <p className="text-gray-600">
               Create complete admin account for Diego with all credentials
             </p>
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Target:</strong> diego.a.scognamiglio@gmail.com<br />
+                <strong>UUID:</strong> 900098f4-785e-4c26-8a7b-55135f83bb16<br />
+                <strong>Role:</strong> Admin
+              </p>
+            </div>
           </div>
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-600 text-sm font-medium">❌ Error:</p>
               <p className="text-red-600 text-sm">{error}</p>
+              <button
+                onClick={() => {
+                  setError('');
+                  createDiegoCompleteUser();
+                }}
+                className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-sm"
+              >
+                🔄 Retry
+              </button>
             </div>
           )}
 
@@ -109,7 +135,7 @@ Het CSrental AI Team`;
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-green-700 mb-2">
-                    User Details:
+                    👤 User Details:
                   </label>
                   <div className="bg-white p-3 rounded border">
                     <p><strong>UUID:</strong> {result.user.id}</p>
@@ -117,17 +143,17 @@ Het CSrental AI Team`;
                     <p><strong>Name:</strong> {result.user.name}</p>
                     <p><strong>Phone:</strong> {result.user.phone}</p>
                     <p><strong>Role:</strong> {result.user.role}</p>
-                    <p><strong>2FA Enabled:</strong> {result.user.two_factor_enabled ? 'Yes' : 'No'}</p>
+                    <p><strong>2FA Enabled:</strong> {result.user.two_factor_enabled ? 'Yes' : 'No (will setup after login)'}</p>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-green-700 mb-2">
-                    Login Credentials:
+                    🔑 Login Credentials:
                   </label>
                   <div className="bg-white p-3 rounded border">
                     <p><strong>Email:</strong> {result.loginCredentials.email}</p>
-                    <p><strong>Password:</strong> {result.loginCredentials.password}</p>
+                    <p><strong>Password:</strong> <code className="bg-gray-100 px-1 rounded">{result.loginCredentials.password}</code></p>
                   </div>
                   <div className="flex space-x-2 mt-2">
                     <button
@@ -148,7 +174,7 @@ Het CSrental AI Team`;
                 {result.magicLink && (
                   <div>
                     <label className="block text-sm font-medium text-green-700 mb-2">
-                      Magic Link (optional - for direct 2FA setup):
+                      🔗 Magic Link (optional - direct 2FA setup):
                     </label>
                     <div className="bg-white p-3 rounded border break-all text-sm">
                       {result.magicLink}
@@ -163,14 +189,15 @@ Het CSrental AI Team`;
                 )}
 
                 <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                  <h4 className="font-medium text-blue-800 mb-2">📧 Instructions for Diego:</h4>
+                  <h4 className="font-medium text-blue-800 mb-2">📋 Instructions for Diego:</h4>
                   <ol className="text-sm text-blue-700 space-y-1">
                     <li>1. Go to the login page</li>
-                    <li>2. Use the email and password provided</li>
-                    <li>3. Complete 2FA setup (mandatory)</li>
-                    <li>4. Scan QR-code with Google Authenticator</li>
-                    <li>5. Download and save backup codes</li>
-                    <li>6. Access admin dashboard after 2FA setup</li>
+                    <li>2. Use email: <code>{result.loginCredentials.email}</code></li>
+                    <li>3. Use password: <code>{result.loginCredentials.password}</code></li>
+                    <li>4. Complete mandatory 2FA setup</li>
+                    <li>5. Scan QR-code with Google Authenticator</li>
+                    <li>6. Download and save backup codes</li>
+                    <li>7. Access admin dashboard</li>
                   </ol>
                 </div>
 
@@ -198,30 +225,45 @@ Het CSrental AI Team`;
                   : 'bg-indigo-600 hover:bg-indigo-700 text-white'
               }`}
             >
-              {loading ? 'Creating Complete User...' : result ? 'User Created ✅' : 'Create Complete Diego User'}
+              {loading ? '⏳ Creating Complete User...' : result ? '✅ User Created!' : '🚀 Create Complete Diego User'}
             </button>
 
             <button
               onClick={() => router.push('/admin')}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              Back to Admin
+              ← Back to Admin
             </button>
           </div>
 
           {result && (
-            <div className="mt-6 text-center space-y-3">
+            <div className="mt-6 space-y-3">
               <button
-                onClick={() => window.open(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`, '_blank')}
-                className="block w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                onClick={testLogin}
+                className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                🚀 Test Login Page
+                🧪 Test Login Page
               </button>
               
-              <div className="text-sm text-gray-600">
-                <p>💡 <strong>Tip:</strong> Use WhatsApp button to send Diego all login details!</p>
-                <p>🔑 <strong>Direct Login:</strong> Email + Password → 2FA Setup → Admin Access</p>
+              <div className="text-center text-sm text-gray-600 space-y-1">
+                <p>💡 <strong>Tip:</strong> Use WhatsApp button to send Diego all details!</p>
+                <p>🔄 <strong>Flow:</strong> Email + Password → 2FA Setup → Admin Access</p>
+                <p>📱 <strong>WhatsApp:</strong> 0614759664</p>
               </div>
+            </div>
+          )}
+
+          {!result && !loading && (
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-medium text-gray-800 mb-2">🎯 What this will do:</h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• Clean up any existing conflicting records</li>
+                <li>• Create auth user with specific UUID</li>
+                <li>• Create profile with all columns filled</li>
+                <li>• Set admin role and permissions</li>
+                <li>• Generate magic link for 2FA setup</li>
+                <li>• Provide WhatsApp message for Diego</li>
+              </ul>
             </div>
           )}
         </div>
