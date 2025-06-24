@@ -18,9 +18,12 @@ interface DebugInfo {
   apiResponseStatus?: number;
   apiResponseOk?: boolean;
   hasQrCode?: boolean;
-  hasSecret?: boolean;
+  hasSecret?: string;
   backupCodesCount?: number;
   setupError?: string;
+  apiUrl?: string;
+  requestMethod?: string;
+  authHeaderPresent?: boolean;
 }
 
 export default function Setup2FAPage() {
@@ -127,8 +130,6 @@ export default function Setup2FAPage() {
         authCheckError: errorMessage,
         step: 'auth_check_failed'
       }))
-      
-      // Don't auto-redirect on error, let user see what happened
     }
   }
 
@@ -140,16 +141,38 @@ export default function Setup2FAPage() {
       console.log('🔄 Initiating 2FA setup...')
       setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'calling_2fa_api' }))
       
-      const response = await fetch('/api/auth/setup-2fa', {
-        method: 'POST',
+      const apiUrl = '/api/auth/setup-2fa'
+      const requestMethod = 'POST'
+      const authHeaderPresent = !!accessToken
+      
+      setDebugInfo((prev: DebugInfo) => ({ 
+        ...prev, 
+        apiUrl,
+        requestMethod,
+        authHeaderPresent
+      }))
+      
+      console.log('📡 Making API request:', {
+        url: apiUrl,
+        method: requestMethod,
+        hasToken: authHeaderPresent,
+        tokenLength: accessToken?.length || 0
+      })
+      
+      const response = await fetch(apiUrl, {
+        method: requestMethod,
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         }
       })
 
-      console.log('📡 Response status:', response.status)
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()))
+      console.log('📡 Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      })
       
       setDebugInfo((prev: DebugInfo) => ({ 
         ...prev, 
@@ -159,7 +182,11 @@ export default function Setup2FAPage() {
       
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ Response error:', errorText)
+        console.error('❌ Response error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        })
         throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
@@ -167,13 +194,14 @@ export default function Setup2FAPage() {
       console.log('✅ 2FA setup data received:', { 
         hasQrCode: !!data.qrCodeUrl, 
         hasSecret: !!data.secret,
-        backupCodesCount: data.backupCodes?.length || 0
+        backupCodesCount: data.backupCodes?.length || 0,
+        qrCodeLength: data.qrCodeUrl?.length || 0
       })
       
       setDebugInfo((prev: DebugInfo) => ({ 
         ...prev, 
         hasQrCode: !!data.qrCodeUrl,
-        hasSecret: !!data.secret,
+        hasSecret: data.secret ? `${data.secret.substring(0, 10)}...` : 'none',
         backupCodesCount: data.backupCodes?.length || 0
       }))
       
@@ -185,12 +213,12 @@ export default function Setup2FAPage() {
       setBackupCodes(data.backupCodes || [])
       setSecret(data.secret)
       
-      console.log('🎯 QR Code URL set:', data.qrCodeUrl.substring(0, 50) + '...')
+      console.log('🎯 Setup completed successfully')
       
     } catch (error) {
       console.error('❌ 2FA setup error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Onbekende fout'
-      setError(`2FA setup mislukt: ${errorMessage}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setError(`2FA setup failed: ${errorMessage}`)
       setDebugInfo((prev: DebugInfo) => ({ 
         ...prev, 
         setupError: errorMessage
@@ -202,7 +230,7 @@ export default function Setup2FAPage() {
 
   const verify2FA = async () => {
     if (!verificationCode || verificationCode.length !== 6) {
-      setError('Voer een geldige 6-cijferige code in')
+      setError('Enter a valid 6-digit code')
       return
     }
 
@@ -229,12 +257,12 @@ export default function Setup2FAPage() {
         setStep(3)
       } else {
         const errorData = await response.json()
-        setError(errorData.error || 'Verificatie mislukt')
+        setError(errorData.error || 'Verification failed')
       }
     } catch (error) {
       console.error('2FA verification error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Onbekende fout'
-      setError(`Verificatie mislukt: ${errorMessage}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setError(`Verification failed: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
@@ -242,20 +270,20 @@ export default function Setup2FAPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    alert('Gekopieerd naar klembord')
+    alert('Copied to clipboard')
   }
 
   const downloadBackupCodes = () => {
     const content = `CSrental AI - 2FA Backup Codes
-Gegenereerd op: ${new Date().toLocaleString('nl-NL')}
+Generated on: ${new Date().toLocaleString('en-US')}
 Account: ${user?.email}
 
-BELANGRIJK: Bewaar deze codes op een veilige plaats!
-Elke code kan slechts één keer worden gebruikt.
+IMPORTANT: Store these codes in a safe place!
+Each code can only be used once.
 
 ${backupCodes.map((code, index) => `${index + 1}. ${code}`).join('\n')}
 
-Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator app.
+These codes can be used if you don't have access to your authenticator app.
 `
 
     const blob = new Blob([content], { type: 'text/plain' })
@@ -265,7 +293,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
     a.download = `csrental-2fa-backup-codes-${Date.now()}.txt`
     a.click()
     URL.revokeObjectURL(url)
-    alert('Backup codes gedownload')
+    alert('Backup codes downloaded')
   }
 
   const retrySetup = async () => {
@@ -285,8 +313,8 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">2FA instellen...</p>
-          <p className="text-xs text-gray-500 mt-2">Stap: {debugInfo.step}</p>
+          <p className="text-gray-600">Setting up 2FA...</p>
+          <p className="text-xs text-gray-500 mt-2">Step: {debugInfo.step}</p>
         </div>
       </div>
     )
@@ -300,17 +328,17 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
             <span className="text-indigo-600 text-xl">🛡️</span>
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Two-Factor Authentication Instellen
+            Two-Factor Authentication Setup
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Stap {step} van 3: Extra beveiliging voor uw account
+            Step {step} of 3: Extra security for your account
           </p>
         </div>
 
         {/* Debug Info Panel */}
         <details className="bg-gray-100 rounded-lg p-4">
           <summary className="cursor-pointer text-sm font-medium text-gray-700">
-            🔍 Debug Info (klik om uit te klappen)
+            🔍 Debug Info (click to expand)
           </summary>
           <div className="mt-2 text-xs text-gray-600">
             <pre className="whitespace-pre-wrap overflow-auto max-h-40">
@@ -327,7 +355,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
                 onClick={retrySetup}
                 className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
               >
-                🔄 Opnieuw proberen
+                🔄 Retry
               </button>
               <button
                 onClick={forceSkipToSetup}
@@ -339,7 +367,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
                 onClick={() => router.push('/login')}
                 className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
               >
-                🔑 Naar Login
+                🔑 To Login
               </button>
             </div>
           </div>
@@ -352,7 +380,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
                 1. Scan QR Code
               </h3>
               <p className="text-sm text-gray-600 mb-4">
-                Scan deze QR code met uw authenticator app (Google Authenticator, Authy, etc.)
+                Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
               </p>
               
               {qrCodeUrl ? (
@@ -365,7 +393,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
                       onLoad={() => console.log('✅ QR Code image loaded successfully')}
                       onError={(e) => {
                         console.error('❌ QR Code image failed to load:', e)
-                        setError('QR code kon niet worden geladen')
+                        setError('QR code could not be loaded')
                       }}
                     />
                   </div>
@@ -374,13 +402,13 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
                 <div className="flex justify-center mb-4">
                   <div className="w-48 h-48 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
                     <div className="text-center">
-                      <span className="text-gray-500 text-sm">QR Code wordt geladen...</span>
+                      <span className="text-gray-500 text-sm">QR Code loading...</span>
                       {!loading && (
                         <button
                           onClick={retrySetup}
                           className="block mt-2 text-xs text-indigo-600 hover:text-indigo-800"
                         >
-                          🔄 Opnieuw laden
+                          🔄 Reload
                         </button>
                       )}
                     </div>
@@ -390,7 +418,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
 
               {secret && (
                 <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-2">Of voer deze code handmatig in:</p>
+                  <p className="text-xs text-gray-600 mb-2">Or enter this code manually:</p>
                   <div className="flex items-center justify-between">
                     <code className="text-sm font-mono bg-white px-2 py-1 rounded border break-all">
                       {secret}
@@ -411,7 +439,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
               disabled={!qrCodeUrl || loading}
               className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
-              Volgende: Code Verifiëren
+              Next: Verify Code
             </button>
           </div>
         )}
@@ -420,10 +448,10 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                2. Verifieer Code
+                2. Verify Code
               </h3>
               <p className="text-sm text-gray-600 mb-4">
-                Voer de 6-cijferige code in die wordt getoond in uw authenticator app
+                Enter the 6-digit code shown in your authenticator app
               </p>
               
               <input
@@ -443,14 +471,14 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
                 className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                 disabled={loading}
               >
-                Terug
+                Back
               </button>
               <button
                 onClick={verify2FA}
                 disabled={loading || verificationCode.length !== 6}
                 className="flex-1 bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
               >
-                {loading ? 'Verifiëren...' : 'Verifiëren'}
+                {loading ? 'Verifying...' : 'Verify'}
               </button>
             </div>
           </div>
@@ -462,10 +490,10 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
               <div className="text-center mb-6">
                 <span className="text-4xl mb-4 block">✅</span>
                 <h3 className="text-lg font-medium text-gray-900">
-                  2FA Succesvol Ingeschakeld!
+                  2FA Successfully Enabled!
                 </h3>
                 <p className="text-sm text-gray-600">
-                  Uw account is nu extra beveiligd met two-factor authentication
+                  Your account is now protected with two-factor authentication
                 </p>
               </div>
 
@@ -474,10 +502,10 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
                   <span className="text-yellow-600 text-lg mr-3">⚠️</span>
                   <div>
                     <h4 className="text-sm font-medium text-yellow-800">
-                      Backup Codes Bewaren
+                      Save Backup Codes
                     </h4>
                     <p className="text-sm text-yellow-700 mt-1">
-                      Bewaar deze backup codes op een veilige plaats. U kunt ze gebruiken als u geen toegang heeft tot uw authenticator app.
+                      Store these backup codes in a safe place. You can use them if you don't have access to your authenticator app.
                     </p>
                   </div>
                 </div>
@@ -499,13 +527,13 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
                   onClick={() => copyToClipboard(backupCodes.join('\n'))}
                   className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
                 >
-                  📋 Kopiëren
+                  📋 Copy
                 </button>
                 <button
                   onClick={downloadBackupCodes}
                   className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
                 >
-                  💾 Downloaden
+                  💾 Download
                 </button>
               </div>
             </div>
@@ -514,7 +542,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
               onClick={() => router.push('/select-assistant')}
               className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
             >
-              Ga naar Dashboard
+              Go to Dashboard
             </button>
           </div>
         )}
@@ -524,7 +552,7 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
             onClick={() => router.push('/select-assistant')}
             className="text-sm text-indigo-600 hover:text-indigo-500"
           >
-            Later instellen (niet aanbevolen)
+            Set up later (not recommended)
           </button>
         </div>
       </div>
