@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { supabase } from '../../../lib/supabaseClient';
 import { TwoFactorAuth } from '../../../lib/two-factor';
 import { auditLogger } from '../../../lib/audit-logger';
 import { rateLimitByType } from '../../../lib/rate-limit';
@@ -16,10 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(429).json({ error: 'Too many requests' });
       }
 
-      // Create supabase client for server-side auth
-      const supabase = createServerComponentClient({ cookies: () => new Map() });
-      
-      // Get session from cookies/headers
+      // Get authorization header
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'No authorization header' });
@@ -27,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const token = authHeader.replace('Bearer ', '');
       
-      // Verify the token and get user
+      // Verify the token and get user using the regular supabase client
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
       if (userError || !user) {
@@ -51,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         secret: twoFactorSetup.secret
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('2FA setup error:', error);
       return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
@@ -65,9 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(429).json({ error: 'Too many requests' });
       }
 
-      // Create supabase client for server-side auth
-      const supabase = createServerComponentClient({ cookies: () => new Map() });
-      
+      // Get authorization header
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'No authorization header' });
@@ -111,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return res.status(200).json({ success: true });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('2FA enable error:', error);
       return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
