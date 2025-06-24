@@ -4,6 +4,25 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabaseClient'
 
+interface DebugInfo {
+  step?: string;
+  hasSession?: boolean;
+  userEmail?: string;
+  sessionError?: string;
+  redirectReason?: string;
+  hasProfile?: boolean;
+  profileEmail?: string;
+  twoFactorEnabled?: boolean;
+  profileError?: string;
+  authCheckError?: string;
+  apiResponseStatus?: number;
+  apiResponseOk?: boolean;
+  hasQrCode?: boolean;
+  hasSecret?: boolean;
+  backupCodesCount?: number;
+  setupError?: string;
+}
+
 export default function Setup2FAPage() {
   const [step, setStep] = useState(1)
   const [qrCodeUrl, setQrCodeUrl] = useState('')
@@ -13,7 +32,7 @@ export default function Setup2FAPage() {
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [error, setError] = useState('')
-  const [debugInfo, setDebugInfo] = useState<any>({})
+  const [debugInfo, setDebugInfo] = useState<DebugInfo>({})
   const router = useRouter()
 
   useEffect(() => {
@@ -23,7 +42,7 @@ export default function Setup2FAPage() {
   const checkAuth = async () => {
     try {
       console.log('🔍 Starting auth check...')
-      setDebugInfo(prev => ({ ...prev, step: 'getting_session' }))
+      setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'getting_session' }))
       
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
@@ -34,7 +53,7 @@ export default function Setup2FAPage() {
         sessionError: sessionError?.message
       })
       
-      setDebugInfo(prev => ({ 
+      setDebugInfo((prev: DebugInfo) => ({ 
         ...prev, 
         hasSession: !!session,
         userEmail: session?.user?.email,
@@ -49,13 +68,13 @@ export default function Setup2FAPage() {
       
       if (!session || !session.user) {
         console.log('❌ No valid session, redirecting to login')
-        setDebugInfo(prev => ({ ...prev, redirectReason: 'no_session' }))
+        setDebugInfo((prev: DebugInfo) => ({ ...prev, redirectReason: 'no_session' }))
         router.push('/login')
         return
       }
 
       console.log('✅ Valid session found, checking user profile...')
-      setDebugInfo(prev => ({ ...prev, step: 'checking_profile' }))
+      setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'checking_profile' }))
 
       // Get user profile - with better error handling
       const { data: profile, error: profileError } = await supabase
@@ -71,7 +90,7 @@ export default function Setup2FAPage() {
         profileError: profileError?.message
       })
 
-      setDebugInfo(prev => ({ 
+      setDebugInfo((prev: DebugInfo) => ({ 
         ...prev, 
         hasProfile: !!profile,
         profileEmail: profile?.email,
@@ -88,14 +107,14 @@ export default function Setup2FAPage() {
       // Check if 2FA is already enabled
       if (profile?.two_factor_enabled) {
         console.log('✅ 2FA already enabled, redirecting to dashboard')
-        setDebugInfo(prev => ({ ...prev, redirectReason: '2fa_already_enabled' }))
+        setDebugInfo((prev: DebugInfo) => ({ ...prev, redirectReason: '2fa_already_enabled' }))
         router.push('/select-assistant')
         return
       }
 
       console.log('🎯 2FA not enabled, proceeding with setup')
       setUser(profile || { email: session.user.email })
-      setDebugInfo(prev => ({ ...prev, step: 'initiating_2fa_setup' }))
+      setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'initiating_2fa_setup' }))
       
       // Auto-start 2FA setup when component loads
       await initiate2FASetup(session.access_token)
@@ -103,7 +122,7 @@ export default function Setup2FAPage() {
       console.error('❌ Auth check error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       setError(`Auth check failed: ${errorMessage}`)
-      setDebugInfo(prev => ({ 
+      setDebugInfo((prev: DebugInfo) => ({ 
         ...prev, 
         authCheckError: errorMessage,
         step: 'auth_check_failed'
@@ -119,7 +138,7 @@ export default function Setup2FAPage() {
       setError('')
       
       console.log('🔄 Initiating 2FA setup...')
-      setDebugInfo(prev => ({ ...prev, step: 'calling_2fa_api' }))
+      setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'calling_2fa_api' }))
       
       const response = await fetch('/api/auth/setup-2fa', {
         method: 'POST',
@@ -132,7 +151,7 @@ export default function Setup2FAPage() {
       console.log('📡 Response status:', response.status)
       console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()))
       
-      setDebugInfo(prev => ({ 
+      setDebugInfo((prev: DebugInfo) => ({ 
         ...prev, 
         apiResponseStatus: response.status,
         apiResponseOk: response.ok
@@ -151,7 +170,7 @@ export default function Setup2FAPage() {
         backupCodesCount: data.backupCodes?.length || 0
       })
       
-      setDebugInfo(prev => ({ 
+      setDebugInfo((prev: DebugInfo) => ({ 
         ...prev, 
         hasQrCode: !!data.qrCodeUrl,
         hasSecret: !!data.secret,
@@ -172,7 +191,7 @@ export default function Setup2FAPage() {
       console.error('❌ 2FA setup error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Onbekende fout'
       setError(`2FA setup mislukt: ${errorMessage}`)
-      setDebugInfo(prev => ({ 
+      setDebugInfo((prev: DebugInfo) => ({ 
         ...prev, 
         setupError: errorMessage
       }))
