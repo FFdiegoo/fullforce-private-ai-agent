@@ -5,7 +5,10 @@ import { auditLogger } from '../../../lib/audit-logger';
 import { rateLimitByType } from '../../../lib/rate-limit';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const clientIP = req.headers['x-forwarded-for'] as string || req.connection.remoteAddress || '127.0.0.1';
+  const clientIP =
+    (req.headers['x-forwarded-for'] as string) ||
+    (req.connection && (req.connection as any).remoteAddress) ||
+    '127.0.0.1';
 
   if (req.method === 'POST') {
     try {
@@ -22,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const token = authHeader.replace('Bearer ', '');
-      
+
       // Verify the token and get user using the regular supabase client
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
@@ -44,17 +47,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({
         qrCodeUrl: twoFactorSetup.qrCodeUrl,
         backupCodes: twoFactorSetup.backupCodes,
-        secret: twoFactorSetup.secret
+        secret: twoFactorSetup.secret // Only for setup, remove in production
       });
 
- catch (error) {
-  console.error('2FA setup error:', error)
-  if (error instanceof Error) {
-    setError(`2FA setup mislukt: ${error.message}`)
-  } else {
-    setError('2FA setup mislukt: onbekende fout')
+    } catch (error) {
+      console.error('2FA setup error:', error);
+      return res.status(500).json({
+        error: '2FA setup mislukt',
+        details: error instanceof Error ? error.message : 'Onbekende fout'
+      });
+    }
   }
-}
 
   if (req.method === 'PUT') {
     try {
@@ -108,11 +111,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return res.status(200).json({ success: true });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('2FA enable error:', error);
-      return res.status(500).json({ error: 'Internal server error', details: error.message });
+      return res.status(500).json({
+        error: '2FA enable mislukt',
+        details: error instanceof Error ? error.message : 'Onbekende fout'
+      });
     }
   }
 
+  // Method not allowed
   return res.status(405).json({ error: 'Method not allowed' });
 }
