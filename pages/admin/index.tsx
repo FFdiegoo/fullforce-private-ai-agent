@@ -12,6 +12,7 @@ interface User {
   name?: string;
   role: string;
   created_at: string;
+  two_factor_enabled: boolean;
 }
 
 interface Document {
@@ -193,6 +194,7 @@ export default function AdminDashboard() {
 
   const pendingDocuments = documents.filter(d => d.status === 'pending');
   const approvedDocuments = documents.filter(d => d.status === 'approved');
+  const usersWithout2FA = users.filter(u => !u.two_factor_enabled);
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
@@ -216,18 +218,26 @@ export default function AdminDashboard() {
               <p className="text-sm text-gray-500 mt-1">Ingelogd als: {currentUser.email}</p>
             )}
           </div>
-          <button
-            onClick={() => router.push('/select-assistant')}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            Terug naar Chat
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => router.push('/admin/user-management')}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              👥 User Management
+            </button>
+            <button
+              onClick={() => router.push('/select-assistant')}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Terug naar Chat
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -242,24 +252,38 @@ export default function AdminDashboard() {
 
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <span className="text-yellow-600 text-xl">⏳</span>
+              <div className="p-2 bg-green-100 rounded-lg">
+                <span className="text-green-600 text-xl">🛡️</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Wachtend</p>
-                <p className="text-2xl font-bold text-gray-900">{pendingDocuments.length}</p>
+                <p className="text-sm font-medium text-gray-600">2FA Actief</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {users.filter(u => u.two_factor_enabled).length}
+                </p>
               </div>
             </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <span className="text-green-600 text-xl">✅</span>
+              <div className="p-2 bg-red-100 rounded-lg">
+                <span className="text-red-600 text-xl">⚠️</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Goedgekeurd</p>
-                <p className="text-2xl font-bold text-gray-900">{approvedDocuments.length}</p>
+                <p className="text-sm font-medium text-gray-600">Geen 2FA</p>
+                <p className="text-2xl font-bold text-gray-900">{usersWithout2FA.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <span className="text-yellow-600 text-xl">⏳</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Wachtend</p>
+                <p className="text-2xl font-bold text-gray-900">{pendingDocuments.length}</p>
               </div>
             </div>
           </div>
@@ -283,12 +307,20 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Users Section */}
           <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-semibold mb-6 flex items-center">
-              <span className="mr-2">👥</span>
-              Gebruikers ({users.length})
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center">
+                <span className="mr-2">👥</span>
+                Gebruikers ({users.length})
+              </h2>
+              <button
+                onClick={() => router.push('/admin/user-management')}
+                className="text-sm text-indigo-600 hover:text-indigo-800"
+              >
+                Beheer →
+              </button>
+            </div>
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {users.map((user) => (
+              {users.slice(0, 10).map((user) => (
                 <div
                   key={user.id}
                   onClick={() => openChatModal(user)}
@@ -308,6 +340,9 @@ export default function AdminDashboard() {
                     }`}>
                       {user.role}
                     </span>
+                    {!user.two_factor_enabled && (
+                      <span className="text-red-500 text-xs">⚠️</span>
+                    )}
                     <span className="text-gray-400">→</span>
                   </div>
                 </div>
@@ -398,6 +433,30 @@ export default function AdminDashboard() {
             }}
           />
         </div>
+
+        {/* Security Alerts */}
+        {usersWithout2FA.length > 0 && (
+          <div className="mt-8 bg-red-50 border border-red-200 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-red-800 mb-4">
+              ⚠️ Security Alert: Users without 2FA
+            </h3>
+            <p className="text-red-700 mb-4">
+              {usersWithout2FA.length} gebruiker(s) hebben nog geen 2FA ingesteld. Dit is een beveiligingsrisico.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {usersWithout2FA.slice(0, 5).map((user) => (
+                <span key={user.id} className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">
+                  {user.name || user.email}
+                </span>
+              ))}
+              {usersWithout2FA.length > 5 && (
+                <span className="text-red-600 text-sm">
+                  +{usersWithout2FA.length - 5} meer...
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Chat Modal */}
