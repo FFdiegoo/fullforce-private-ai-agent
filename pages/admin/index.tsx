@@ -220,6 +220,12 @@ export default function AdminDashboard() {
           </div>
           <div className="flex space-x-3">
             <button
+              onClick={() => router.push('/admin/create-diego-complete')}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              👨‍💻 Create Complete Diego
+            </button>
+            <button
               onClick={() => router.push('/admin/create-marketing-admin')}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
