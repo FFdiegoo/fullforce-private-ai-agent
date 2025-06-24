@@ -47,11 +47,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         secret: twoFactorSetup.secret
       });
 
-    } catch (error: any) {
-      console.error('2FA setup error:', error);
-      return res.status(500).json({ error: 'Internal server error', details: error.message });
-    }
+ catch (error) {
+  console.error('2FA setup error:', error)
+  if (error instanceof Error) {
+    setError(`2FA setup mislukt: ${error.message}`)
+  } else {
+    setError('2FA setup mislukt: onbekende fout')
   }
+}
 
   if (req.method === 'PUT') {
     try {
