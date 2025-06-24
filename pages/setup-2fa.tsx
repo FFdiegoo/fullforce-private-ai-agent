@@ -79,7 +79,8 @@ export default function Setup2FAPage() {
       setSecret(data.secret)
     } catch (error) {
       console.error('2FA setup error:', error)
-      setError(`2FA setup mislukt: ${error.message}`)
+      const errorMessage = error instanceof Error ? error.message : 'Onbekende fout'
+      setError(`2FA setup mislukt: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
@@ -113,12 +114,13 @@ export default function Setup2FAPage() {
       if (response.ok) {
         setStep(3)
       } else {
-        const error = await response.json()
-        setError(error.error || 'Verificatie mislukt')
+        const errorData = await response.json()
+        setError(errorData.error || 'Verificatie mislukt')
       }
     } catch (error) {
       console.error('2FA verification error:', error)
-      setError('Verificatie mislukt')
+      const errorMessage = error instanceof Error ? error.message : 'Onbekende fout'
+      setError(`Verificatie mislukt: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
