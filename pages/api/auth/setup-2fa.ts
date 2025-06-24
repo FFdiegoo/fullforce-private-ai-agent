@@ -167,6 +167,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
+      console.log('🔍 Verification attempt:', {
+        userEmail: user.email,
+        hasSecret: !!secret,
+        tokenLength: verificationToken?.length,
+        backupCodesCount: backupCodes?.length
+      });
+
       // Get user profile ID
       const { data: profile } = await supabase
         .from('profiles')
@@ -178,7 +185,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'User profile not found' });
       }
 
-      // Enable 2FA
+      // 🔧 FIX: Use the secret from the request (which was generated in POST)
+      // This is the correct approach since we're in the setup flow
+      console.log('🔐 Verifying TOTP with provided secret...');
+      const isValidToken = TwoFactorAuth.verifyToken(secret, verificationToken);
+      
+      if (!isValidToken) {
+        console.log('❌ TOTP verification failed');
+        await auditLogger.logAuth('2FA_VERIFICATION_FAILED', user.id, {
+          email: user.email,
+          reason: 'invalid_totp_code'
+        }, clientIP);
+        return res.status(400).json({ error: 'Invalid verification code' });
+      }
+
+      console.log('✅ TOTP verification successful');
+
+      // Enable 2FA in database
       const success = await TwoFactorAuth.enableTwoFactor(
         profile.id,
         secret,
@@ -187,14 +210,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
 
       if (!success) {
-        return res.status(400).json({ error: 'Invalid verification code' });
+        console.log('❌ Failed to enable 2FA in database');
+        return res.status(500).json({ error: 'Failed to enable 2FA' });
       }
 
       console.log('✅ 2FA enabled successfully for user:', user.email);
+      
+      await auditLogger.logAuth('2FA_ENABLED', user.id, {
+        email: user.email
+      }, clientIP);
+
       return res.status(200).json({ success: true });
 
     } catch (error) {
       console.error('❌ 2FA enable error:', error);
+      await auditLogger.logError(error as Error, '2FA_ENABLE');
       return res.status(500).json({
         error: '2FA enable failed',
         details: error instanceof Error ? error.message : 'Unknown error'

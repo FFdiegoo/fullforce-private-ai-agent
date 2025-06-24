@@ -26,6 +26,11 @@ interface DebugInfo {
   authHeaderPresent?: boolean;
   profileCreated?: boolean;
   profileCreationError?: string;
+  verificationAttempt?: {
+    tokenLength?: number;
+    secretLength?: number;
+    timestamp?: string;
+  };
 }
 
 export default function Setup2FAPage() {
@@ -312,7 +317,33 @@ export default function Setup2FAPage() {
       setLoading(true)
       setError('')
       
+      console.log('🔐 Starting 2FA verification...')
+      
       const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        setError('Session expired, please refresh the page')
+        return
+      }
+
+      // 🔧 FIX: Log verification attempt details
+      const verificationAttempt = {
+        tokenLength: verificationCode.length,
+        secretLength: secret.length,
+        timestamp: new Date().toISOString()
+      }
+      
+      setDebugInfo((prev: DebugInfo) => ({ 
+        ...prev, 
+        verificationAttempt
+      }))
+
+      console.log('📡 Sending verification request:', {
+        hasSecret: !!secret,
+        secretLength: secret.length,
+        tokenLength: verificationCode.length,
+        backupCodesCount: backupCodes.length
+      })
       
       const response = await fetch('/api/auth/setup-2fa', {
         method: 'PUT',
@@ -321,20 +352,27 @@ export default function Setup2FAPage() {
           'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
-          secret,
+          secret: secret, // 🔧 FIX: Send the secret from the setup
           token: verificationCode,
-          backupCodes
+          backupCodes: backupCodes
         })
       })
 
+      console.log('📡 Verification response:', {
+        status: response.status,
+        ok: response.ok
+      })
+
       if (response.ok) {
+        console.log('✅ 2FA verification successful!')
         setStep(3)
       } else {
         const errorData = await response.json()
+        console.error('❌ Verification failed:', errorData)
         setError(errorData.error || 'Verification failed')
       }
     } catch (error) {
-      console.error('2FA verification error:', error)
+      console.error('❌ 2FA verification error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       setError(`Verification failed: ${errorMessage}`)
     } finally {
@@ -544,6 +582,12 @@ These codes can be used if you don't have access to your authenticator app.
               <p className="text-sm text-gray-600 mb-4">
                 Enter the 6-digit code shown in your authenticator app
               </p>
+              
+              {/* 🔧 FIX: Show current time for debugging */}
+              <div className="mb-4 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                Current time: {new Date().toLocaleTimeString()} 
+                <br />Secret length: {secret.length}
+              </div>
               
               <input
                 type="text"

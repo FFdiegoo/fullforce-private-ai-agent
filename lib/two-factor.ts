@@ -35,14 +35,18 @@ export class TwoFactorAuth {
   }
 
   static async enableTwoFactor(userId: string, secret: string, token: string, backupCodes: string[]): Promise<boolean> {
-    // Verify the token first
+    // 🔧 FIX: Verify the token with the provided secret before saving
+    console.log('🔐 Verifying token before enabling 2FA...');
     const isValid = this.verifyToken(secret, token)
     if (!isValid) {
-      await auditLogger.logAuth('2FA_ENABLE_FAILED', userId, { reason: 'Invalid token' })
+      console.log('❌ Token verification failed during enable');
+      await auditLogger.logAuth('2FA_ENABLE_FAILED', userId, { reason: 'Invalid token during enable' })
       return false
     }
 
     try {
+      console.log('💾 Saving 2FA settings to database...');
+      
       // Update user record in profiles table
       const { error } = await supabaseAdmin
         .from('profiles')
@@ -55,12 +59,15 @@ export class TwoFactorAuth {
         .eq('id', userId)
 
       if (error) {
+        console.error('❌ Database update error:', error);
         throw error
       }
 
+      console.log('✅ 2FA enabled successfully in database');
       await auditLogger.logAuth('2FA_ENABLED', userId)
       return true
     } catch (error) {
+      console.error('❌ Error enabling 2FA:', error);
       await auditLogger.logError(error as Error, '2FA_ENABLE', userId)
       return false
     }
@@ -68,7 +75,7 @@ export class TwoFactorAuth {
 
   static async disableTwoFactor(userId: string, token: string): Promise<boolean> {
     try {
-      // Get user's 2FA secret
+      // Get user's 2FA secret from database
       const { data: user, error: fetchError } = await supabaseAdmin
         .from('profiles')
         .select('two_factor_secret, backup_codes')
@@ -118,16 +125,33 @@ export class TwoFactorAuth {
   }
 
   static verifyToken(secret: string, token: string): boolean {
-    return speakeasy.totp.verify({
-      secret,
-      encoding: 'base32',
-      token,
+    console.log('🔍 Verifying TOTP token:', {
+      hasSecret: !!secret,
+      secretLength: secret?.length,
+      tokenLength: token?.length,
       window: this.WINDOW
-    })
+    });
+
+    try {
+      const result = speakeasy.totp.verify({
+        secret,
+        encoding: 'base32',
+        token,
+        window: this.WINDOW
+      });
+      
+      console.log('🔐 TOTP verification result:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ TOTP verification error:', error);
+      return false;
+    }
   }
 
   static async verifyUserToken(userId: string, token: string): Promise<boolean> {
     try {
+      console.log('🔍 Verifying user token for userId:', userId);
+      
       const { data: user, error } = await supabaseAdmin
         .from('profiles')
         .select('two_factor_secret, two_factor_enabled, backup_codes')
@@ -135,6 +159,7 @@ export class TwoFactorAuth {
         .single()
 
       if (error || !user || !user.two_factor_enabled) {
+        console.log('❌ User not found or 2FA not enabled');
         return false
       }
 
