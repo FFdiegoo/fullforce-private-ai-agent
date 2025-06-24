@@ -13,6 +13,7 @@ export default function Setup2FAPage() {
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [error, setError] = useState('')
+  const [debugInfo, setDebugInfo] = useState<any>({})
   const router = useRouter()
 
   useEffect(() => {
@@ -21,31 +22,94 @@ export default function Setup2FAPage() {
 
   const checkAuth = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      console.log('🔍 Starting auth check...')
+      setDebugInfo(prev => ({ ...prev, step: 'getting_session' }))
       
-      if (!session) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      console.log('📋 Session check result:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userEmail: session?.user?.email,
+        sessionError: sessionError?.message
+      })
+      
+      setDebugInfo(prev => ({ 
+        ...prev, 
+        hasSession: !!session,
+        userEmail: session?.user?.email,
+        sessionError: sessionError?.message
+      }))
+      
+      if (sessionError) {
+        console.error('❌ Session error:', sessionError)
+        setError(`Session error: ${sessionError.message}`)
+        return
+      }
+      
+      if (!session || !session.user) {
+        console.log('❌ No valid session, redirecting to login')
+        setDebugInfo(prev => ({ ...prev, redirectReason: 'no_session' }))
         router.push('/login')
         return
       }
 
-      // Get user profile
-      const { data: profile } = await supabase
+      console.log('✅ Valid session found, checking user profile...')
+      setDebugInfo(prev => ({ ...prev, step: 'checking_profile' }))
+
+      // Get user profile - with better error handling
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('email', session.user.email)
         .single()
 
+      console.log('👤 Profile check result:', {
+        hasProfile: !!profile,
+        profileEmail: profile?.email,
+        twoFactorEnabled: profile?.two_factor_enabled,
+        profileError: profileError?.message
+      })
+
+      setDebugInfo(prev => ({ 
+        ...prev, 
+        hasProfile: !!profile,
+        profileEmail: profile?.email,
+        twoFactorEnabled: profile?.two_factor_enabled,
+        profileError: profileError?.message
+      }))
+
+      if (profileError) {
+        console.error('❌ Profile error:', profileError)
+        setError(`Profile error: ${profileError.message}`)
+        // Don't redirect on profile error, let user try to set up 2FA anyway
+      }
+
+      // Check if 2FA is already enabled
       if (profile?.two_factor_enabled) {
+        console.log('✅ 2FA already enabled, redirecting to dashboard')
+        setDebugInfo(prev => ({ ...prev, redirectReason: '2fa_already_enabled' }))
         router.push('/select-assistant')
         return
       }
 
-      setUser(profile)
+      console.log('🎯 2FA not enabled, proceeding with setup')
+      setUser(profile || { email: session.user.email })
+      setDebugInfo(prev => ({ ...prev, step: 'initiating_2fa_setup' }))
+      
       // Auto-start 2FA setup when component loads
       await initiate2FASetup(session.access_token)
     } catch (error) {
-      console.error('Auth check error:', error)
-      router.push('/login')
+      console.error('❌ Auth check error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setError(`Auth check failed: ${errorMessage}`)
+      setDebugInfo(prev => ({ 
+        ...prev, 
+        authCheckError: errorMessage,
+        step: 'auth_check_failed'
+      }))
+      
+      // Don't auto-redirect on error, let user see what happened
     }
   }
 
@@ -55,6 +119,7 @@ export default function Setup2FAPage() {
       setError('')
       
       console.log('🔄 Initiating 2FA setup...')
+      setDebugInfo(prev => ({ ...prev, step: 'calling_2fa_api' }))
       
       const response = await fetch('/api/auth/setup-2fa', {
         method: 'POST',
@@ -66,6 +131,12 @@ export default function Setup2FAPage() {
 
       console.log('📡 Response status:', response.status)
       console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()))
+      
+      setDebugInfo(prev => ({ 
+        ...prev, 
+        apiResponseStatus: response.status,
+        apiResponseOk: response.ok
+      }))
       
       if (!response.ok) {
         const errorText = await response.text()
@@ -79,6 +150,13 @@ export default function Setup2FAPage() {
         hasSecret: !!data.secret,
         backupCodesCount: data.backupCodes?.length || 0
       })
+      
+      setDebugInfo(prev => ({ 
+        ...prev, 
+        hasQrCode: !!data.qrCodeUrl,
+        hasSecret: !!data.secret,
+        backupCodesCount: data.backupCodes?.length || 0
+      }))
       
       if (!data.qrCodeUrl) {
         throw new Error('QR code niet ontvangen van server')
@@ -94,6 +172,10 @@ export default function Setup2FAPage() {
       console.error('❌ 2FA setup error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Onbekende fout'
       setError(`2FA setup mislukt: ${errorMessage}`)
+      setDebugInfo(prev => ({ 
+        ...prev, 
+        setupError: errorMessage
+      }))
     } finally {
       setLoading(false)
     }
@@ -174,12 +256,18 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
     }
   }
 
+  const forceSkipToSetup = () => {
+    setUser({ email: 'debug@test.com' })
+    setError('')
+  }
+
   if (loading && !qrCodeUrl && !error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-gray-600">2FA instellen...</p>
+          <p className="text-xs text-gray-500 mt-2">Stap: {debugInfo.step}</p>
         </div>
       </div>
     )
@@ -200,15 +288,41 @@ Deze codes kunnen worden gebruikt als u geen toegang heeft tot uw authenticator 
           </p>
         </div>
 
+        {/* Debug Info Panel */}
+        <details className="bg-gray-100 rounded-lg p-4">
+          <summary className="cursor-pointer text-sm font-medium text-gray-700">
+            🔍 Debug Info (klik om uit te klappen)
+          </summary>
+          <div className="mt-2 text-xs text-gray-600">
+            <pre className="whitespace-pre-wrap overflow-auto max-h-40">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        </details>
+
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-600 text-sm mb-3">{error}</p>
-            <button
-              onClick={retrySetup}
-              className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
-            >
-              🔄 Opnieuw proberen
-            </button>
+            <div className="flex space-x-2">
+              <button
+                onClick={retrySetup}
+                className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
+              >
+                🔄 Opnieuw proberen
+              </button>
+              <button
+                onClick={forceSkipToSetup}
+                className="text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-700 px-3 py-1 rounded transition-colors"
+              >
+                🚀 Force Skip (Debug)
+              </button>
+              <button
+                onClick={() => router.push('/login')}
+                className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
+              >
+                🔑 Naar Login
+              </button>
+            </div>
           </div>
         )}
 
