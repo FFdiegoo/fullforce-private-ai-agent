@@ -1,0 +1,149 @@
+interface RateLimitConfig {
+  windowMs: number;
+  maxRequests: number;
+  skipSuccessfulRequests?: boolean;
+  skipFailedRequests?: boolean;
+  keyGenerator?: (req: any) => string;
+}
+
+interface RateLimitResult {
+  success: boolean;
+  remaining: number;
+  resetTime: number;
+  totalHits: number;
+}
+
+interface RateLimitStore {
+  [key: string]: {
+    count: number;
+    resetTime: number;
+    firstHit: number;
+  };
+}
+
+class RateLimiter {
+  private store: RateLimitStore = {};
+  private config: RateLimitConfig;
+
+  constructor(config: RateLimitConfig) {
+    this.config = config;
+    
+    // Cleanup expired entries every 5 minutes
+    setInterval(() => this.cleanup(), 5 * 60 * 1000);
+  }
+
+  async limit(identifier: string): Promise<RateLimitResult> {
+    const now = Date.now();
+    const key = identifier;
+    
+    // Get or create entry
+    let entry = this.store[key];
+    
+    if (!entry || now > entry.resetTime) {
+      // Create new entry or reset expired one
+      entry = {
+        count: 1,
+        resetTime: now + this.config.windowMs,
+        firstHit: now
+      };
+      this.store[key] = entry;
+      
+      return {
+        success: true,
+        remaining: this.config.maxRequests - 1,
+        resetTime: entry.resetTime,
+        totalHits: 1
+      };
+    }
+    
+    // Increment counter
+    entry.count++;
+    
+    const remaining = Math.max(0, this.config.maxRequests - entry.count);
+    const success = entry.count <= this.config.maxRequests;
+    
+    return {
+      success,
+      remaining,
+      resetTime: entry.resetTime,
+      totalHits: entry.count
+    };
+  }
+
+  private cleanup(): void {
+    const now = Date.now();
+    Object.keys(this.store).forEach(key => {
+      if (this.store[key].resetTime < now) {
+        delete this.store[key];
+      }
+    });
+  }
+
+  getStats(): { totalKeys: number; activeKeys: number } {
+    const now = Date.now();
+    const activeKeys = Object.keys(this.store).filter(
+      key => this.store[key].resetTime > now
+    ).length;
+    
+    return {
+      totalKeys: Object.keys(this.store).length,
+      activeKeys
+    };
+  }
+}
+
+// Rate limiter instances for different endpoints
+export const rateLimiters = {
+  auth: new RateLimiter({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
+    maxRequests: parseInt(process.env.RATE_LIMIT_AUTH_MAX || '5')
+  }),
+  
+  upload: new RateLimiter({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: parseInt(process.env.RATE_LIMIT_UPLOAD_MAX || '10')
+  }),
+  
+  chat: new RateLimiter({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
+    maxRequests: parseInt(process.env.RATE_LIMIT_CHAT_MAX || '50')
+  }),
+  
+  admin: new RateLimiter({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
+    maxRequests: parseInt(process.env.RATE_LIMIT_ADMIN_MAX || '20')
+  }),
+  
+  general: new RateLimiter({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
+    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100')
+  })
+};
+
+export async function applyRateLimit(
+  identifier: string,
+  type: keyof typeof rateLimiters = 'general'
+): Promise<RateLimitResult> {
+  return rateLimiters[type].limit(identifier);
+}
+
+export function getRateLimitHeaders(result: RateLimitResult) {
+  return {
+    'X-RateLimit-Limit': rateLimiters.general.config.maxRequests.toString(),
+    'X-RateLimit-Remaining': result.remaining.toString(),
+    'X-RateLimit-Reset': Math.ceil(result.resetTime / 1000).toString(),
+    'X-RateLimit-Used': result.totalHits.toString()
+  };
+}
+
+export function createRateLimitError(result: RateLimitResult) {
+  const resetDate = new Date(result.resetTime);
+  return {
+    error: 'Too Many Requests',
+    message: `Rate limit exceeded. Try again after ${resetDate.toISOString()}`,
+    retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
+    limit: rateLimiters.general.config.maxRequests,
+    remaining: result.remaining,
+    resetTime: result.resetTime
+  };
+}
