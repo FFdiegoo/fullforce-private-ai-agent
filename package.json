@@ -8,7 +8,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:fix": "npm audit fix",
+    "security:scan": "node scripts/security-scan.js",
+    "security:report": "node scripts/security-report.js",
+    "deps:check": "npm outdated",
+    "deps:update": "npm update"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
@@ -19,6 +25,7 @@
     "autoprefixer": "^10.4.17",
     "date-fns": "^3.3.1",
     "formidable": "^2.1.1",
+    "helmet": "^7.1.0",
     "next": "14.1.0",
     "openai": "^4.0.0",
     "postcss": "^8.4.35",
@@ -27,7 +34,8 @@
     "react-dom": "18.2.0",
     "speakeasy": "^2.0.0",
     "tailwindcss": "^3.4.1",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/formidable": "^3.4.5",
@@ -39,6 +47,7 @@
     "@types/uuid": "^10.0.0",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.1.0",
+    "eslint-plugin-security": "^1.7.1",
     "prisma": "^6.9.0",
     "typescript": "^5.8.3"
   }
