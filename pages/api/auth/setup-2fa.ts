@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabaseClient';
+import { supabaseAdmin } from '../../../lib/supabaseAdmin'; // 🔧 FIX: Add missing import
 import { TwoFactorAuth } from '../../../lib/two-factor';
 import { auditLogger } from '../../../lib/audit-logger';
 import { rateLimitByType } from '../../../lib/rate-limit';
