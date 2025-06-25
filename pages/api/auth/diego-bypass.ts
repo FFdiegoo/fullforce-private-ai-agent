@@ -20,29 +20,78 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log('🔓 Diego bypass access granted');
+    console.log('🔓 Diego bypass access request received');
 
-    // Check if user exists in profiles, create if not
-    let { data: profile, error: profileError } = await supabaseAdmin
+    // 🔧 FIX: First authenticate the user to get the correct user ID
+    console.log('🔐 Authenticating user with Supabase Auth...');
+    
+    let authenticatedUser;
+    try {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError || !authData.user) {
+        console.log('❌ Authentication failed, user might not exist in auth.users');
+        
+        // Try to create the user in auth.users if they don't exist
+        console.log('🆕 Creating user in auth.users...');
+        const { data: createAuthData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
+          email: 'diego.a.scognamiglio@gmail.com',
+          password: 'Hamkaastostimetkaka321@!',
+          email_confirm: true,
+          user_metadata: {
+            name: 'Diego',
+            bypass_2fa: true
+          }
+        });
+
+        if (createAuthError) {
+          console.error('❌ Failed to create auth user:', createAuthError);
+          return res.status(500).json({ error: 'Failed to create auth user: ' + createAuthError.message });
+        }
+
+        authenticatedUser = createAuthData.user;
+        console.log('✅ Auth user created successfully with ID:', authenticatedUser.id);
+      } else {
+        authenticatedUser = authData.user;
+        console.log('✅ User authenticated successfully with ID:', authenticatedUser.id);
+      }
+    } catch (authException) {
+      console.error('❌ Authentication exception:', authException);
+      return res.status(500).json({ error: 'Authentication failed' });
+    }
+
+    // 🔧 FIX: Now use the authenticated user's ID to update the profile
+    console.log('👤 Updating profile with authenticated user ID:', authenticatedUser.id);
+    
+    // First, check if profile exists
+    const { data: existingProfile, error: checkError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('email', email)
       .single();
 
-    if (profileError && profileError.code === 'PGRST116') {
-      // User doesn't exist, create them
-      console.log('👤 Creating Diego profile...');
-      
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('❌ Error checking existing profile:', checkError);
+      return res.status(500).json({ error: 'Database error checking profile' });
+    }
+
+    let profile;
+    if (!existingProfile) {
+      // Create new profile with the authenticated user's ID
+      console.log('🆕 Creating new profile...');
       const { data: newProfile, error: createError } = await supabaseAdmin
         .from('profiles')
         .insert({
-          id: '900098f4-785e-4c26-8a7b-55135f83bb16',
+          id: authenticatedUser.id, // Use the authenticated user's ID
           email: 'diego.a.scognamiglio@gmail.com',
           name: 'Diego',
           role: 'admin',
           two_factor_enabled: true, // Bypass 2FA requirement
-          two_factor_secret: 'BYPASS_SECRET',
-          backup_codes: ['BYPASS_CODE'],
+          two_factor_secret: 'BYPASS_SECRET_' + Date.now(),
+          backup_codes: ['BYPASS_CODE_' + Date.now()],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -51,60 +100,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (createError) {
         console.error('❌ Profile creation error:', createError);
-        return res.status(500).json({ error: 'Failed to create profile' });
+        return res.status(500).json({ error: 'Failed to create profile: ' + createError.message });
       }
 
       profile = newProfile;
-    } else if (profileError) {
-      console.error('❌ Profile fetch error:', profileError);
-      return res.status(500).json({ error: 'Database error' });
-    }
+      console.log('✅ Profile created successfully');
+    } else {
+      // Update existing profile to ensure 2FA bypass and admin role
+      console.log('🔄 Updating existing profile...');
+      const { data: updatedProfile, error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          id: authenticatedUser.id, // Ensure ID matches authenticated user
+          role: 'admin',
+          two_factor_enabled: true, // Bypass 2FA requirement
+          two_factor_secret: 'BYPASS_SECRET_' + Date.now(),
+          backup_codes: ['BYPASS_CODE_' + Date.now()],
+          updated_at: new Date().toISOString()
+        })
+        .eq('email', email)
+        .select()
+        .single();
 
-    // Ensure user has admin role and 2FA bypass
-    const { error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        role: 'admin',
-        two_factor_enabled: true, // Bypass 2FA requirement
-        two_factor_secret: 'BYPASS_SECRET',
-        backup_codes: ['BYPASS_CODE'],
-        updated_at: new Date().toISOString()
-      })
-      .eq('email', email);
-
-    if (updateError) {
-      console.error('❌ Profile update error:', updateError);
-      return res.status(500).json({ error: 'Failed to update profile' });
-    }
-
-    // Check if auth user exists, create if not
-    const { data: authUser } = await supabaseAdmin.auth.admin.listUsers();
-    const existingAuthUser = authUser.users.find(u => u.email === email);
-
-    if (!existingAuthUser) {
-      console.log('🔐 Creating auth user...');
-      
-      const { data: newAuthUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        id: '900098f4-785e-4c26-8a7b-55135f83bb16',
-        email: 'diego.a.scognamiglio@gmail.com',
-        password: 'Hamkaastostimetkaka321@!',
-        email_confirm: true,
-        user_metadata: {
-          name: 'Diego',
-          bypass_2fa: true
-        }
-      });
-
-      if (authError) {
-        console.error('❌ Auth user creation error:', authError);
-        return res.status(500).json({ error: 'Failed to create auth user' });
+      if (updateError) {
+        console.error('❌ Profile update error:', updateError);
+        return res.status(500).json({ error: 'Failed to update profile: ' + updateError.message });
       }
+
+      profile = updatedProfile;
+      console.log('✅ Profile updated successfully');
     }
 
-    await auditLogger.logAuth('DIEGO_BYPASS_ACCESS', profile.id, {
+    // Log the bypass access
+    await auditLogger.logAuth('DIEGO_BYPASS_ACCESS', authenticatedUser.id, {
       email,
-      method: 'bypass_login'
+      method: 'bypass_login',
+      profileId: profile.id,
+      authUserId: authenticatedUser.id
     });
+
+    console.log('✅ Diego bypass access granted successfully');
 
     return res.status(200).json({
       success: true,
@@ -115,11 +150,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         role: profile.role,
         two_factor_enabled: true // Shows as enabled to bypass checks
       },
-      message: 'Diego bypass access granted'
+      authUser: {
+        id: authenticatedUser.id,
+        email: authenticatedUser.email
+      },
+      message: 'Diego bypass access granted - profile updated with correct user ID'
     });
 
   } catch (error) {
     console.error('❌ Diego bypass error:', error);
+    await auditLogger.logError(error as Error, 'DIEGO_BYPASS');
     return res.status(500).json({
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
