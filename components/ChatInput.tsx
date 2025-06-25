@@ -18,6 +18,20 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        // Shift+Enter: Do nothing, let default behavior add new line
+        // But since this is an input field, we need to convert to textarea for multiline
+        return;
+      } else {
+        // Regular Enter: Submit the form
+        e.preventDefault();
+        handleSubmit(e);
+      }
+    }
+  };
+
   const handleUploadSuccess = (filename: string) => {
     setShowUpload(false);
     // Send a system message about the upload
@@ -69,13 +83,23 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             📎
           </button>
           
-          <input
-            type="text"
+          <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type your message..."
+            onKeyDown={handleKeyDown}
+            placeholder="Type your message... (Shift+Enter for new line, Enter to send)"
             disabled={disabled}
-            className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
+            rows={1}
+            className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm resize-none min-h-[56px] max-h-32 overflow-y-auto"
+            style={{
+              height: 'auto',
+              minHeight: '56px'
+            }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+            }}
           />
           
           <button
@@ -89,6 +113,11 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
           >
             Send
           </button>
+        </div>
+        
+        {/* Keyboard shortcut hint */}
+        <div className="mt-2 text-xs text-gray-500 text-center">
+          <span className="bg-gray-100 px-2 py-1 rounded">Shift+Enter</span> voor nieuwe regel • <span className="bg-gray-100 px-2 py-1 rounded">Enter</span> om te versturen
         </div>
       </form>
     </div>

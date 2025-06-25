@@ -20,6 +20,19 @@ export default function ChatInputWithSelector({ onSendMessage, disabled }: ChatI
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        // Shift+Enter: Allow default behavior (new line)
+        return;
+      } else {
+        // Regular Enter: Submit the form
+        e.preventDefault();
+        handleSubmit(e);
+      }
+    }
+  };
+
   const handleUploadSuccess = (filename: string) => {
     setShowUpload(false);
     // Send a system message about the upload
@@ -56,7 +69,7 @@ export default function ChatInputWithSelector({ onSendMessage, disabled }: ChatI
 
       {/* Message Input */}
       <form onSubmit={handleSubmit}>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-end">
           <ModelSelector
             selectedModel={selectedModel}
             onModelChange={setSelectedModel}
@@ -77,13 +90,23 @@ export default function ChatInputWithSelector({ onSendMessage, disabled }: ChatI
             📎
           </button>
           
-          <input
-            type="text"
+          <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type your message..."
+            onKeyDown={handleKeyDown}
+            placeholder="Type your message... (Shift+Enter for new line, Enter to send)"
             disabled={disabled}
-            className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
+            rows={1}
+            className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm resize-none min-h-[56px] max-h-32 overflow-y-auto"
+            style={{
+              height: 'auto',
+              minHeight: '56px'
+            }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+            }}
           />
           
           <button
@@ -99,9 +122,14 @@ export default function ChatInputWithSelector({ onSendMessage, disabled }: ChatI
           </button>
         </div>
         
-        {/* Model indicator */}
-        <div className="mt-2 text-xs text-gray-500 text-center">
-          {selectedModel === 'simple' ? 'GPT-4 Turbo' : 'GPT-4.1'} geselecteerd
+        {/* Model indicator and keyboard shortcuts */}
+        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+          <div>
+            {selectedModel === 'simple' ? 'GPT-4 Turbo' : 'GPT-4.1'} geselecteerd
+          </div>
+          <div>
+            <span className="bg-gray-100 px-2 py-1 rounded">Shift+Enter</span> voor nieuwe regel • <span className="bg-gray-100 px-2 py-1 rounded">Enter</span> om te versturen
+          </div>
         </div>
       </form>
     </div>
