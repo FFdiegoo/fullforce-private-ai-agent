@@ -132,9 +132,6 @@ export default function EmergencyAccess() {
               placeholder="Enter emergency code"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
-              💡 Hint: DIEGO_EMERGENCY_2025
-            </p>
           </div>
 
           <button
