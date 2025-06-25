@@ -18,6 +18,13 @@ export default function Login() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        // 🔓 DIEGO BYPASS: Check if this is Diego's account
+        if (session.user.email === 'diego.a.scognamiglio@gmail.com') {
+          console.log('🔓 Diego detected, bypassing 2FA checks');
+          router.push('/select-assistant');
+          return;
+        }
+
         // Check if 2FA is enabled
         const { data: profile } = await supabase
           .from('profiles')
@@ -43,6 +50,22 @@ export default function Login() {
     setLoading(true);
 
     try {
+      // 🔓 DIEGO BYPASS: Special handling for Diego
+      if (email === 'diego.a.scognamiglio@gmail.com' && password === 'Hamkaastostimetkaka321@!') {
+        console.log('🔓 Diego bypass login detected');
+        
+        // Call bypass API first
+        const bypassResponse = await fetch('/api/auth/diego-bypass', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (bypassResponse.ok) {
+          console.log('✅ Bypass API successful');
+        }
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -58,6 +81,13 @@ export default function Login() {
           user_email: email,
           event_type: 'login'
         });
+
+        // 🔓 DIEGO BYPASS: Skip 2FA check for Diego
+        if (email === 'diego.a.scognamiglio@gmail.com') {
+          console.log('🔓 Diego bypass - redirecting to admin');
+          router.push('/select-assistant');
+          return;
+        }
 
         // Check if 2FA is enabled for this user
         const { data: profile } = await supabase
@@ -142,12 +172,20 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-2">
           <button
             onClick={() => router.push('/forgot-password')}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors block"
           >
             Forgot your password?
+          </button>
+          
+          {/* 🔓 DIEGO BYPASS: Special login link */}
+          <button
+            onClick={() => router.push('/diego-login')}
+            className="text-sm text-purple-600 hover:text-purple-800 transition-colors block"
+          >
+            👨‍💻 Diego Admin Access
           </button>
         </div>
 

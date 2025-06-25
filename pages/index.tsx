@@ -25,6 +25,13 @@ export default function Home() {
         return;
       }
 
+      // 🔓 DIEGO BYPASS: Check if this is Diego's account
+      if (session.user.email === 'diego.a.scognamiglio@gmail.com') {
+        console.log('🔓 Diego detected, bypassing 2FA checks');
+        router.push('/select-assistant');
+        return;
+      }
+
       // User is authenticated, check if they need 2FA setup
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
