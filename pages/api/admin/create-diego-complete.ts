@@ -10,6 +10,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     console.log('🔧 Creating complete Diego user account...');
 
+    // Generate a secure temporary password
+    const tempPassword = 'TempPass' + Math.random().toString(36).substring(2, 15) + '!';
+    console.log('🔑 Generated secure temporary password');
+
     // First, check if user already exists in auth
     const { data: existingAuthUser } = await supabaseAdmin.auth.admin.getUserById('900098f4-785e-4c26-8a7b-55135f83bb16');
     
@@ -21,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         '900098f4-785e-4c26-8a7b-55135f83bb16',
         {
           email: 'diego.a.scognamiglio@gmail.com',
-          password: 'Hamkaastostimetkaka321@!',
+          password: tempPassword,
           email_confirm: true,
           user_metadata: {
             name: 'Diego',
@@ -46,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         id: '900098f4-785e-4c26-8a7b-55135f83bb16',
         email: 'diego.a.scognamiglio@gmail.com',
-        password: 'Hamkaastostimetkaka321@!',
+        password: tempPassword,
         email_confirm: true,
         user_metadata: {
           name: 'Diego',
@@ -108,17 +112,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('✅ Profile created successfully:', profileData);
 
-    // Generate a magic link for 2FA setup
-    const { data: magicLinkData, error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
+    // Generate a password reset link instead of magic link
+    const { data: resetLinkData, error: resetLinkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
       email: 'diego.a.scognamiglio@gmail.com',
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/setup-2fa`
       }
     });
 
-    if (magicLinkError) {
-      console.error('❌ Magic link generation error:', magicLinkError);
+    if (resetLinkError) {
+      console.error('❌ Reset link generation error:', resetLinkError);
       // Don't fail the whole process for this
     }
 
@@ -142,12 +146,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         two_factor_enabled: false
       },
       profile: profileData,
-      magicLink: magicLinkData?.properties?.action_link,
+      resetLink: resetLinkData?.properties?.action_link,
       message: 'Diego complete user account created successfully',
       loginCredentials: {
         email: 'diego.a.scognamiglio@gmail.com',
-        password: 'Hamkaastostimetkaka321@!',
-        note: 'User can login directly with these credentials'
+        password: tempPassword,
+        note: 'Temporary password - user should change after first login'
       }
     });
 

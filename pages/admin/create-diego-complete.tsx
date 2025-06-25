@@ -64,7 +64,7 @@ export default function CreateDiegoComplete() {
 Hoi Diego! Je admin account is aangemaakt:
 
 📧 Email: ${result.loginCredentials.email}
-🔑 Wachtwoord: ${result.loginCredentials.password}
+🔑 Tijdelijk Wachtwoord: ${result.loginCredentials.password}
 👤 Naam: Diego  
 📱 Telefoon: 0614759664
 🛡️ Role: Admin
@@ -76,7 +76,10 @@ ${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:300
 1. Verplichte 2FA setup
 2. Scan QR-code met Google Authenticator  
 3. Bewaar backup codes
-4. Volledige admin toegang!
+4. Wijzig je wachtwoord (aanbevolen)
+5. Volledige admin toegang!
+
+💡 Tip: Wijzig je wachtwoord na eerste login voor extra beveiliging.
 
 Groeten,
 CSrental AI Team`;
@@ -99,13 +102,14 @@ CSrental AI Team`;
               🚀 Create Complete Diego User
             </h1>
             <p className="text-gray-600">
-              Create complete admin account for Diego with all credentials
+              Create complete admin account for Diego with secure credentials
             </p>
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-700">
                 <strong>Target:</strong> diego.a.scognamiglio@gmail.com<br />
                 <strong>UUID:</strong> 900098f4-785e-4c26-8a7b-55135f83bb16<br />
-                <strong>Role:</strong> Admin
+                <strong>Role:</strong> Admin<br />
+                <strong>Security:</strong> Secure temporary password generated
               </p>
             </div>
           </div>
@@ -153,7 +157,8 @@ CSrental AI Team`;
                   </label>
                   <div className="bg-white p-3 rounded border">
                     <p><strong>Email:</strong> {result.loginCredentials.email}</p>
-                    <p><strong>Password:</strong> <code className="bg-gray-100 px-1 rounded">{result.loginCredentials.password}</code></p>
+                    <p><strong>Temporary Password:</strong> <code className="bg-gray-100 px-1 rounded">{result.loginCredentials.password}</code></p>
+                    <p className="text-xs text-orange-600 mt-1">⚠️ {result.loginCredentials.note}</p>
                   </div>
                   <div className="flex space-x-2 mt-2">
                     <button
@@ -171,19 +176,19 @@ CSrental AI Team`;
                   </div>
                 </div>
 
-                {result.magicLink && (
+                {result.resetLink && (
                   <div>
                     <label className="block text-sm font-medium text-green-700 mb-2">
-                      🔗 Magic Link (optional - direct 2FA setup):
+                      🔗 Password Reset Link (optional - direct 2FA setup):
                     </label>
                     <div className="bg-white p-3 rounded border break-all text-sm">
-                      {result.magicLink}
+                      {result.resetLink}
                     </div>
                     <button
-                      onClick={() => copyToClipboard(result.magicLink)}
+                      onClick={() => copyToClipboard(result.resetLink)}
                       className="mt-2 px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
                     >
-                      📋 Copy Magic Link
+                      📋 Copy Reset Link
                     </button>
                   </div>
                 )}
@@ -193,11 +198,12 @@ CSrental AI Team`;
                   <ol className="text-sm text-blue-700 space-y-1">
                     <li>1. Go to the login page</li>
                     <li>2. Use email: <code>{result.loginCredentials.email}</code></li>
-                    <li>3. Use password: <code>{result.loginCredentials.password}</code></li>
+                    <li>3. Use temporary password: <code>{result.loginCredentials.password}</code></li>
                     <li>4. Complete mandatory 2FA setup</li>
                     <li>5. Scan QR-code with Google Authenticator</li>
                     <li>6. Download and save backup codes</li>
-                    <li>7. Access admin dashboard</li>
+                    <li>7. Change password (recommended)</li>
+                    <li>8. Access admin dashboard</li>
                   </ol>
                 </div>
 
@@ -205,6 +211,7 @@ CSrental AI Team`;
                   <h4 className="font-medium text-yellow-800 mb-2">🔐 Security Notes:</h4>
                   <ul className="text-sm text-yellow-700 space-y-1">
                     <li>• Account is ready for immediate login</li>
+                    <li>• Secure temporary password generated</li>
                     <li>• 2FA setup is mandatory before full access</li>
                     <li>• User has full admin privileges after 2FA</li>
                     <li>• All actions are logged in audit trail</li>
@@ -247,8 +254,9 @@ CSrental AI Team`;
               
               <div className="text-center text-sm text-gray-600 space-y-1">
                 <p>💡 <strong>Tip:</strong> Use WhatsApp button to send Diego all details!</p>
-                <p>🔄 <strong>Flow:</strong> Email + Password → 2FA Setup → Admin Access</p>
+                <p>🔄 <strong>Flow:</strong> Email + Temp Password → 2FA Setup → Password Change → Admin Access</p>
                 <p>📱 <strong>WhatsApp:</strong> 0614759664</p>
+                <p>🔐 <strong>Security:</strong> Temporary password auto-generated</p>
               </div>
             </div>
           )}
@@ -257,11 +265,12 @@ CSrental AI Team`;
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
               <h4 className="font-medium text-gray-800 mb-2">🎯 What this will do:</h4>
               <ul className="text-sm text-gray-600 space-y-1">
+                <li>• Generate secure temporary password</li>
                 <li>• Clean up any existing conflicting records</li>
                 <li>• Create auth user with specific UUID</li>
                 <li>• Create profile with all columns filled</li>
                 <li>• Set admin role and permissions</li>
-                <li>• Generate magic link for 2FA setup</li>
+                <li>• Generate password reset link for 2FA setup</li>
                 <li>• Provide WhatsApp message for Diego</li>
               </ul>
             </div>
