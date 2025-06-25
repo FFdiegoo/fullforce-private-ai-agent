@@ -97,7 +97,7 @@ export default function ChatInputWithSelector({ onSendMessage, disabled }: ChatI
             placeholder="Type your message... (Shift+Enter for new line, Enter to send)"
             disabled={disabled}
             rows={1}
-            className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm resize-none min-h-[56px] max-h-32 overflow-y-auto"
+            className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm resize-none min-h-[56px] max-h-[2400px] overflow-y-auto"
             style={{
               height: 'auto',
               minHeight: '56px'
@@ -105,7 +105,7 @@ export default function ChatInputWithSelector({ onSendMessage, disabled }: ChatI
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
               target.style.height = 'auto';
-              target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+              target.style.height = Math.min(target.scrollHeight, 2400) + 'px';
             }}
           />
           
