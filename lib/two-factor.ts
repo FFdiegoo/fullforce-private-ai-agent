@@ -129,18 +129,39 @@ export class TwoFactorAuth {
       hasSecret: !!secret,
       secretLength: secret?.length,
       tokenLength: token?.length,
-      window: this.WINDOW
+      window: this.WINDOW,
+      secretPreview: secret?.substring(0, 10) + '...',
+      token: token
     });
 
     try {
+      // 🔧 CRITICAL FIX: Add more detailed logging and error handling
       const result = speakeasy.totp.verify({
-        secret,
+        secret: secret,
         encoding: 'base32',
-        token,
+        token: token,
+        window: this.WINDOW,
+        time: Math.floor(Date.now() / 1000) // Explicit time
+      });
+      
+      console.log('🔐 TOTP verification result:', {
+        result,
+        currentTime: Math.floor(Date.now() / 1000),
         window: this.WINDOW
       });
       
-      console.log('🔐 TOTP verification result:', result);
+      // 🔧 ADDITIONAL DEBUG: Try with different windows
+      if (!result) {
+        console.log('🔍 Trying with larger window...');
+        const resultLargeWindow = speakeasy.totp.verify({
+          secret: secret,
+          encoding: 'base32',
+          token: token,
+          window: 10 // Much larger window for debugging
+        });
+        console.log('🔐 Large window result:', resultLargeWindow);
+      }
+      
       return result;
     } catch (error) {
       console.error('❌ TOTP verification error:', error);

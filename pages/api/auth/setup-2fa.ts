@@ -170,6 +170,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('🔍 Verification attempt:', {
         userEmail: user.email,
         hasSecret: !!secret,
+        secretLength: secret.length,
         tokenLength: verificationToken?.length,
         backupCodesCount: backupCodes?.length
       });
@@ -185,10 +186,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'User profile not found' });
       }
 
-      // 🔧 FIX: Use the secret from the request (which was generated in POST)
-      // This is the correct approach since we're in the setup flow
+      // 🔧 CRITICAL FIX: Direct TOTP verification without enableTwoFactor wrapper
       console.log('🔐 Verifying TOTP with provided secret...');
+      
+      // Test the TOTP verification directly
       const isValidToken = TwoFactorAuth.verifyToken(secret, verificationToken);
+      
+      console.log('🔍 TOTP verification result:', {
+        isValid: isValidToken,
+        secret: secret.substring(0, 10) + '...',
+        token: verificationToken,
+        timestamp: new Date().toISOString()
+      });
       
       if (!isValidToken) {
         console.log('❌ TOTP verification failed');
@@ -201,17 +210,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       console.log('✅ TOTP verification successful');
 
-      // Enable 2FA in database
-      const success = await TwoFactorAuth.enableTwoFactor(
-        profile.id,
-        secret,
-        verificationToken,
-        backupCodes
-      );
+      // Now save to database directly (bypass enableTwoFactor to avoid double verification)
+      console.log('💾 Saving 2FA settings to database...');
+      
+      const { error: dbError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          two_factor_enabled: true,
+          two_factor_secret: secret,
+          backup_codes: backupCodes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id);
 
-      if (!success) {
-        console.log('❌ Failed to enable 2FA in database');
-        return res.status(500).json({ error: 'Failed to enable 2FA' });
+      if (dbError) {
+        console.error('❌ Database update error:', dbError);
+        return res.status(500).json({ error: 'Failed to save 2FA settings' });
       }
 
       console.log('✅ 2FA enabled successfully for user:', user.email);

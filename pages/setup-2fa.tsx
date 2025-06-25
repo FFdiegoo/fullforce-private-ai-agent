@@ -30,6 +30,13 @@ interface DebugInfo {
     tokenLength?: number;
     secretLength?: number;
     timestamp?: string;
+    serverTime?: string;
+    clientTime?: string;
+  };
+  verificationResponse?: {
+    status?: number;
+    ok?: boolean;
+    error?: string;
   };
 }
 
@@ -326,11 +333,13 @@ export default function Setup2FAPage() {
         return
       }
 
-      // 🔧 FIX: Log verification attempt details
+      // 🔧 FIX: Enhanced verification attempt logging
       const verificationAttempt = {
         tokenLength: verificationCode.length,
         secretLength: secret.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        serverTime: new Date().toUTCString(),
+        clientTime: new Date().toLocaleString()
       }
       
       setDebugInfo((prev: DebugInfo) => ({ 
@@ -341,15 +350,18 @@ export default function Setup2FAPage() {
       console.log('📡 Sending verification request:', {
         hasSecret: !!secret,
         secretLength: secret.length,
+        secretPreview: secret.substring(0, 10) + '...',
         tokenLength: verificationCode.length,
-        backupCodesCount: backupCodes.length
+        token: verificationCode,
+        backupCodesCount: backupCodes.length,
+        currentTime: new Date().toISOString()
       })
       
       const response = await fetch('/api/auth/setup-2fa', {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           secret: secret, // 🔧 FIX: Send the secret from the setup
@@ -358,18 +370,29 @@ export default function Setup2FAPage() {
         })
       })
 
+      const responseData = await response.json()
+
       console.log('📡 Verification response:', {
         status: response.status,
-        ok: response.ok
+        ok: response.ok,
+        data: responseData
       })
+
+      setDebugInfo((prev: DebugInfo) => ({ 
+        ...prev, 
+        verificationResponse: {
+          status: response.status,
+          ok: response.ok,
+          error: responseData.error
+        }
+      }))
 
       if (response.ok) {
         console.log('✅ 2FA verification successful!')
         setStep(3)
       } else {
-        const errorData = await response.json()
-        console.error('❌ Verification failed:', errorData)
-        setError(errorData.error || 'Verification failed')
+        console.error('❌ Verification failed:', responseData)
+        setError(responseData.error || 'Verification failed')
       }
     } catch (error) {
       console.error('❌ 2FA verification error:', error)
@@ -583,10 +606,18 @@ These codes can be used if you don't have access to your authenticator app.
                 Enter the 6-digit code shown in your authenticator app
               </p>
               
-              {/* 🔧 FIX: Show current time for debugging */}
+              {/* 🔧 FIX: Enhanced debugging info */}
               <div className="mb-4 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                Current time: {new Date().toLocaleTimeString()} 
-                <br />Secret length: {secret.length}
+                <strong>Debug Info:</strong><br />
+                Current time: {new Date().toLocaleTimeString()}<br />
+                Secret length: {secret.length}<br />
+                Secret preview: {secret.substring(0, 10)}...<br />
+                {debugInfo.verificationAttempt && (
+                  <>
+                    Last attempt: {debugInfo.verificationAttempt.timestamp}<br />
+                    Response: {debugInfo.verificationResponse?.status} - {debugInfo.verificationResponse?.error || 'OK'}
+                  </>
+                )}
               </div>
               
               <input
