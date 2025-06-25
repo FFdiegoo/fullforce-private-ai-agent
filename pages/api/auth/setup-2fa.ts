@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabaseClient';
-import { supabaseAdmin } from '../../../lib/supabaseAdmin'; // 🔧 FIX: Add missing import
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { TwoFactorAuth } from '../../../lib/two-factor';
 import { auditLogger } from '../../../lib/audit-logger';
 import { rateLimitByType } from '../../../lib/rate-limit';
@@ -176,21 +176,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         backupCodesCount: backupCodes?.length
       });
 
-      // Get user profile ID
-      const { data: profile } = await supabase
+      // Get user profile ID by email (more reliable than auth.uid())
+      const { data: profile, error: profileError } = await supabaseAdmin
         .from('profiles')
         .select('id')
         .eq('email', user.email)
         .single();
 
-      if (!profile) {
+      if (profileError || !profile) {
+        console.error('❌ Profile not found:', profileError);
         return res.status(404).json({ error: 'User profile not found' });
       }
 
-      // 🔧 CRITICAL FIX: Direct TOTP verification without enableTwoFactor wrapper
+      console.log('✅ Profile found:', profile.id);
+
+      // 🔧 CRITICAL FIX: Direct TOTP verification
       console.log('🔐 Verifying TOTP with provided secret...');
       
-      // Test the TOTP verification directly
       const isValidToken = TwoFactorAuth.verifyToken(secret, verificationToken);
       
       console.log('🔍 TOTP verification result:', {
@@ -211,31 +213,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       console.log('✅ TOTP verification successful');
 
-      // Now save to database directly (bypass enableTwoFactor to avoid double verification)
+      // 🔧 CRITICAL FIX: Save to database with better error handling
       console.log('💾 Saving 2FA settings to database...');
       
-      const { error: dbError } = await supabaseAdmin
-        .from('profiles')
-        .update({
-          two_factor_enabled: true,
-          two_factor_secret: secret,
-          backup_codes: backupCodes,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', profile.id);
+      try {
+        const { error: dbError } = await supabaseAdmin
+          .from('profiles')
+          .update({
+            two_factor_enabled: true,
+            two_factor_secret: secret,
+            backup_codes: backupCodes,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', profile.id);
 
-      if (dbError) {
-        console.error('❌ Database update error:', dbError);
-        return res.status(500).json({ error: 'Failed to save 2FA settings' });
+        if (dbError) {
+          console.error('❌ Database update error:', dbError);
+          
+          // Try alternative approach - update by email
+          console.log('🔄 Trying alternative update by email...');
+          const { error: dbError2 } = await supabaseAdmin
+            .from('profiles')
+            .update({
+              two_factor_enabled: true,
+              two_factor_secret: secret,
+              backup_codes: backupCodes,
+              updated_at: new Date().toISOString()
+            })
+            .eq('email', user.email);
+
+          if (dbError2) {
+            console.error('❌ Alternative database update also failed:', dbError2);
+            return res.status(500).json({ 
+              error: 'Failed to save 2FA settings',
+              details: `Primary error: ${dbError.message}, Secondary error: ${dbError2.message}`
+            });
+          }
+        }
+
+        console.log('✅ 2FA enabled successfully in database');
+        
+        await auditLogger.logAuth('2FA_ENABLED', user.id, {
+          email: user.email
+        }, clientIP);
+
+        return res.status(200).json({ success: true });
+
+      } catch (dbException) {
+        console.error('❌ Database exception:', dbException);
+        return res.status(500).json({ 
+          error: 'Database operation failed',
+          details: dbException instanceof Error ? dbException.message : 'Unknown database error'
+        });
       }
-
-      console.log('✅ 2FA enabled successfully for user:', user.email);
-      
-      await auditLogger.logAuth('2FA_ENABLED', user.id, {
-        email: user.email
-      }, clientIP);
-
-      return res.status(200).json({ success: true });
 
     } catch (error) {
       console.error('❌ 2FA enable error:', error);
