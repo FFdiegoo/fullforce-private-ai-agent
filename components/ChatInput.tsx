@@ -87,7 +87,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your message... (Shift+Enter for new line, Enter to send)"
+            placeholder="Typ je bericht"
             disabled={disabled}
             rows={1}
             className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm resize-none min-h-[56px] max-h-32 overflow-y-auto"
