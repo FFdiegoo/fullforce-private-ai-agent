@@ -1,5 +1,4 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { auditLogger } from '../lib/enhanced-audit-logger';
 
 interface Props {
   children: ReactNode;
@@ -29,11 +28,11 @@ export class ErrorBoundary extends Component<Props, State> {
       // Generate error ID
       const errorId = `err_${Date.now()}_${Math.random().toString(36).substring(2)}`;
       
-      // Log error to audit system
-      await auditLogger.logError(error, 'REACT_ERROR_BOUNDARY', undefined, {
+      console.error('Error details:', {
         errorId,
-        componentStack: errorInfo.componentStack,
-        errorBoundary: true
+        message: error.message,
+        stack: error.stack,
+        componentStack: errorInfo.componentStack
       });
       
       this.setState({ errorId });
@@ -56,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
               Something went wrong
             </h1>
             <p className="text-gray-600 mb-6">
-              We're sorry, but something unexpected happened. Our team has been notified.
+              We're sorry, but something unexpected happened. Please try refreshing the page.
             </p>
             
             {this.state.errorId && (
@@ -72,14 +71,14 @@ export class ErrorBoundary extends Component<Props, State> {
                 onClick={() => window.location.reload()}
                 className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors"
               >
-                Reload Page
+                🔄 Reload Page
               </button>
               
               <button
-                onClick={() => window.history.back()}
+                onClick={() => window.location.href = '/login'}
                 className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-colors"
               >
-                Go Back
+                🔑 Go to Login
               </button>
             </div>
             
@@ -88,7 +87,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 <summary className="cursor-pointer text-sm text-gray-500">
                   Error Details (Development)
                 </summary>
-                <pre className="mt-2 text-xs bg-red-50 p-3 rounded overflow-auto">
+                <pre className="mt-2 text-xs bg-red-50 p-3 rounded overflow-auto max-h-40">
                   {this.state.error.stack}
                 </pre>
               </details>
