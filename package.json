@@ -14,7 +14,9 @@
     "security:scan": "node scripts/security-scan.js",
     "security:report": "node scripts/security-report.js",
     "deps:check": "npm outdated",
-    "deps:update": "npm update"
+    "deps:update": "npm update",
+    "schema:verify": "node scripts/verify-schema-compliance.js",
+    "schema:check": "npm run schema:verify"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
@@ -24,6 +26,7 @@
     "@tanstack/react-table": "^8.11.8",
     "autoprefixer": "^10.4.17",
     "date-fns": "^3.3.1",
+    "dotenv": "^16.4.7",
     "formidable": "^2.1.1",
     "helmet": "^7.2.0",
     "next": "14.1.0",
