@@ -189,6 +189,9 @@ export class SecurityScanner {
       'Conduct periodic penetration testing'
     ];
 
+    // 🔧 FIX: Convert Set to Array using Array.from() instead of spread operator
+    const uniqueRecommendations = Array.from(new Set(overallRecommendations));
+
     return {
       dependencies,
       code,
@@ -196,7 +199,7 @@ export class SecurityScanner {
         score: overallScore,
         status,
         criticalIssues,
-        recommendations: [...new Set(overallRecommendations)]
+        recommendations: uniqueRecommendations
       }
     };
   }
