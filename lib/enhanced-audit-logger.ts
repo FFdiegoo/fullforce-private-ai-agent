@@ -23,11 +23,13 @@ export interface SecurityEvent {
 export class EnhancedAuditLogger {
   private static instance: EnhancedAuditLogger;
   private buffer: AuditLogData[] = [];
-  private flushInterval: NodeJS.Timeout;
+  private flushInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    // Flush buffer every 5 seconds
-    this.flushInterval = setInterval(() => this.flush(), 5000);
+    // Only set up interval in Node.js environment
+    if (typeof setInterval !== 'undefined') {
+      this.flushInterval = setInterval(() => this.flush(), 5000);
+    }
   }
 
   static getInstance(): EnhancedAuditLogger {
@@ -38,22 +40,26 @@ export class EnhancedAuditLogger {
   }
 
   async log(data: AuditLogData): Promise<void> {
-    const logEntry: AuditLogData = {
-      ...data,
-      severity: data.severity || 'INFO',
-      metadata: {
-        ...data.metadata,
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
+    try {
+      const logEntry: AuditLogData = {
+        ...data,
+        severity: data.severity || 'INFO',
+        metadata: {
+          ...data.metadata,
+          timestamp: new Date().toISOString(),
+          environment: process.env.NODE_ENV || 'development'
+        }
+      };
+
+      // Add to buffer for batch processing
+      this.buffer.push(logEntry);
+
+      // For critical events, flush immediately
+      if (data.severity === 'CRITICAL' || data.severity === 'ERROR') {
+        await this.flush();
       }
-    };
-
-    // Add to buffer for batch processing
-    this.buffer.push(logEntry);
-
-    // For critical events, flush immediately
-    if (data.severity === 'CRITICAL' || data.severity === 'ERROR') {
-      await this.flush();
+    } catch (error) {
+      console.error('Audit logger error:', error);
     }
   }
 
@@ -141,22 +147,25 @@ export class EnhancedAuditLogger {
     this.buffer = [];
 
     try {
-      const { error } = await supabaseAdmin
-        .from('audit_logs')
-        .insert(entries.map(entry => ({
-          user_id: entry.userId,
-          action: entry.action,
-          metadata: entry.metadata,
-          ip_address: entry.ipAddress,
-          user_agent: entry.userAgent,
-          severity: entry.severity,
-          created_at: new Date().toISOString()
-        })));
+      // Only attempt database write if supabaseAdmin is available
+      if (typeof supabaseAdmin !== 'undefined') {
+        const { error } = await supabaseAdmin
+          .from('audit_logs')
+          .insert(entries.map(entry => ({
+            user_id: entry.userId,
+            action: entry.action,
+            metadata: entry.metadata,
+            ip_address: entry.ipAddress,
+            user_agent: entry.userAgent,
+            severity: entry.severity,
+            created_at: new Date().toISOString()
+          })));
 
-      if (error) {
-        console.error('Failed to flush audit logs:', error);
-        // Re-add failed entries to buffer
-        this.buffer.unshift(...entries);
+        if (error) {
+          console.error('Failed to flush audit logs:', error);
+          // Re-add failed entries to buffer
+          this.buffer.unshift(...entries);
+        }
       }
     } catch (error) {
       console.error('Audit log flush error:', error);
@@ -175,14 +184,16 @@ export class EnhancedAuditLogger {
 
     // Log to a separate critical events table if needed
     try {
-      await supabaseAdmin
-        .from('critical_events')
-        .insert({
-          action,
-          details,
-          created_at: new Date().toISOString(),
-          acknowledged: false
-        });
+      if (typeof supabaseAdmin !== 'undefined') {
+        await supabaseAdmin
+          .from('critical_events')
+          .insert({
+            action,
+            details,
+            created_at: new Date().toISOString(),
+            acknowledged: false
+          });
+      }
     } catch (error) {
       console.error('Failed to log critical event:', error);
     }
@@ -197,6 +208,10 @@ export class EnhancedAuditLogger {
     limit?: number;
   } = {}): Promise<any[]> {
     try {
+      if (typeof supabaseAdmin === 'undefined') {
+        return [];
+      }
+
       let query = supabaseAdmin
         .from('audit_logs')
         .select('*')
@@ -242,6 +257,7 @@ export class EnhancedAuditLogger {
   destroy(): void {
     if (this.flushInterval) {
       clearInterval(this.flushInterval);
+      this.flushInterval = null;
     }
     // Flush remaining logs
     this.flush();
@@ -251,7 +267,9 @@ export class EnhancedAuditLogger {
 // Export singleton instance
 export const auditLogger = EnhancedAuditLogger.getInstance();
 
-// Cleanup on process exit
-process.on('beforeExit', () => {
-  auditLogger.destroy();
-});
+// Cleanup on process exit (only in Node.js environment)
+if (typeof process !== 'undefined' && process.on) {
+  process.on('beforeExit', () => {
+    auditLogger.destroy();
+  });
+}

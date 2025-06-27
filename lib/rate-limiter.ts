@@ -29,7 +29,9 @@ class RateLimiter {
     this.config = config;
     
     // Cleanup expired entries every 5 minutes
-    setInterval(() => this.cleanup(), 5 * 60 * 1000);
+    if (typeof setInterval !== 'undefined') {
+      setInterval(() => this.cleanup(), 5 * 60 * 1000);
+    }
   }
 
   // 🔧 FIX: Add public getter for maxRequests
@@ -129,7 +131,18 @@ export async function applyRateLimit(
   identifier: string,
   type: keyof typeof rateLimiters = 'general'
 ): Promise<RateLimitResult> {
-  return rateLimiters[type].limit(identifier);
+  try {
+    return rateLimiters[type].limit(identifier);
+  } catch (error) {
+    console.error('Rate limiter error:', error);
+    // Return success as fallback to prevent blocking
+    return {
+      success: true,
+      remaining: 100,
+      resetTime: Date.now() + 900000,
+      totalHits: 1
+    };
+  }
 }
 
 export function getRateLimitHeaders(result: RateLimitResult) {
