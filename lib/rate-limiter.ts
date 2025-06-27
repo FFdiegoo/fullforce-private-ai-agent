@@ -32,6 +32,11 @@ class RateLimiter {
     setInterval(() => this.cleanup(), 5 * 60 * 1000);
   }
 
+  // 🔧 FIX: Add public getter for maxRequests
+  get maxRequests(): number {
+    return this.config.maxRequests;
+  }
+
   async limit(identifier: string): Promise<RateLimitResult> {
     const now = Date.now();
     const key = identifier;
@@ -129,7 +134,8 @@ export async function applyRateLimit(
 
 export function getRateLimitHeaders(result: RateLimitResult) {
   return {
-    'X-RateLimit-Limit': rateLimiters.general.config.maxRequests.toString(),
+    // 🔧 FIX: Use public getter instead of private config
+    'X-RateLimit-Limit': rateLimiters.general.maxRequests.toString(),
     'X-RateLimit-Remaining': result.remaining.toString(),
     'X-RateLimit-Reset': Math.ceil(result.resetTime / 1000).toString(),
     'X-RateLimit-Used': result.totalHits.toString()
@@ -142,7 +148,8 @@ export function createRateLimitError(result: RateLimitResult) {
     error: 'Too Many Requests',
     message: `Rate limit exceeded. Try again after ${resetDate.toISOString()}`,
     retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
-    limit: rateLimiters.general.config.maxRequests,
+    // 🔧 FIX: Use public getter instead of private config
+    limit: rateLimiters.general.maxRequests,
     remaining: result.remaining,
     resetTime: result.resetTime
   };
