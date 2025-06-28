@@ -585,8 +585,7 @@ async function createTestDocument(doc) {
         filename: doc.filename,
         safe_filename: safeFileName,
         storage_path: storagePath,
-        // Use file_size instead of fileSize to match the column name
-        file_size: Buffer.byteLength(doc.content),
+        file_size: Buffer.byteLength(doc.content), // Use Buffer.byteLength to get correct byte size
         mime_type: 'text/plain',
         afdeling: doc.department,
         categorie: doc.category,
