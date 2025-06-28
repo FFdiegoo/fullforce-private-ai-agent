@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-06-28T16:18:51.650Z",
+  "summary": {
+    "total": 5,
+    "successful": 0,
+    "failed": 5
+  },
+  "documents": [
+    {
+      "success": false,
+      "filename": "technical_manual_cs2500.txt",
+      "error": "Could not find the 'file_size' column of 'documents_metadata' in the schema cache"
+    },
+    {
+      "success": false,
+      "filename": "safety_procedures_excavators.txt",
+      "error": "Could not find the 'file_size' column of 'documents_metadata' in the schema cache"
+    },
+    {
+      "success": false,
+      "filename": "procurement_supplier_list.txt",
+      "error": "Could not find the 'file_size' column of 'documents_metadata' in the schema cache"
+    },
+    {
+      "success": false,
+      "filename": "maintenance_schedule_pumps.txt",
+      "error": "Could not find the 'file_size' column of 'documents_metadata' in the schema cache"
+    },
+    {
+      "success": false,
+      "filename": "rental_terms_conditions.txt",
+      "error": "Could not find the 'file_size' column of 'documents_metadata' in the schema cache"
+    }
+  ]
+}
