@@ -13,17 +13,11 @@
     "security:fix": "npm audit fix",
     "security:scan": "node scripts/security-scan.js",
     "security:report": "node scripts/security-report.js",
-    "security:test": "node scripts/test-security.js",
-    "security:full-audit": "node scripts/dependency-audit.js",
     "deps:check": "npm outdated",
     "deps:update": "npm update",
-    "deps:audit": "node scripts/dependency-audit.js",
     "schema:verify": "node scripts/verify-schema-compliance.js",
     "schema:check": "npm run schema:verify",
-    "schema:sync": "node scripts/prisma-sync-check.js",
-    "prisma:sync": "npm run schema:sync",
-    "monitor:errors": "node -e \"console.log('Error monitoring is active in the application')\"",
-    "audit:all": "npm run security:full-audit && npm run schema:sync && npm run security:test"
+    "env:check": "node scripts/check-env.js"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
