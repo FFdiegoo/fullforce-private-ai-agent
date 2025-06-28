@@ -23,7 +23,7 @@
     "db:sync": "node scripts/prisma-sync-check.js",
     "test:security": "node scripts/test-security.js",
     "deps:audit": "node scripts/dependency-audit.js",
-    "rag:create-test-docs": "node scripts/create-test-documents.js",
+    "rag:create-test-docs": "node scripts/rag-create-test-docs.js",
     "rag:test": "echo 'Visit http://localhost:3000/admin/rag-test to run RAG tests'"
   },
   "dependencies": {
