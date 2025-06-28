@@ -557,13 +557,20 @@ async function createTestDocument(doc) {
     const safeFileName = `test_${timestamp}_${doc.filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const storagePath = `test-documents/${safeFileName}`;
 
+    // Create file stream
+    const fileStream = fs.createReadStream(tempFilePath);
+
     // Upload to Supabase Storage
     const { data: storageData, error: storageError } = await supabase.storage
       .from('company-docs')
-      .upload(storagePath, fs.createReadStream(tempFilePath), {
+      .upload(storagePath, fileStream, {
         contentType: 'text/plain',
-        upsert: false
+        upsert: false,
+        duplex: 'half' // Add duplex option for large file uploads
       });
+
+    // Clean up temp file
+    fs.unlinkSync(tempFilePath);
 
     if (storageError) {
       throw storageError;
@@ -578,7 +585,8 @@ async function createTestDocument(doc) {
         filename: doc.filename,
         safe_filename: safeFileName,
         storage_path: storagePath,
-        file_size: doc.content.length,
+        // Use file_size instead of fileSize to match the column name
+        file_size: Buffer.byteLength(doc.content),
         mime_type: 'text/plain',
         afdeling: doc.department,
         categorie: doc.category,
@@ -591,9 +599,6 @@ async function createTestDocument(doc) {
       })
       .select();
 
-    // Clean up temp file
-    fs.unlinkSync(tempFilePath);
-
     if (metadataError) {
       throw metadataError;
     }
@@ -604,7 +609,7 @@ async function createTestDocument(doc) {
       success: true,
       documentId: metadataData[0].id,
       filename: doc.filename,
-      size: doc.content.length
+      size: Buffer.byteLength(doc.content)
     };
 
   } catch (error) {
