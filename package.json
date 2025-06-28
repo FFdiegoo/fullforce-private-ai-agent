@@ -17,7 +17,12 @@
     "deps:update": "npm update",
     "schema:verify": "node scripts/verify-schema-compliance.js",
     "schema:check": "npm run schema:verify",
-    "env:check": "node scripts/check-env.js"
+    "env:check": "node scripts/check-env.js",
+    "db:setup": "node scripts/setup-database.js",
+    "db:verify": "node scripts/verify-database.js",
+    "db:sync": "node scripts/prisma-sync-check.js",
+    "test:security": "node scripts/test-security.js",
+    "deps:audit": "node scripts/dependency-audit.js"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

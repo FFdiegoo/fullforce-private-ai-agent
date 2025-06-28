@@ -1,0 +1,15 @@
+{
+  "timestamp": "2025-06-28T15:09:57.511Z",
+  "database": {
+    "url": "https://xcrsfcwdjxsbmmrqnose.supabase.co",
+    "connected": true
+  },
+  "schema": {
+    "tables": 0,
+    "functions": 0,
+    "policies": 0
+  },
+  "extensions": {
+    "vector": true
+  }
+}
