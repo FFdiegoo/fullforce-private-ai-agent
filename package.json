@@ -22,7 +22,9 @@
     "db:verify": "node scripts/verify-database.js",
     "db:sync": "node scripts/prisma-sync-check.js",
     "test:security": "node scripts/test-security.js",
-    "deps:audit": "node scripts/dependency-audit.js"
+    "deps:audit": "node scripts/dependency-audit.js",
+    "rag:create-test-docs": "node scripts/create-test-documents.js",
+    "rag:test": "echo 'Visit http://localhost:3000/admin/rag-test to run RAG tests'"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
