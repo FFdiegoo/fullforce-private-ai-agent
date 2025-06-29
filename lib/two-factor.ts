@@ -28,8 +28,7 @@ export class TwoFactorAuth {
     const otpauthUrl = `otpauth://totp/${encodeURIComponent(this.ISSUER)}:${encodeURIComponent(userEmail)}?secret=${secret}&issuer=${encodeURIComponent(this.ISSUER)}&algorithm=SHA1&digits=6&period=${this.PERIOD}`;
     
     try {
-      // This returns a Promise<string>, so we need to make sure our function returns Promise<string>
-      return await qrcode.toDataURL(otpauthUrl, {
+      return qrcode.toDataURL(otpauthUrl, {
         errorCorrectionLevel: 'M',
         type: 'image/png',
         quality: 0.92,
