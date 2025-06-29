@@ -9,6 +9,7 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 // Configuration
 const SOURCE_DIR = process.argv[2]; // First argument is the source directory
@@ -27,44 +28,13 @@ async function main() {
   console.log('');
 
   try {
-    // Step 1: Create folder structure
-    console.log('🔍 Step 1: Creating folder structure...');
-    await runScript('scripts/create-folder-structure.js');
+    // Step 1: Setup database schema
+    console.log('🔍 Step 1: Setting up database schema...');
+    await runScript('scripts/setup-database.js');
     
-    // Step 2: Upload handleidingen files
-    console.log('\n🔍 Step 2: Uploading handleidingen files...');
-    
-    // Find the Handleidingen directory (120 Handleidingen)
-    const handleidingenPath = path.join(SOURCE_DIR, '120 handleidingen');
-    
-    if (!fs.existsSync(handleidingenPath)) {
-      console.warn(`⚠️ Directory '120 handleidingen' not found at ${handleidingenPath}`);
-      console.log('Trying alternative paths...');
-      
-      // Try alternative paths
-      const alternatives = [
-        path.join(SOURCE_DIR, 'Handleidingen'),
-        path.join(SOURCE_DIR, '120 Handleidingen'),
-        path.join(SOURCE_DIR, 'handleidingen'),
-        // Add more alternatives if needed
-      ];
-      
-      let found = false;
-      for (const altPath of alternatives) {
-        if (fs.existsSync(altPath)) {
-          console.log(`✅ Found handleidingen at: ${altPath}`);
-          await runScript('scripts/upload-handleidingen.js', [altPath]);
-          found = true;
-          break;
-        }
-      }
-      
-      if (!found) {
-        throw new Error(`Could not find Handleidingen directory. Please specify the correct path.`);
-      }
-    } else {
-      await runScript('scripts/upload-handleidingen.js', [handleidingenPath]);
-    }
+    // Step 2: Use the full-structure-upload.js script to handle everything in one go
+    console.log('\n🔍 Step 2: Creating folder structure and uploading handleidingen files...');
+    await runScript('scripts/full-structure-upload.js', [SOURCE_DIR]);
     
     console.log('\n🎉 Setup completed successfully!');
     console.log('The folder structure has been created and handleidingen files have been uploaded.');
@@ -93,9 +63,6 @@ function runScript(scriptPath, args = []) {
     });
   });
 }
-
-// Import fs module
-const fs = require('fs');
 
 // Start the script
 main().catch(console.error);
