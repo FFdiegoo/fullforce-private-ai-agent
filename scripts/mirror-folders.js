@@ -24,8 +24,11 @@ async function uploadKeepFile(relPath) {
 }
 
 function walkDirs(dir, baseDir, callback) {
+  // Sla systeemmappen over
+  const skipFolders = ['$RECYCLE.BIN', 'System Volume Information', 'Recovery', 'Config.Msi', 'ProgramData', 'Windows'];
   fs.readdirSync(dir, { withFileTypes: true }).forEach((entry) => {
     if (entry.isDirectory()) {
+      if (skipFolders.includes(entry.name)) return; // skip deze map
       const fullPath = path.join(dir, entry.name);
       const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
       callback(relPath);
