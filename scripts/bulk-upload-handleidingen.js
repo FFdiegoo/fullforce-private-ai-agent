@@ -3,15 +3,14 @@
 /**
  * Bulk Upload Script for Handleidingen Directory
  * 
- * This script uploads documents from the "handleidingen" directory on a USB drive
+ * This script uploads documents from category subdirectories on a USB drive
  * to Supabase Storage and stores metadata in the documents_metadata table.
  * 
  * Features:
- * - Only processes the "handleidingen" directory
- * - Excludes the "MISC" directory
+ * - Processes all subdirectories (except "MISC")
  * - Filters by file type (PDF, DOC, DOCX, TXT, MD)
  * - Enforces 10MB file size limit
- * - Extracts metadata from directory structure
+ * - Extracts category from directory name
  * - Generates safe filenames
  * - Provides detailed logging and error handling
  * - Generates a comprehensive report
@@ -37,9 +36,7 @@ const CONFIG = {
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 2000, // ms
   SOURCE_DIR: process.argv[2] || '', // First argument is the source directory
-  TARGET_DIR: 'handleidingen',
   EXCLUDE_DIRS: ['MISC'],
-  TEST_MODE: true, // Only process handleidingen directory
 };
 
 // Validate configuration
@@ -71,7 +68,8 @@ const stats = {
   totalBytes: 0,
   uploadedBytes: 0,
   startTime: Date.now(),
-  errors: []
+  errors: [],
+  categories: {}
 };
 
 // Main function
@@ -82,7 +80,6 @@ async function main() {
   console.log(`🪣 Storage bucket: ${CONFIG.STORAGE_BUCKET}`);
   console.log(`📋 File types: ${CONFIG.ALLOWED_EXTENSIONS.join(', ')}`);
   console.log(`📏 Max file size: ${formatFileSize(CONFIG.MAX_FILE_SIZE)}`);
-  console.log(`🧪 Test mode: ${CONFIG.TEST_MODE ? 'Enabled (only handleidingen)' : 'Disabled'}`);
   console.log('');
 
   try {
@@ -114,40 +111,64 @@ async function main() {
     }
     console.log(`✅ Bucket '${CONFIG.STORAGE_BUCKET}' exists`);
 
-    // Find handleidingen directory
-    console.log(`🔍 Looking for '${CONFIG.TARGET_DIR}' directory...`);
-    const handleidingenPath = findDirectory(CONFIG.SOURCE_DIR, CONFIG.TARGET_DIR);
+    // Get all category directories
+    console.log('📂 Scanning for category directories...');
+    const categoryDirs = getCategoryDirectories(CONFIG.SOURCE_DIR);
     
-    if (!handleidingenPath) {
-      throw new Error(`Could not find '${CONFIG.TARGET_DIR}' directory in ${CONFIG.SOURCE_DIR}`);
+    if (categoryDirs.length === 0) {
+      throw new Error(`No category directories found in ${CONFIG.SOURCE_DIR}`);
     }
-    console.log(`✅ Found '${CONFIG.TARGET_DIR}' directory: ${handleidingenPath}`);
-
-    // Get all files in handleidingen directory
-    console.log('📂 Scanning for files...');
-    const files = getFilesToUpload(handleidingenPath);
-    stats.totalFiles = files.length;
-    stats.totalBytes = files.reduce((total, file) => total + file.size, 0);
     
-    console.log(`📊 Found ${files.length} files (${formatFileSize(stats.totalBytes)})`);
+    console.log(`✅ Found ${categoryDirs.length} category directories:`);
+    categoryDirs.forEach(dir => {
+      console.log(`   - ${path.basename(dir)}`);
+    });
 
-    // Process files in batches
-    const batches = chunkArray(files, CONFIG.BATCH_SIZE);
-    console.log(`📦 Created ${batches.length} batches`);
-
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      console.log(`\n🔄 Processing batch ${i + 1}/${batches.length} (${batch.length} files)`);
+    // Process each category directory
+    for (const categoryDir of categoryDirs) {
+      const categoryName = path.basename(categoryDir);
+      console.log(`\n📂 Processing category: ${categoryName}`);
       
-      for (const file of batch) {
-        await processFile(file);
+      // Get all files in this category
+      const files = getFilesToUpload(categoryDir);
+      
+      if (files.length === 0) {
+        console.log(`   ⚠️ No eligible files found in ${categoryName}`);
+        continue;
+      }
+      
+      console.log(`   📊 Found ${files.length} files in ${categoryName}`);
+      
+      // Track category stats
+      stats.categories[categoryName] = {
+        total: files.length,
+        uploaded: 0,
+        skipped: 0,
+        failed: 0,
+        bytes: files.reduce((total, file) => total + file.size, 0)
+      };
+      
+      stats.totalFiles += files.length;
+      stats.totalBytes += stats.categories[categoryName].bytes;
+      
+      // Process files in batches
+      const batches = chunkArray(files, CONFIG.BATCH_SIZE);
+      console.log(`   📦 Created ${batches.length} batches for ${categoryName}`);
+      
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        console.log(`   🔄 Processing batch ${i + 1}/${batches.length} (${batch.length} files)`);
         
-        // Show progress
-        const progress = ((stats.uploadedFiles + stats.skippedFiles + stats.failedFiles) / stats.totalFiles * 100).toFixed(2);
-        const elapsedSeconds = Math.floor((Date.now() - stats.startTime) / 1000);
-        const uploadRate = stats.uploadedFiles / (elapsedSeconds || 1);
-        
-        console.log(`Progress: ${progress}% | Speed: ${uploadRate.toFixed(2)} files/sec | Uploaded: ${stats.uploadedFiles} | Failed: ${stats.failedFiles} | Skipped: ${stats.skippedFiles}`);
+        for (const file of batch) {
+          await processFile(file, categoryName);
+          
+          // Show progress
+          const progress = ((stats.uploadedFiles + stats.skippedFiles + stats.failedFiles) / stats.totalFiles * 100).toFixed(2);
+          const elapsedSeconds = Math.floor((Date.now() - stats.startTime) / 1000);
+          const uploadRate = stats.uploadedFiles / (elapsedSeconds || 1);
+          
+          console.log(`   Progress: ${progress}% | Speed: ${uploadRate.toFixed(2)} files/sec | Uploaded: ${stats.uploadedFiles} | Failed: ${stats.failedFiles} | Skipped: ${stats.skippedFiles}`);
+        }
       }
     }
 
@@ -161,37 +182,38 @@ async function main() {
 }
 
 // Process a single file
-async function processFile(file) {
+async function processFile(file, category) {
   const relativePath = path.relative(CONFIG.SOURCE_DIR, file.path);
   
   try {
     // Check if file should be skipped
     if (shouldSkipFile(file)) {
       stats.skippedFiles++;
-      console.log(`⏩ Skipping: ${relativePath} (${file.reason})`);
+      stats.categories[category].skipped++;
+      console.log(`   ⏩ Skipping: ${relativePath} (${file.reason})`);
       return;
     }
 
-    console.log(`📄 Processing: ${relativePath} (${formatFileSize(file.size)})`);
+    console.log(`   📄 Processing: ${relativePath} (${formatFileSize(file.size)})`);
 
-    // Extract metadata from file path
-    const metadata = extractMetadata(file.path);
+    // Extract metadata
+    const metadata = {
+      department: 'Technisch',
+      category: category,
+      subject: path.basename(file.name, path.extname(file.name)), // Filename without extension
+      version: extractVersion(file.name)
+    };
     
     // Generate a safe filename with timestamp and UUID
     const timestamp = Date.now();
     const uniqueId = uuidv4().substring(0, 8);
     const safeFileName = `${timestamp}_${uniqueId}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     
-    // Determine storage path (preserve directory structure within handleidingen)
-    const handleidingenRelativePath = path.relative(
-      findDirectory(CONFIG.SOURCE_DIR, CONFIG.TARGET_DIR),
-      file.path
-    );
-    
-    const storagePath = `handleidingen/${handleidingenRelativePath.replace(/\\/g, '/')}`;
+    // Determine storage path - preserve category structure
+    const storagePath = `${category}/${safeFileName}`;
     
     // Create read stream for file
-    const fileStream = fs.createReadStream(file.path);
+    let fileStream = fs.createReadStream(file.path);
     
     // Upload to Supabase Storage with retry logic
     let uploadAttempt = 0;
@@ -222,13 +244,12 @@ async function processFile(file) {
         
         // If not the last attempt, wait before retrying
         if (uploadAttempt < CONFIG.RETRY_ATTEMPTS) {
-          console.log(`⚠️ Upload attempt ${uploadAttempt} failed for ${file.name}, retrying...`);
+          console.log(`   ⚠️ Upload attempt ${uploadAttempt} failed for ${file.name}, retrying...`);
           await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
           
           // Create a new file stream for the retry
           fileStream.destroy();
-          const newFileStream = fs.createReadStream(file.path);
-          fileStream = newFileStream;
+          fileStream = fs.createReadStream(file.path);
         }
       }
     }
@@ -263,57 +284,35 @@ async function processFile(file) {
     
     stats.uploadedFiles++;
     stats.uploadedBytes += file.size;
-    console.log(`✅ Uploaded: ${file.name} (${formatFileSize(file.size)})`);
+    stats.categories[category].uploaded++;
+    console.log(`   ✅ Uploaded: ${file.name} (${formatFileSize(file.size)})`);
     
   } catch (error) {
     stats.failedFiles++;
+    stats.categories[category].failed++;
     stats.errors.push({
       file: relativePath,
       error: error.message,
       timestamp: new Date().toISOString()
     });
     
-    console.error(`❌ Failed to upload ${file.name}: ${error.message}`);
+    console.error(`   ❌ Failed to upload ${file.name}: ${error.message}`);
   }
 }
 
-// Helper function to find a directory recursively
-function findDirectory(baseDir, targetDir) {
-  // Check if the current directory is the target
-  if (path.basename(baseDir).toLowerCase() === targetDir.toLowerCase()) {
-    return baseDir;
-  }
-  
-  // Check subdirectories
+// Helper function to get category directories
+function getCategoryDirectories(baseDir) {
   try {
-    const entries = fs.readdirSync(baseDir, { withFileTypes: true });
-    
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const fullPath = path.join(baseDir, entry.name);
-        
-        // Skip excluded directories
-        if (CONFIG.EXCLUDE_DIRS.includes(entry.name)) {
-          continue;
-        }
-        
-        // Check if this directory is the target
-        if (entry.name.toLowerCase() === targetDir.toLowerCase()) {
-          return fullPath;
-        }
-        
-        // Recursively check subdirectories
-        const found = findDirectory(fullPath, targetDir);
-        if (found) {
-          return found;
-        }
-      }
-    }
+    return fs.readdirSync(baseDir, { withFileTypes: true })
+      .filter(dirent => 
+        dirent.isDirectory() && 
+        !CONFIG.EXCLUDE_DIRS.includes(dirent.name)
+      )
+      .map(dirent => path.join(baseDir, dirent.name));
   } catch (error) {
-    console.warn(`⚠️ Could not read directory ${baseDir}: ${error.message}`);
+    console.error(`Error reading directories: ${error.message}`);
+    return [];
   }
-  
-  return null;
 }
 
 // Helper function to get all files to upload
@@ -330,7 +329,7 @@ function getFilesToUpload(dir) {
         // Skip excluded directories
         if (entry.isDirectory()) {
           if (CONFIG.EXCLUDE_DIRS.includes(entry.name)) {
-            console.log(`⏩ Skipping excluded directory: ${entry.name}`);
+            console.log(`   ⏩ Skipping excluded directory: ${entry.name}`);
             continue;
           }
           traverseDir(fullPath);
@@ -360,7 +359,7 @@ function getFilesToUpload(dir) {
         }
       }
     } catch (error) {
-      console.warn(`⚠️ Could not read directory ${currentPath}: ${error.message}`);
+      console.warn(`   ⚠️ Could not read directory ${currentPath}: ${error.message}`);
     }
   }
   
@@ -373,46 +372,11 @@ function shouldSkipFile(file) {
   return !!file.reason;
 }
 
-// Helper function to extract metadata from file path
-function extractMetadata(filePath) {
-  const fileName = path.basename(filePath);
-  const dirPath = path.dirname(filePath);
-  const dirParts = dirPath.split(path.sep);
-  
-  // Find handleidingen in the path to use as reference point
-  const handleidingenIndex = dirParts.findIndex(part => 
-    part.toLowerCase() === CONFIG.TARGET_DIR.toLowerCase()
-  );
-  
-  // Default metadata
-  const metadata = {
-    department: 'Technisch',
-    category: 'Handleidingen',
-    subject: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
-    version: '1.0'
-  };
-  
-  if (handleidingenIndex !== -1 && handleidingenIndex < dirParts.length - 1) {
-    // Extract category from the directory after handleidingen
-    metadata.category = dirParts[handleidingenIndex + 1];
-    
-    // If there's another level, use it as subject
-    if (handleidingenIndex + 2 < dirParts.length) {
-      metadata.subject = dirParts[handleidingenIndex + 2];
-    }
-  }
-  
-  // Try to extract version from filename (e.g., "document_v1.0.pdf")
-  const versionMatch = fileName.match(/_v(\d+\.\d+)/);
-  if (versionMatch) {
-    metadata.version = versionMatch[1];
-    // Remove version from subject if it's from the filename
-    if (metadata.subject === fileName.replace(/\.[^/.]+$/, '')) {
-      metadata.subject = metadata.subject.replace(/_v\d+\.\d+$/, '');
-    }
-  }
-  
-  return metadata;
+// Helper function to extract version from filename
+function extractVersion(filename) {
+  // Try to extract version from filename (e.g., "document_v1.0.pdf" or "document-1.0.pdf")
+  const versionMatch = filename.match(/[_-]v?(\d+\.\d+)/i);
+  return versionMatch ? versionMatch[1] : '1.0';
 }
 
 // Helper function to split array into chunks
@@ -442,10 +406,9 @@ function generateReport() {
   console.log('\n📋 Bulk Upload Report');
   console.log('===================');
   console.log(`📂 Source: ${CONFIG.SOURCE_DIR}`);
-  console.log(`🎯 Target: ${CONFIG.TARGET_DIR} directory`);
   console.log(`⏱️ Duration: ${elapsedFormatted}`);
   console.log('');
-  console.log('📊 Statistics:');
+  console.log('📊 Overall Statistics:');
   console.log(`   Total files found: ${stats.totalFiles}`);
   console.log(`   Total size: ${formatFileSize(stats.totalBytes)}`);
   console.log(`   Files uploaded: ${stats.uploadedFiles}`);
@@ -465,6 +428,20 @@ function generateReport() {
     console.log(`   Upload speed: ${uploadSpeedMBps.toFixed(2)} MB/second`);
   }
   
+  console.log('\n📊 Category Statistics:');
+  Object.entries(stats.categories).forEach(([category, catStats]) => {
+    console.log(`   ${category}:`);
+    console.log(`      Total: ${catStats.total} files (${formatFileSize(catStats.bytes)})`);
+    console.log(`      Uploaded: ${catStats.uploaded} files`);
+    console.log(`      Skipped: ${catStats.skipped} files`);
+    console.log(`      Failed: ${catStats.failed} files`);
+    
+    if (catStats.total > 0) {
+      const catSuccessRate = ((catStats.uploaded / catStats.total) * 100).toFixed(2);
+      console.log(`      Success rate: ${catSuccessRate}%`);
+    }
+  });
+  
   if (stats.errors.length > 0) {
     console.log('\n❌ Errors:');
     stats.errors.slice(0, 10).forEach((error, index) => {
@@ -481,10 +458,9 @@ function generateReport() {
     timestamp: new Date().toISOString(),
     configuration: {
       sourceDir: CONFIG.SOURCE_DIR,
-      targetDir: CONFIG.TARGET_DIR,
       allowedExtensions: CONFIG.ALLOWED_EXTENSIONS,
       maxFileSize: CONFIG.MAX_FILE_SIZE,
-      testMode: CONFIG.TEST_MODE
+      excludeDirs: CONFIG.EXCLUDE_DIRS
     },
     statistics: {
       totalFiles: stats.totalFiles,
@@ -496,6 +472,7 @@ function generateReport() {
       duration: elapsedSeconds,
       successRate: stats.totalFiles > 0 ? (stats.uploadedFiles / stats.totalFiles) * 100 : 0
     },
+    categories: stats.categories,
     errors: stats.errors
   };
   
