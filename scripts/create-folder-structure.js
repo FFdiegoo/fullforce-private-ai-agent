@@ -26,9 +26,9 @@ if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY) {
 // Initialize Supabase client
 const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
-// Folder structure to create
+// Folder structure to create based on the screenshot
 const folderStructure = [
-  '010 ATEX',
+  '010 Atex',
   '020 Koeling',
   '030 Ontvochtiging',
   '040 Ventilatie',

@@ -3,14 +3,13 @@
 /**
  * Bulk Upload Script for Handleidingen Directory
  * 
- * This script uploads documents from category subdirectories on a USB drive
- * to Supabase Storage and stores metadata in the documents_metadata table.
+ * This script uploads documents from the Handleidingen directory and all its subdirectories
+ * to Supabase Storage, preserving the complete folder structure.
  * 
  * Features:
- * - Processes all subdirectories
+ * - Preserves complete folder structure
  * - Accepts all file types (including images and larger files)
- * - Extracts category from directory name
- * - Generates safe filenames
+ * - Handles nested subdirectories
  * - Provides detailed logging and error handling
  * - Generates a comprehensive report
  */
@@ -19,7 +18,6 @@ const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
 const mime = require('mime-types');
-const { v4: uuidv4 } = require('uuid');
 
 // Load environment variables
 require('dotenv').config({ path: '.env.local' });
@@ -29,13 +27,11 @@ const CONFIG = {
   SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   STORAGE_BUCKET: 'company-docs',
-  MAX_FILE_SIZE: 1024 * 1024 * 1024, // 1GB - increased from 10MB
-  ALLOWED_EXTENSIONS: null, // Accept all file types
+  SOURCE_DIR: process.argv[2] || '', // First argument is the source directory
+  MAX_FILE_SIZE: 1024 * 1024 * 1024, // 1GB - accept all file sizes
   BATCH_SIZE: 20,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 2000, // ms
-  SOURCE_DIR: process.argv[2] || '', // First argument is the source directory
-  EXCLUDE_DIRS: [], // No excluded directories
 };
 
 // Validate configuration
@@ -46,7 +42,7 @@ if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY) {
 
 if (!CONFIG.SOURCE_DIR) {
   console.error('❌ Please provide a source directory as an argument:');
-  console.error('   node scripts/bulk-upload-handleidingen.js /path/to/usb');
+  console.error('   node scripts/bulk-upload-handleidingen.js "D:\\120 handleidingen"');
   process.exit(1);
 }
 
@@ -77,7 +73,7 @@ async function main() {
   console.log(`📂 Source directory: ${CONFIG.SOURCE_DIR}`);
   console.log(`🔗 Supabase URL: ${CONFIG.SUPABASE_URL}`);
   console.log(`🪣 Storage bucket: ${CONFIG.STORAGE_BUCKET}`);
-  console.log(`📋 File types: ${CONFIG.ALLOWED_EXTENSIONS ? CONFIG.ALLOWED_EXTENSIONS.join(', ') : 'All file types'}`);
+  console.log(`📋 File types: All file types accepted`);
   console.log(`📏 Max file size: ${formatFileSize(CONFIG.MAX_FILE_SIZE)}`);
   console.log('');
 
@@ -106,11 +102,20 @@ async function main() {
 
     const bucketExists = buckets.some(bucket => bucket.name === CONFIG.STORAGE_BUCKET);
     if (!bucketExists) {
-      throw new Error(`Storage bucket '${CONFIG.STORAGE_BUCKET}' does not exist`);
-    }
-    console.log(`✅ Bucket '${CONFIG.STORAGE_BUCKET}' exists`);
+      console.log(`⚠️ Bucket '${CONFIG.STORAGE_BUCKET}' not found, attempting to create it...`);
+      const { error: createError } = await supabase.storage.createBucket(CONFIG.STORAGE_BUCKET, {
+        public: false
+      });
 
-    // Get all category directories
+      if (createError) {
+        throw new Error(`Failed to create bucket: ${createError.message}`);
+      }
+      console.log(`✅ Bucket '${CONFIG.STORAGE_BUCKET}' created successfully`);
+    } else {
+      console.log(`✅ Bucket '${CONFIG.STORAGE_BUCKET}' exists`);
+    }
+
+    // Scan for category directories
     console.log('🔍 Scanning for category directories...');
     const categoryDirs = getCategoryDirectories(CONFIG.SOURCE_DIR);
     
@@ -128,7 +133,7 @@ async function main() {
       const categoryName = path.basename(categoryDir);
       console.log(`\n🔄 Processing category: ${categoryName}`);
       
-      // Get all files in this category
+      // Get all files in this category (including subdirectories)
       const files = getFilesToUpload(categoryDir);
       
       if (files.length === 0) {
@@ -181,27 +186,14 @@ async function main() {
 }
 
 // Process a single file
-async function processFile(file, category) {
-  const relativePath = path.relative(CONFIG.SOURCE_DIR, file.path);
+async function processFile(file, categoryName) {
+  const relativePath = path.relative(path.join(CONFIG.SOURCE_DIR, categoryName), file.path);
   
   try {
-    // No skipping files - we want to upload everything
-    console.log(`   🔄 Processing: ${relativePath} (${formatFileSize(file.size)})`);
+    console.log(`   🔄 Processing: ${categoryName}\\${relativePath} (${formatFileSize(file.size)})`);
 
-    // Extract metadata
-    const metadata = {
-      department: 'Technisch',
-      category: category,
-      subject: path.basename(file.name, path.extname(file.name)), // Filename without extension
-      version: extractVersion(file.name)
-    };
-    
-    // Generate a safe filename with timestamp
-    const timestamp = Date.now();
-    const safeFileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    
-    // Determine storage path - preserve category structure
-    const storagePath = `${category}/${safeFileName}`;
+    // Determine storage path - preserve complete folder structure
+    const storagePath = `${categoryName}/${relativePath.replace(/\\/g, '/')}`;
     
     // Create read stream for file
     let fileStream = fs.createReadStream(file.path);
@@ -220,7 +212,7 @@ async function processFile(file, category) {
           .from(CONFIG.STORAGE_BUCKET)
           .upload(storagePath, fileStream, {
             contentType: file.mimeType,
-            upsert: false,
+            upsert: true, // Use upsert to overwrite if file exists
             duplex: 'half' // Optimize for large files
           });
         
@@ -249,19 +241,22 @@ async function processFile(file, category) {
       throw uploadError || new Error('Upload failed after multiple attempts');
     }
     
+    // Extract subdirectory for better categorization
+    const subDir = path.dirname(relativePath) !== '.' ? path.dirname(relativePath).split(path.sep)[0] : '';
+    
     // Save metadata to database
     const { data: metadataData, error: metadataError } = await supabase
       .from('documents_metadata')
       .insert({
         filename: file.name,
-        safe_filename: safeFileName,
+        safe_filename: file.name,
         storage_path: storagePath,
         file_size: file.size,
         mime_type: file.mimeType,
-        afdeling: metadata.department,
-        categorie: metadata.category,
-        onderwerp: metadata.subject,
-        versie: metadata.version,
+        afdeling: categoryName,
+        categorie: subDir || categoryName,
+        onderwerp: path.basename(file.name, path.extname(file.name)),
+        versie: extractVersion(file.name),
         uploaded_by: 'bulk-upload-handleidingen',
         last_updated: new Date().toISOString(),
         ready_for_indexing: true,
@@ -275,14 +270,14 @@ async function processFile(file, category) {
     
     stats.uploadedFiles++;
     stats.uploadedBytes += file.size;
-    stats.categories[category].uploaded++;
+    stats.categories[categoryName].uploaded++;
     console.log(`   ✅ Uploaded: ${file.name} (${formatFileSize(file.size)})`);
     
   } catch (error) {
     stats.failedFiles++;
-    stats.categories[category].failed++;
+    stats.categories[categoryName].failed++;
     stats.errors.push({
-      file: relativePath,
+      file: `${categoryName}\\${relativePath}`,
       error: error.message,
       timestamp: new Date().toISOString()
     });
@@ -295,10 +290,7 @@ async function processFile(file, category) {
 function getCategoryDirectories(baseDir) {
   try {
     return fs.readdirSync(baseDir, { withFileTypes: true })
-      .filter(dirent => 
-        dirent.isDirectory() && 
-        !CONFIG.EXCLUDE_DIRS.includes(dirent.name)
-      )
+      .filter(dirent => dirent.isDirectory())
       .map(dirent => path.join(baseDir, dirent.name));
   } catch (error) {
     console.error(`Error reading directories: ${error.message}`);
@@ -431,9 +423,7 @@ function generateReport() {
     timestamp: new Date().toISOString(),
     configuration: {
       sourceDir: CONFIG.SOURCE_DIR,
-      allowedExtensions: CONFIG.ALLOWED_EXTENSIONS,
-      maxFileSize: CONFIG.MAX_FILE_SIZE,
-      excludeDirs: CONFIG.EXCLUDE_DIRS
+      maxFileSize: CONFIG.MAX_FILE_SIZE
     },
     statistics: {
       totalFiles: stats.totalFiles,
@@ -455,22 +445,11 @@ function generateReport() {
   
   // Provide next steps
   console.log('\n🚀 Next Steps:');
+  console.log('   - Process uploaded files through the RAG pipeline');
+  console.log('   - Verify document metadata in the admin dashboard');
+  console.log('   - Run verification script to ensure all files were uploaded correctly');
   
-  if (stats.failedFiles > 0) {
-    console.log('   - Review the errors and retry failed uploads');
-  }
-  
-  if (stats.uploadedFiles > 0) {
-    console.log('   - Process uploaded files through the RAG pipeline');
-    console.log('   - Verify document metadata in the admin dashboard');
-    console.log('   - Run verification script to ensure all files were uploaded correctly');
-  }
-  
-  if (stats.uploadedFiles === 0) {
-    console.log('\n⚠️ No files were uploaded. Please check the source directory and file filters.');
-  } else {
-    console.log('\n✅ Upload completed!');
-  }
+  console.log('\n✅ Upload completed!');
 }
 
 // Helper function to format time in HH:MM:SS

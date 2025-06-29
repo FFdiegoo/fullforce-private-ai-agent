@@ -22,7 +22,7 @@ const CONFIG = {
   STORAGE_BUCKET: 'company-docs',
   SOURCE_DIR: process.argv[2] || '', // First argument is the source directory
   TARGET_FOLDER: '120 Handleidingen',
-  MAX_FILE_SIZE: 1024 * 1024 * 1024, // 1GB - increased from default
+  MAX_FILE_SIZE: 1024 * 1024 * 1024, // 1GB - accept all file sizes
   BATCH_SIZE: 20,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 2000, // ms
@@ -148,31 +148,12 @@ async function processFile(file) {
   const relativePath = path.relative(CONFIG.SOURCE_DIR, file.path);
   
   try {
-    // Check file size
-    if (file.size > CONFIG.MAX_FILE_SIZE) {
-      console.log(`⏩ Skipping: ${relativePath} (File too large: ${formatFileSize(file.size)} > ${formatFileSize(CONFIG.MAX_FILE_SIZE)})`);
-      stats.skippedFiles++;
-      stats.errors.push({
-        file: relativePath,
-        error: `File too large: ${formatFileSize(file.size)} > ${formatFileSize(CONFIG.MAX_FILE_SIZE)}`,
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-    
+    // Accept all file types and sizes - no skipping
     console.log(`🔄 Processing: ${relativePath} (${formatFileSize(file.size)})`);
 
-    // Extract metadata
-    const metadata = {
-      department: 'Technisch',
-      category: path.dirname(relativePath).split(path.sep)[0] || 'Algemeen',
-      subject: path.basename(file.name, path.extname(file.name)), // Filename without extension
-      version: extractVersion(file.name)
-    };
-    
-    // Generate a safe filename with timestamp
-    const timestamp = Date.now();
-    const safeFileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    // Extract category from path
+    const pathParts = relativePath.split(path.sep);
+    const category = pathParts.length > 1 ? pathParts[0] : 'Algemeen';
     
     // Determine storage path - preserve folder structure within Handleidingen folder
     const storagePath = `${CONFIG.TARGET_FOLDER}/${relativePath}`;
@@ -228,14 +209,14 @@ async function processFile(file) {
       .from('documents_metadata')
       .insert({
         filename: file.name,
-        safe_filename: safeFileName,
+        safe_filename: file.name,
         storage_path: storagePath,
         file_size: file.size,
         mime_type: file.mimeType,
-        afdeling: metadata.department,
-        categorie: metadata.category,
-        onderwerp: metadata.subject,
-        versie: metadata.version,
+        afdeling: 'Technisch',
+        categorie: category,
+        onderwerp: path.basename(file.name, path.extname(file.name)),
+        versie: extractVersion(file.name),
         uploaded_by: 'upload-handleidingen-script',
         last_updated: new Date().toISOString(),
         ready_for_indexing: true,
@@ -251,8 +232,8 @@ async function processFile(file) {
     stats.uploadedBytes += file.size;
     
     // Track category stats
-    if (!stats.categories[metadata.category]) {
-      stats.categories[metadata.category] = {
+    if (!stats.categories[category]) {
+      stats.categories[category] = {
         total: 1,
         uploaded: 1,
         skipped: 0,
@@ -260,9 +241,9 @@ async function processFile(file) {
         bytes: file.size
       };
     } else {
-      stats.categories[metadata.category].total++;
-      stats.categories[metadata.category].uploaded++;
-      stats.categories[metadata.category].bytes += file.size;
+      stats.categories[category].total++;
+      stats.categories[category].uploaded++;
+      stats.categories[category].bytes += file.size;
     }
     
     console.log(`✅ Uploaded: ${file.name} (${formatFileSize(file.size)})`);
@@ -271,7 +252,9 @@ async function processFile(file) {
     stats.failedFiles++;
     
     // Track category stats for failures
-    const category = path.dirname(relativePath).split(path.sep)[0] || 'Algemeen';
+    const pathParts = relativePath.split(path.sep);
+    const category = pathParts.length > 1 ? pathParts[0] : 'Algemeen';
+    
     if (!stats.categories[category]) {
       stats.categories[category] = {
         total: 1,
