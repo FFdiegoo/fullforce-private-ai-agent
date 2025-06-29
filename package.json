@@ -24,7 +24,8 @@
     "test:security": "node scripts/test-security.js",
     "deps:audit": "node scripts/dependency-audit.js",
     "rag:create-test-docs": "node scripts/rag-create-test-docs.js",
-    "rag:test": "echo 'Visit http://localhost:3000/admin/rag-test to run RAG tests'"
+    "rag:test": "echo 'Visit http://localhost:3000/admin/rag-test to run RAG tests'",
+    "bulk-upload": "node scripts/bulk-upload.js"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
@@ -46,7 +47,8 @@
     "speakeasy": "^2.0.0",
     "tailwindcss": "^3.4.1",
     "uuid": "^9.0.1",
-    "zod": "^3.25.67"
+    "zod": "^3.25.67",
+    "mime-types": "^2.1.35"
   },
   "devDependencies": {
     "@types/formidable": "^3.4.5",
