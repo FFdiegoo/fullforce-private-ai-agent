@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { TwoFactorAuth } from '../../../lib/two-factor';
 import { auditLogger } from '../../../lib/audit-logger';
-import { rateLimitByType } from '../../../lib/rate-limit';
+import { applyEnhancedRateLimit } from '../../../lib/enhanced-rate-limiter';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log(`🔄 2FA API called: ${req.method} from ${req.headers['x-forwarded-for'] || 'unknown'}`);
@@ -77,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('📝 Processing POST request for 2FA setup...');
       
       // Rate limiting
-      const rateLimitResult = await rateLimitByType(clientIP, 'auth');
+      const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'auth');
       if (!rateLimitResult.success) {
         console.log('⚠️ Rate limit exceeded for IP:', clientIP);
         return res.status(429).json({ error: 'Too many requests' });
@@ -144,7 +144,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('📝 Processing PUT request for 2FA verification...');
       
       // Rate limiting
-      const rateLimitResult = await rateLimitByType(clientIP, 'auth');
+      const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'auth');
       if (!rateLimitResult.success) {
         return res.status(429).json({ error: 'Too many requests' });
       }
@@ -283,7 +283,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('📝 Processing DELETE request for 2FA disable...');
       
       // Rate limiting
-      const rateLimitResult = await rateLimitByType(clientIP, 'auth');
+      const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'auth');
       if (!rateLimitResult.success) {
         return res.status(429).json({ error: 'Too many requests' });
       }
