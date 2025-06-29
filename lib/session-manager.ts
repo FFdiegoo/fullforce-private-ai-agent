@@ -19,7 +19,7 @@ export class SessionManager {
   private static readonly REFRESH_THRESHOLD = parseInt(process.env.SESSION_REFRESH_THRESHOLD_MINUTES || '5') * 60 * 1000;
   
   private static activeSessions = new Map<string, SessionInfo>();
-  private static cleanupInterval: NodeJS.Timeout;
+  private static cleanupInterval: NodeJS.Timeout | null = null;
 
   static init(): void {
     // Cleanup expired sessions every 5 minutes
@@ -257,14 +257,19 @@ export class SessionManager {
   static destroy(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
     }
   }
 }
 
 // Initialize session manager
-SessionManager.init();
+if (typeof window === 'undefined') {
+  SessionManager.init();
+}
 
 // Cleanup on process exit
-process.on('beforeExit', () => {
-  SessionManager.destroy();
-});
+if (typeof process !== 'undefined' && process.on) {
+  process.on('beforeExit', () => {
+    SessionManager.destroy();
+  });
+}

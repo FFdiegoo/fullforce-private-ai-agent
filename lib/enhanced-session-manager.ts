@@ -21,7 +21,7 @@ export class EnhancedSessionManager {
   private static readonly MAX_CONCURRENT_SESSIONS = 3;
   
   private static activeSessions = new Map<string, SessionInfo>();
-  private static cleanupInterval: NodeJS.Timeout;
+  private static cleanupInterval: NodeJS.Timeout | null = null;
 
   static init(): void {
     // Cleanup expired sessions every 2 minutes
@@ -294,6 +294,7 @@ export class EnhancedSessionManager {
   static destroy(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
     }
   }
 }
