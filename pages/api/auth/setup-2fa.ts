@@ -55,12 +55,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'User profile not found' });
       }
 
-      const status = await TwoFactorAuth.getUserTwoFactorStatus(profile.id);
+      const status = {
+        enabled: profile.two_factor_enabled || false,
+        backupCodesCount: (profile.backup_codes || []).length
+      };
       
-      return res.status(200).json({
-        enabled: status.enabled,
-        backupCodesCount: status.backupCodesCount
-      });
+      return res.status(200).json(status);
 
     } catch (error) {
       console.error('❌ 2FA status check error:', error);
@@ -108,9 +108,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Get user email
       const userEmail = user.email!;
 
-      // Generate 2FA setup
-      console.log('🔐 Generating 2FA secret for user:', userEmail);
-      const twoFactorSetup = await TwoFactorAuth.generateSecret(userEmail);
+      // Generate 2FA setup using the new implementation
+      console.log('🔐 Generating 2FA setup for user:', userEmail);
+      const twoFactorSetup = await TwoFactorAuth.setupTwoFactor(userEmail);
       
       console.log('✅ 2FA setup generated:', {
         hasSecret: !!twoFactorSetup.secret,
@@ -190,19 +190,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       console.log('✅ Profile found:', profile.id);
 
-      // 🔧 CRITICAL FIX: Direct TOTP verification
+      // Verify token using the new implementation
       console.log('🔐 Verifying TOTP with provided secret...');
       
-      const isValidToken = TwoFactorAuth.verifyToken(secret, verificationToken);
+      const verification = TwoFactorAuth.verifyToken(verificationToken, secret);
       
       console.log('🔍 TOTP verification result:', {
-        isValid: isValidToken,
+        isValid: verification.isValid,
         secret: secret.substring(0, 10) + '...',
         token: verificationToken,
         timestamp: new Date().toISOString()
       });
       
-      if (!isValidToken) {
+      if (!verification.isValid) {
         console.log('❌ TOTP verification failed');
         await auditLogger.logAuth('2FA_VERIFICATION_FAILED', user.id, {
           email: user.email,
@@ -213,7 +213,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       console.log('✅ TOTP verification successful');
 
-      // 🔧 CRITICAL FIX: Save to database with better error handling
+      // Save to database with better error handling
       console.log('💾 Saving 2FA settings to database...');
       
       try {
@@ -310,7 +310,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Get user profile ID
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, two_factor_secret, backup_codes')
         .eq('email', user.email)
         .single();
 
@@ -318,14 +318,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'User profile not found' });
       }
 
-      // Disable 2FA
-      const success = await TwoFactorAuth.disableTwoFactor(profile.id, verificationToken);
+      // Verify token or backup code
+      let isValid = false;
+      
+      // Check TOTP token
+      if (profile.two_factor_secret) {
+        const verification = TwoFactorAuth.verifyToken(verificationToken, profile.two_factor_secret);
+        isValid = verification.isValid;
+      }
+      
+      // Check backup code if TOTP failed
+      if (!isValid && profile.backup_codes) {
+        const verification = TwoFactorAuth.verifyBackupCode(verificationToken, profile.backup_codes);
+        isValid = verification.isValid;
+        
+        // Remove used backup code if valid
+        if (isValid) {
+          const cleanCode = verificationToken.replace(/[\s-]/g, '').toUpperCase();
+          const updatedBackupCodes = profile.backup_codes.filter(code => 
+            code.replace(/[\s-]/g, '').toUpperCase() !== cleanCode
+          );
+          
+          await supabaseAdmin
+            .from('profiles')
+            .update({ backup_codes: updatedBackupCodes })
+            .eq('id', profile.id);
+        }
+      }
 
-      if (!success) {
+      if (!isValid) {
         return res.status(400).json({ error: 'Invalid verification code' });
       }
 
+      // Disable 2FA
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          two_factor_enabled: false,
+          two_factor_secret: null,
+          backup_codes: [],
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id);
+
+      if (updateError) {
+        return res.status(500).json({ error: 'Failed to disable 2FA' });
+      }
+
       console.log('✅ 2FA disabled successfully for user:', user.email);
+      await auditLogger.logAuth('2FA_DISABLED', user.id, {
+        email: user.email
+      }, clientIP);
+      
       return res.status(200).json({ success: true });
 
     } catch (error) {
