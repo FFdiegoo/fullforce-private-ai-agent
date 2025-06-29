@@ -29,33 +29,7 @@ export async function rateLimit(
   const resetTime = now + windowMs;
 
   try {
-    // Check if Redis is enabled and available
-    if (process.env.REDIS_ENABLED === 'true') {
-      // Try Redis implementation
-      try {
-        const { Redis } = await import('ioredis');
-        const redis = new Redis(process.env.REDIS_URL || 'redis://');
-        
-        const current = await redis.incr(key);
-        if (current === 1) {
-          await redis.expire(key, Math.ceil(windowMs / 1000));
-        }
-        
-        const ttl = await redis.ttl(key);
-        const reset = new Date(now + (ttl * 1000));
-        
-        return {
-          success: current <= maxRequests,
-          limit: maxRequests,
-          remaining: Math.max(0, maxRequests - current),
-          reset
-        };
-      } catch (redisError) {
-        console.warn('Redis not available, falling back to memory store:', redisError);
-      }
-    }
-
-    // Fallback to in-memory store
+    // Always use in-memory store (no Redis dependency)
     const existing = memoryStore.get(key);
     
     if (!existing || now > existing.resetTime) {
