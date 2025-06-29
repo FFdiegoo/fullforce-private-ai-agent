@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { InviteSystem } from '../../../lib/invite-system';
 import { EmailVerification } from '../../../lib/email-verification';
 import { auditLogger } from '../../../lib/audit-logger';
-import { rateLimitByType } from '../../../lib/rate-limit';
+import { applyEnhancedRateLimit } from '../../../lib/enhanced-rate-limiter';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Rate limiting
-    const rateLimitResult = await rateLimitByType(clientIP, 'auth', 5, 300000); // 5 attempts per 5 minutes
+    const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'auth');
     if (!rateLimitResult.success) {
       return res.status(429).json({ error: 'Too many signup attempts' });
     }

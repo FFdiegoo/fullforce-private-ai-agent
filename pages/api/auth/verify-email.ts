@@ -1,15 +1,15 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { EmailVerification } from '../../../lib/email-verification';
-import { rateLimitByType } from '../../../lib/rate-limit';
+import { applyEnhancedRateLimit } from '../../../lib/enhanced-rate-limiter';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const clientIP = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || '127.0.0.1';
-
+  
   if (req.method === 'POST') {
     // Send verification code
     try {
       // Rate limiting - 3 requests per 5 minutes per IP
-      const rateLimitResult = await rateLimitByType(clientIP, 'auth', 3, 300000);
+      const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'auth');
       if (!rateLimitResult.success) {
         return res.status(429).json({ error: 'Too many verification requests' });
       }
@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Verify code
     try {
       // Rate limiting - 10 attempts per 5 minutes per IP
-      const rateLimitResult = await rateLimitByType(clientIP, 'auth', 10, 300000);
+      const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'auth');
       if (!rateLimitResult.success) {
         return res.status(429).json({ error: 'Too many verification attempts' });
       }

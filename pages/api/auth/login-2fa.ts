@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabaseClient';
 import { TwoFactorAuth } from '../../../lib/two-factor';
 import { auditLogger } from '../../../lib/audit-logger';
-import { rateLimitByType } from '../../../lib/rate-limit';
+import { applyEnhancedRateLimit } from '../../../lib/enhanced-rate-limiter';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Rate limiting - 10 attempts per 5 minutes
-    const rateLimitResult = await rateLimitByType(clientIP, 'auth', 10, 300000);
+    const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'auth');
     if (!rateLimitResult.success) {
       return res.status(429).json({ error: 'Too many 2FA attempts' });
     }
