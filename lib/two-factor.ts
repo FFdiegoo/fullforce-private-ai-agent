@@ -23,11 +23,12 @@ export class TwoFactorAuth {
     return this.base32Encode(buffer);
   }
 
+  // Fix: Changed return type from string to Promise<string>
   static async generateQRCode(secret: string, userEmail: string): Promise<string> {
     const otpauthUrl = `otpauth://totp/${encodeURIComponent(this.ISSUER)}:${encodeURIComponent(userEmail)}?secret=${secret}&issuer=${encodeURIComponent(this.ISSUER)}&algorithm=SHA1&digits=6&period=${this.PERIOD}`;
     
     try {
-      // Added await keyword to properly handle the Promise<string> return type
+      // This returns a Promise<string>, so we need to make sure our function returns Promise<string>
       return await qrcode.toDataURL(otpauthUrl, {
         errorCorrectionLevel: 'M',
         type: 'image/png',
