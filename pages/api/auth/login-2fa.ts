@@ -38,10 +38,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Get user profile
+    // Get user profile (haal ook het 2FA secret op!)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, two_factor_enabled')
+      .select('id, two_factor_enabled, two_factor_secret')
       .eq('email', email)
       .single();
 
@@ -57,10 +57,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    // Controleer of het secret bestaat
+    if (!profile.two_factor_secret) {
+      return res.status(400).json({ error: '2FA secret not set for this user' });
+    }
+
     // Verify 2FA code
-    const is2FAValid = await TwoFactorAuth.verifyUserToken(profile.id, twoFactorCode);
-    
-    if (!is2FAValid) {
+    const verification = TwoFactorAuth.verifyToken(twoFactorCode, profile.two_factor_secret);
+
+    if (!verification.isValid) {
       // Sign out the user since 2FA failed
       await supabase.auth.signOut();
       
