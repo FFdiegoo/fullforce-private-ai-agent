@@ -7,9 +7,8 @@
  * to Supabase Storage and stores metadata in the documents_metadata table.
  * 
  * Features:
- * - Processes all subdirectories (except "MISC")
- * - Filters by file type (PDF, DOC, DOCX, TXT, MD)
- * - Enforces 10MB file size limit
+ * - Processes all subdirectories
+ * - Accepts all file types (including images and larger files)
  * - Extracts category from directory name
  * - Generates safe filenames
  * - Provides detailed logging and error handling
@@ -30,13 +29,13 @@ const CONFIG = {
   SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   STORAGE_BUCKET: 'company-docs',
-  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
-  ALLOWED_EXTENSIONS: ['.pdf', '.doc', '.docx', '.txt', '.md'],
+  MAX_FILE_SIZE: 1024 * 1024 * 1024, // 1GB - increased from 10MB
+  ALLOWED_EXTENSIONS: null, // Accept all file types
   BATCH_SIZE: 20,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 2000, // ms
   SOURCE_DIR: process.argv[2] || '', // First argument is the source directory
-  EXCLUDE_DIRS: ['MISC'],
+  EXCLUDE_DIRS: [], // No excluded directories
 };
 
 // Validate configuration
@@ -78,7 +77,7 @@ async function main() {
   console.log(`📂 Source directory: ${CONFIG.SOURCE_DIR}`);
   console.log(`🔗 Supabase URL: ${CONFIG.SUPABASE_URL}`);
   console.log(`🪣 Storage bucket: ${CONFIG.STORAGE_BUCKET}`);
-  console.log(`📋 File types: ${CONFIG.ALLOWED_EXTENSIONS.join(', ')}`);
+  console.log(`📋 File types: ${CONFIG.ALLOWED_EXTENSIONS ? CONFIG.ALLOWED_EXTENSIONS.join(', ') : 'All file types'}`);
   console.log(`📏 Max file size: ${formatFileSize(CONFIG.MAX_FILE_SIZE)}`);
   console.log('');
 
@@ -112,7 +111,7 @@ async function main() {
     console.log(`✅ Bucket '${CONFIG.STORAGE_BUCKET}' exists`);
 
     // Get all category directories
-    console.log('📂 Scanning for category directories...');
+    console.log('🔍 Scanning for category directories...');
     const categoryDirs = getCategoryDirectories(CONFIG.SOURCE_DIR);
     
     if (categoryDirs.length === 0) {
@@ -127,17 +126,17 @@ async function main() {
     // Process each category directory
     for (const categoryDir of categoryDirs) {
       const categoryName = path.basename(categoryDir);
-      console.log(`\n📂 Processing category: ${categoryName}`);
+      console.log(`\n🔄 Processing category: ${categoryName}`);
       
       // Get all files in this category
       const files = getFilesToUpload(categoryDir);
       
       if (files.length === 0) {
-        console.log(`   ⚠️ No eligible files found in ${categoryName}`);
+        console.log(`   ⚠️ No files found in ${categoryName}`);
         continue;
       }
       
-      console.log(`   📊 Found ${files.length} files in ${categoryName}`);
+      console.log(`   🔍 Found ${files.length} files in ${categoryName}`);
       
       // Track category stats
       stats.categories[categoryName] = {
@@ -165,7 +164,7 @@ async function main() {
           // Show progress
           const progress = ((stats.uploadedFiles + stats.skippedFiles + stats.failedFiles) / stats.totalFiles * 100).toFixed(2);
           const elapsedSeconds = Math.floor((Date.now() - stats.startTime) / 1000);
-          const uploadRate = stats.uploadedFiles / (elapsedSeconds || 1);
+          const uploadRate = elapsedSeconds > 0 ? stats.uploadedFiles / elapsedSeconds : 0;
           
           console.log(`   Progress: ${progress}% | Speed: ${uploadRate.toFixed(2)} files/sec | Uploaded: ${stats.uploadedFiles} | Failed: ${stats.failedFiles} | Skipped: ${stats.skippedFiles}`);
         }
@@ -186,15 +185,8 @@ async function processFile(file, category) {
   const relativePath = path.relative(CONFIG.SOURCE_DIR, file.path);
   
   try {
-    // Check if file should be skipped
-    if (shouldSkipFile(file)) {
-      stats.skippedFiles++;
-      stats.categories[category].skipped++;
-      console.log(`   ⏩ Skipping: ${relativePath} (${file.reason})`);
-      return;
-    }
-
-    console.log(`   📄 Processing: ${relativePath} (${formatFileSize(file.size)})`);
+    // No skipping files - we want to upload everything
+    console.log(`   🔄 Processing: ${relativePath} (${formatFileSize(file.size)})`);
 
     // Extract metadata
     const metadata = {
@@ -204,10 +196,9 @@ async function processFile(file, category) {
       version: extractVersion(file.name)
     };
     
-    // Generate a safe filename with timestamp and UUID
+    // Generate a safe filename with timestamp
     const timestamp = Date.now();
-    const uniqueId = uuidv4().substring(0, 8);
-    const safeFileName = `${timestamp}_${uniqueId}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const safeFileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     
     // Determine storage path - preserve category structure
     const storagePath = `${category}/${safeFileName}`;
@@ -326,36 +317,23 @@ function getFilesToUpload(dir) {
       for (const entry of entries) {
         const fullPath = path.join(currentPath, entry.name);
         
-        // Skip excluded directories
         if (entry.isDirectory()) {
-          if (CONFIG.EXCLUDE_DIRS.includes(entry.name)) {
-            console.log(`   ⏩ Skipping excluded directory: ${entry.name}`);
-            continue;
-          }
           traverseDir(fullPath);
         } else {
-          // Check file extension
-          const ext = path.extname(entry.name).toLowerCase();
-          const stats = fs.statSync(fullPath);
-          const mimeType = mime.lookup(fullPath) || 'application/octet-stream';
-          
-          let skipReason = null;
-          
-          // Check if file should be included
-          if (!CONFIG.ALLOWED_EXTENSIONS.includes(ext)) {
-            skipReason = `Unsupported file type: ${ext}`;
-          } else if (stats.size > CONFIG.MAX_FILE_SIZE) {
-            skipReason = `File too large: ${formatFileSize(stats.size)} > ${formatFileSize(CONFIG.MAX_FILE_SIZE)}`;
+          try {
+            const stats = fs.statSync(fullPath);
+            const mimeType = mime.lookup(fullPath) || 'application/octet-stream';
+            
+            files.push({
+              path: fullPath,
+              name: entry.name,
+              size: stats.size,
+              extension: path.extname(entry.name).toLowerCase(),
+              mimeType: mimeType
+            });
+          } catch (error) {
+            console.warn(`   ⚠️ Could not read file ${fullPath}: ${error.message}`);
           }
-          
-          files.push({
-            path: fullPath,
-            name: entry.name,
-            size: stats.size,
-            extension: ext,
-            mimeType: mimeType,
-            reason: skipReason
-          });
         }
       }
     } catch (error) {
@@ -365,11 +343,6 @@ function getFilesToUpload(dir) {
   
   traverseDir(dir);
   return files;
-}
-
-// Helper function to check if a file should be skipped
-function shouldSkipFile(file) {
-  return !!file.reason;
 }
 
 // Helper function to extract version from filename
@@ -490,9 +463,8 @@ function generateReport() {
   if (stats.uploadedFiles > 0) {
     console.log('   - Process uploaded files through the RAG pipeline');
     console.log('   - Verify document metadata in the admin dashboard');
+    console.log('   - Run verification script to ensure all files were uploaded correctly');
   }
-  
-  console.log('   - Run verification script to ensure all files were uploaded correctly');
   
   if (stats.uploadedFiles === 0) {
     console.log('\n⚠️ No files were uploaded. Please check the source directory and file filters.');
