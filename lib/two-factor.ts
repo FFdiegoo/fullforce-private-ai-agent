@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import qrcode from 'qrcode';
+import * as qrcode from 'qrcode';
 
 export interface TwoFactorSetup {
   secret: string;
@@ -27,7 +27,8 @@ export class TwoFactorAuth {
     const otpauthUrl = `otpauth://totp/${encodeURIComponent(this.ISSUER)}:${encodeURIComponent(userEmail)}?secret=${secret}&issuer=${encodeURIComponent(this.ISSUER)}&algorithm=SHA1&digits=6&period=${this.PERIOD}`;
     
     try {
-      return await qrcode.toDataURL(otpauthUrl, {
+      // TypeScript fix: forceer de juiste functie
+      return await (qrcode as any).toDataURL(otpauthUrl, {
         errorCorrectionLevel: 'M',
         type: 'image/png',
         quality: 0.92,
