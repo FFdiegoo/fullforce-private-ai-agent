@@ -335,7 +335,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Remove used backup code if valid
         if (isValid) {
           const cleanCode = verificationToken.replace(/[\s-]/g, '').toUpperCase();
-          const updatedBackupCodes = profile.backup_codes.filter(code => 
+          const updatedBackupCodes = profile.backup_codes.filter((code: string) => 
             code.replace(/[\s-]/g, '').toUpperCase() !== cleanCode
           );
           
