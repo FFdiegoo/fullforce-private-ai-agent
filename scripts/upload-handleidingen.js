@@ -6,9 +6,17 @@ const { createClient } = require('@supabase/supabase-js');
 const SUPABASE_URL = 'https://xcrsfcwdjxsbmmrqnose.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjcnNmY3dkanhzYm1tcnFub3NlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NjUzNjc1OCwiZXhwIjoyMDYyMTEyNzU4fQ.BxHofBt6ViKx4FbV7218Ad2GAekhZQXEd6CiHkkjOGI';
 const BUCKET = 'company-docs';
-const SOURCE_DIR = 'D:/120 Handleidingen'; // Specifiek de handleidingen map
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
 const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt', '.md', '.xlsx', '.xls'];
+
+// Get source directory from command line arguments
+const SOURCE_DIR = process.argv[2];
+
+if (!SOURCE_DIR) {
+  console.error('❌ Gebruik: node scripts/upload-handleidingen.js <source-directory>');
+  console.error('   Voorbeeld: node scripts/upload-handleidingen.js ./handleidingen');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -128,6 +136,7 @@ async function main() {
 
   if (!fs.existsSync(SOURCE_DIR)) {
     console.error('❌ Handleidingen directory bestaat niet:', SOURCE_DIR);
+    console.error('   Controleer of het pad correct is en probeer opnieuw.');
     process.exit(1);
   }
 
