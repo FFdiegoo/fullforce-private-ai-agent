@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabaseClient';
 import { InviteSystem } from '../../../lib/invite-system';
-import { rateLimitByType } from '../../../lib/rate-limit';
+import { applyEnhancedRateLimit } from '../../../lib/enhanced-rate-limiter';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Rate limiting
-    const rateLimitResult = await rateLimitByType(clientIP, 'api', 5, 60000); // 5 requests per minute
+    const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'admin');
     if (!rateLimitResult.success) {
       return res.status(429).json({ error: 'Too many requests' });
     }
