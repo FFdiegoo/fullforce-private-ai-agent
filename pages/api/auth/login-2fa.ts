@@ -3,6 +3,8 @@ import { supabase } from '../../../lib/supabaseClient';
 import { TwoFactorAuth } from '../../../lib/two-factor';
 import { auditLogger } from '../../../lib/audit-logger';
 import { applyEnhancedRateLimit } from '../../../lib/enhanced-rate-limiter';
+import { EnhancedSessionManager } from '../../../lib/enhanced-session-manager';
+import { extractDeviceInfo } from '../../../lib/middleware-helpers';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -81,10 +83,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       email
     }, clientIP);
 
+    // --- SESSION MANAGEMENT TOEVOEGEN ---
+    const deviceInfo = extractDeviceInfo(req);
+    const sessionId = await EnhancedSessionManager.createSession(
+      authData.user.id,
+      authData.user.email,
+      deviceInfo
+    );
+
+    // Set session cookie
+    res.setHeader('Set-Cookie', `session-id=${sessionId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${30 * 60}`);
+
     return res.status(200).json({
       success: true,
       user: authData.user,
-      session: authData.session,
+      sessionId, // Voor client-side opslag
       message: 'Login successful'
     });
 
