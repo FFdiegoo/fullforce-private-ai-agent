@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import formidable from 'formidable';
+import formidable, { File as FormidableFile } from 'formidable';
 import fs from 'fs';
-import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
@@ -11,6 +10,11 @@ export const config = {
     bodyParser: false,
   },
 };
+
+// Typeguard voor FormidableFile
+function isFormidableFile(file: unknown): file is FormidableFile {
+  return !!file && typeof file === 'object' && 'filepath' in file;
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -37,18 +41,21 @@ export default async function handler(
       });
     });
 
-    // Get the uploaded file
-    const file = files.file;
-    if (!file || Array.isArray(file)) {
+    // Get the uploaded file (handle both array and single file)
+    const fileInput = files.file;
+    const fileCandidate = Array.isArray(fileInput) ? fileInput[0] : fileInput;
+
+    if (!isFormidableFile(fileCandidate)) {
       return res.status(400).json({ error: 'No file uploaded or multiple files detected' });
     }
+    const file = fileCandidate;
 
     // Extract metadata from form fields
-    const department = fields.department?.[0] || 'Unknown';
-    const category = fields.category?.[0] || 'Unknown';
-    const subject = fields.subject?.[0] || 'Unknown';
-    const version = fields.version?.[0] || '1.0';
-    const uploadedBy = fields.uploadedBy?.[0] || 'api-upload';
+    const department = Array.isArray(fields.department) ? fields.department[0] : fields.department || 'Unknown';
+    const category = Array.isArray(fields.category) ? fields.category[0] : fields.category || 'Unknown';
+    const subject = Array.isArray(fields.subject) ? fields.subject[0] : fields.subject || 'Unknown';
+    const version = Array.isArray(fields.version) ? fields.version[0] : fields.version || '1.0';
+    const uploadedBy = Array.isArray(fields.uploadedBy) ? fields.uploadedBy[0] : fields.uploadedBy || 'api-upload';
 
     // Generate a safe filename with timestamp and UUID
     const timestamp = Date.now();
@@ -95,7 +102,12 @@ export default async function handler(
     }
 
     // Clean up temporary file
-    fs.unlinkSync(file.filepath);
+    try {
+      fs.unlinkSync(file.filepath);
+    } catch (cleanupError) {
+      // Niet kritisch, log alleen
+      console.warn('Failed to cleanup temp file:', cleanupError);
+    }
 
     // Return success response
     return res.status(200).json({
