@@ -11,6 +11,11 @@ export const config = {
   },
 };
 
+// Type guard to check if an object is a FormidableFile
+function isFormidableFile(file: unknown): file is FormidableFile {
+  return !!file && typeof file === 'object' && 'filepath' in file;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -32,11 +37,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const fileInput = files.file;
-    const file = Array.isArray(fileInput) ? fileInput[0] : fileInput as FormidableFile;
-
-    if (!file || typeof file !== 'object' || !('filepath' in file)) {
+    
+    // Handle both array and single file cases
+    const fileCandidate = Array.isArray(fileInput) ? fileInput[0] : fileInput;
+    
+    // Use type guard to ensure we have a valid file
+    if (!isFormidableFile(fileCandidate)) {
       return res.status(400).json({ error: 'No valid file provided' });
     }
+    
+    // Now TypeScript knows fileCandidate is a FormidableFile
+    const file = fileCandidate;
 
     try {
       // Create read stream for large file handling
