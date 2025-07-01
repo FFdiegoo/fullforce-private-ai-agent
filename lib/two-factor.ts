@@ -1,5 +1,5 @@
-import * as crypto from 'crypto';
-import * as qrcode from 'qrcode';
+import crypto from 'crypto';
+import qrcode from 'qrcode';
 
 export interface TwoFactorSetup {
   secret: string;
