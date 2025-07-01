@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import { supabaseAdmin } from './supabaseAdmin';
 import { auditLogger } from './enhanced-audit-logger';
+import { NextRequest } from 'next/server';
 
 export interface SessionInfo {
   userId: string;
@@ -19,7 +20,7 @@ export class EnhancedSessionManager {
   private static readonly SESSION_TIMEOUT = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '30') * 60 * 1000;
   private static readonly REFRESH_THRESHOLD = parseInt(process.env.SESSION_REFRESH_THRESHOLD_MINUTES || '5') * 60 * 1000;
   private static readonly MAX_CONCURRENT_SESSIONS = 3;
-  
+
   private static activeSessions = new Map<string, SessionInfo>();
   private static cleanupInterval: NodeJS.Timeout | null = null;
 
@@ -37,7 +38,7 @@ export class EnhancedSessionManager {
   static async createSession(userId: string, email: string, deviceInfo: SessionInfo['deviceInfo']): Promise<string> {
     const sessionId = this.generateSessionId();
     const now = Date.now();
-    
+
     const sessionInfo: SessionInfo = {
       userId,
       email,
@@ -51,14 +52,14 @@ export class EnhancedSessionManager {
 
     // Check for multiple sessions
     const userSessions = this.getUserSessions(userId);
-    
+
     if (userSessions.length > this.MAX_CONCURRENT_SESSIONS) {
       // Remove oldest session
       const oldestSession = userSessions
         .sort((a, b) => a.lastActivity - b.lastActivity)[0];
-      
+
       await this.invalidateSession(this.getSessionIdByInfo(oldestSession), 'max_sessions_exceeded');
-      
+
       await auditLogger.logSecurity({
         type: 'SUSPICIOUS_ACTIVITY',
         severity: 'WARN',
@@ -84,7 +85,7 @@ export class EnhancedSessionManager {
 
   static async validateSession(sessionId: string, updateActivity: boolean = true): Promise<SessionInfo | null> {
     const session = this.activeSessions.get(sessionId);
-    
+
     if (!session) {
       return null;
     }
@@ -106,9 +107,23 @@ export class EnhancedSessionManager {
     return session;
   }
 
+  // DeepAgent update: validate session from NextRequest (middleware)
+  static async validateSessionFromRequest(request: NextRequest): Promise<SessionInfo | null> {
+    const sessionId = request.cookies.get('session-id')?.value;
+    if (!sessionId) return null;
+
+    const deviceInfo = {
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+      deviceId: request.headers.get('x-device-id') || 'unknown'
+    };
+
+    return await this.validateSession(sessionId, true);
+  }
+
   static async refreshSession(sessionId: string): Promise<boolean> {
     const session = this.activeSessions.get(sessionId);
-    
+
     if (!session) {
       return false;
     }
@@ -121,7 +136,7 @@ export class EnhancedSessionManager {
       try {
         // Refresh Supabase session
         const { error } = await supabase.auth.refreshSession();
-        
+
         if (error) {
           await this.invalidateSession(sessionId, 'refresh_failed');
           return false;
@@ -149,10 +164,10 @@ export class EnhancedSessionManager {
 
   static async invalidateSession(sessionId: string, reason: string = 'manual'): Promise<void> {
     const session = this.activeSessions.get(sessionId);
-    
+
     if (session) {
       session.isActive = false;
-      
+
       await auditLogger.logAuth('SESSION_INVALIDATED', session.userId, {
         sessionId,
         reason,
@@ -168,7 +183,7 @@ export class EnhancedSessionManager {
     const userSessions = Array.from(this.activeSessions.entries())
       .filter(([id, session]) => session.userId === userId && id !== excludeSessionId);
 
-    for (const [sessionId, _] of userSessions) {
+    for (const [sessionId] of userSessions) {
       await this.invalidateSession(sessionId, reason);
     }
 
@@ -189,7 +204,7 @@ export class EnhancedSessionManager {
 
     // Check for sessions from different IP addresses
     const uniqueIPs = new Set(userSessions.map(session => session.deviceInfo.ipAddress));
-    
+
     if (uniqueIPs.size > 1 && !uniqueIPs.has(newDeviceInfo.ipAddress)) {
       await auditLogger.logSecurity({
         type: 'SUSPICIOUS_ACTIVITY',
@@ -243,10 +258,10 @@ export class EnhancedSessionManager {
     const activeSessions = allSessions.filter(session => session.isActive);
     const expiredSessions = allSessions.filter(session => Date.now() > session.expiresAt);
     const uniqueUsers = new Set(activeSessions.map(session => session.userId)).size;
-    
-    const totalDuration = activeSessions.reduce((sum, session) => 
+
+    const totalDuration = activeSessions.reduce((sum, session) =>
       sum + (Date.now() - session.lastActivity), 0);
-    const averageSessionDuration = activeSessions.length > 0 
+    const averageSessionDuration = activeSessions.length > 0
       ? totalDuration / activeSessions.length / 60000 // in minutes
       : 0;
 
@@ -299,7 +314,7 @@ export class EnhancedSessionManager {
   }
 }
 
-// Initialize enhanced session manager
+// Initialize enhanced session manager on server side
 if (typeof window === 'undefined') {
   EnhancedSessionManager.init();
 }
