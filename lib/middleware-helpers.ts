@@ -205,3 +205,16 @@ function addSecurityHeaders(response: NextResponse) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 }
+// Device info extractor voor API-routes (zoals login-2fa)
+import type { NextApiRequest } from 'next';
+
+export function extractDeviceInfo(req: NextApiRequest) {
+  return {
+    userAgent: req.headers['user-agent'] || 'unknown',
+    ipAddress:
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      'unknown',
+    deviceId: req.headers['x-device-id'] || 'unknown'
+  };
+}
