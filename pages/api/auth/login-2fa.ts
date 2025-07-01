@@ -87,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const deviceInfo = extractDeviceInfo(req);
     const sessionId = await EnhancedSessionManager.createSession(
       authData.user.id,
-      authData.user.email,
+      authData.user.email || email, // <-- FIX: fallback naar request body email
       deviceInfo
     );
 
