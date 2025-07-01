@@ -18,7 +18,7 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
 
-  // 🔧 FIX: Add webpack configuration for better error handling
+  // Add webpack configuration for better error handling
   webpack: (config, { isServer }) => {
     // Improve error handling in middleware
     if (!isServer) {
@@ -33,7 +33,7 @@ const nextConfig = {
     return config;
   },
 
-  // 🔧 FIX: Add runtime configuration
+  // Add runtime configuration
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },

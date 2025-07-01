@@ -17,13 +17,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const pipeline = new RAGPipeline(supabase, openaiApiKey);
-  await pipeline.processDocument(metadata, {
-  chunkSize: RAG_CONFIG.chunkSize,
-  chunkOverlap: RAG_CONFIG.chunkOverlap, // Correct!
-  skipExisting: false,
-});
+    // Check if environment variables are properly loaded
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.OPENAI_API_KEY) {
+      throw new Error('Missing required environment variables');
+    }
 
+    const pipeline = new RAGPipeline(supabase, openaiApiKey);
+    await pipeline.processDocument(metadata, {
+      chunkSize: RAG_CONFIG.chunkSize,
+      chunkOverlap: RAG_CONFIG.chunkOverlap,
+      skipExisting: false,
+    });
 
     return res.status(200).json({ success: true });
   } catch (error: any) {

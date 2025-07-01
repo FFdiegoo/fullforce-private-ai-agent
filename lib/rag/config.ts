@@ -1,19 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
-}
-if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
-}
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error('Missing env.OPENAI_API_KEY');
+// Safely access environment variables with fallbacks
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const openaiApiKey = process.env.OPENAI_API_KEY || '';
+
+// Validate environment variables
+if (!supabaseUrl) {
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
 }
 
-export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-export const openaiApiKey = process.env.OPENAI_API_KEY;
-export const openaiModel = process.env.OPENAI_MODEL || 'gpt-4-turbo';
+if (!supabaseAnonKey) {
+  console.error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable');
+}
+
+if (!openaiApiKey) {
+  console.error('Missing OPENAI_API_KEY environment variable');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -23,3 +26,5 @@ export const RAG_CONFIG = {
   embeddingModel: 'text-embedding-ada-002',
   skipExisting: true, // zorgt ervoor dat documenten niet opnieuw worden verwerkt
 };
+
+export { supabaseUrl, supabaseAnonKey, openaiApiKey };
