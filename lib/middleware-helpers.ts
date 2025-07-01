@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { EnhancedSessionManager } from './lib/enhanced-session-manager';
+import { EnhancedSessionManager } from './enhanced-session-manager';
 
 const PUBLIC_PATHS = [
   '/',
