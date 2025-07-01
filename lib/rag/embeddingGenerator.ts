@@ -12,18 +12,22 @@ export class EmbeddingGenerator {
     const embeddedChunks: TextChunk[] = [];
 
     for (const chunk of chunks) {
-      const embeddingResponse = await this.openai.embeddings.create({
-        model,
-        input: chunk.content,
-      });
+      try {
+        const embeddingResponse = await this.openai.embeddings.create({
+          model,
+          input: chunk.content,
+        });
 
-      const [embedding] = embeddingResponse.data;
+        const [embedding] = embeddingResponse.data;
 
-      embeddedChunks.push({
-        ...chunk,
-        embedding: embedding.embedding,
- // voeg de embedding toe
-      });
+        embeddedChunks.push({
+          ...chunk,
+          embedding: embedding.embedding,
+        });
+      } catch (error) {
+        console.error(`Error generating embedding for chunk ${chunk.chunk_index}:`, error);
+        // Continue with other chunks, but don't include this one
+      }
     }
 
     return embeddedChunks;
