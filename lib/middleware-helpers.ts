@@ -222,3 +222,16 @@ export function extractDeviceInfo(req: NextApiRequest) {
     deviceId
   };
 }
+
+// Simuleer ophalen van gebruikersrol en permissies
+export async function getUserRole(userId: string): Promise<{ role: string; permissions: string[] }> {
+  // TODO: Vervang dit met echte database- of API-call
+  // Bijvoorbeeld: haal rol op uit Supabase of een andere DB
+
+  // Voorbeeld hardcoded:
+  if (userId === 'admin-user-id') {
+    return { role: 'admin', permissions: ['read', 'write', 'delete'] };
+  }
+
+  return { role: 'user', permissions: ['read'] };
+}
