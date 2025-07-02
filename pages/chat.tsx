@@ -36,7 +36,7 @@ export default function ChatPage() {
   }, [messages]);
 
   const handleSendMessage = async (text: string, model: 'simple' | 'complex') => {
-    await sendMessage(text, model, '/api/chat-enhanced');
+    await sendMessage(text, model, '/api/chat-with-context');
   };
 
   const handleSessionSelect = (sessionId: string) => {
