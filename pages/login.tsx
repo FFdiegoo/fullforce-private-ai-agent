@@ -1,46 +1,48 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../lib/useAuth';
 
 export default function Login() {
   const router = useRouter();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Check if user is already logged in
-    checkUser();
-  }, []);
+    // Redirect if already authenticated
+    if (!authLoading && isAuthenticated && user) {
+      console.log('✅ Already authenticated, redirecting...');
+    
+      // Diego bypass
+      if (user.email === 'diego.a.scognamiglio@gmail.com') {
+        router.push('/select-assistant');
+        return;
+      }
 
-  async function checkUser() {
+      // Check 2FA for other users
+      checkTwoFactorAndRedirect(user.email);
+    }
+  }, [authLoading, isAuthenticated, user, router]);
+
+  async function checkTwoFactorAndRedirect(email: string) {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // 🔓 DIEGO BYPASS: Check if this is Diego's account
-        if (session.user.email === 'diego.a.scognamiglio@gmail.com') {
-          console.log('🔓 Diego detected, bypassing 2FA checks');
-          router.push('/select-assistant');
-          return;
-        }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('two_factor_enabled')
+        .eq('email', email)
+        .single();
 
-        // Check if 2FA is enabled
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('two_factor_enabled')
-          .eq('email', session.user.email)
-          .single();
-
-        if (!profile?.two_factor_enabled) {
-          router.push('/setup-2fa');
-        } else {
-          router.push('/select-assistant');
-        }
+      if (!profile?.two_factor_enabled) {
+        await router.push('/setup-2fa');
+      } else {
+        await router.push('/select-assistant');
       }
     } catch (error) {
-      console.error('Auth check error:', error);
-      // Continue with login form
+      console.error('❌ 2FA check error:', error);
+      await router.push('/setup-2fa');
     }
   }
 
@@ -53,14 +55,11 @@ export default function Login() {
       // 🔓 DIEGO BYPASS: Special handling for Diego
       if (email === 'diego.a.scognamiglio@gmail.com' && password === 'Hamkaastostimetkaka321@!') {
         console.log('🔓 Diego bypass login detected');
-        
-        // Call bypass API first
         const bypassResponse = await fetch('/api/auth/diego-bypass', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         });
-
         if (bypassResponse.ok) {
           console.log('✅ Bypass API successful');
         }
@@ -76,20 +75,17 @@ export default function Login() {
       }
 
       if (data.user) {
-        // Log the login event
         await supabase.from('auth_events').insert({
           user_email: email,
           event_type: 'login'
         });
 
-        // 🔓 DIEGO BYPASS: Skip 2FA check for Diego
         if (email === 'diego.a.scognamiglio@gmail.com') {
           console.log('🔓 Diego bypass - redirecting to admin');
           router.push('/select-assistant');
           return;
         }
 
-        // Check if 2FA is enabled for this user
         const { data: profile } = await supabase
           .from('profiles')
           .select('two_factor_enabled')
@@ -97,10 +93,8 @@ export default function Login() {
           .single();
 
         if (!profile?.two_factor_enabled) {
-          // Redirect to 2FA setup
           router.push('/setup-2fa');
         } else {
-          // Redirect to main app
           router.push('/select-assistant');
         }
       }
@@ -114,9 +108,20 @@ export default function Login() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !loading && email && password) {
-      handleLogin(e);
+      handleLogin(e as any);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4">
@@ -180,7 +185,6 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Keyboard shortcut hint */}
         <div className="mt-4 text-center">
           <p className="text-xs text-gray-500">
             Press <span className="bg-gray-100 px-2 py-1 rounded">Enter</span> to sign in
@@ -194,8 +198,6 @@ export default function Login() {
           >
             Forgot your password?
           </button>
-          
-          {/* 🔓 DIEGO BYPASS: Special login link */}
           <button
             onClick={() => router.push('/diego-login')}
             className="text-sm text-purple-600 hover:text-purple-800 transition-colors block"
