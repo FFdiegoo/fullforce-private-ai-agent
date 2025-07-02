@@ -15,17 +15,20 @@ export interface SessionInfo {
 }
 
 export class SessionManager {
-  private static readonly SESSION_TIMEOUT = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '30') * 60 * 1000;
-  private static readonly REFRESH_THRESHOLD = parseInt(process.env.SESSION_REFRESH_THRESHOLD_MINUTES || '5') * 60 * 1000;
+  private static readonly SESSION_TIMEOUT = parseInt(typeof process !== 'undefined' && process.env ? process.env.SESSION_TIMEOUT_MINUTES || '30' : '30') * 60 * 1000;
+  private static readonly REFRESH_THRESHOLD = parseInt(typeof process !== 'undefined' && process.env ? process.env.SESSION_REFRESH_THRESHOLD_MINUTES || '5' : '5') * 60 * 1000;
   
   private static activeSessions = new Map<string, SessionInfo>();
   private static cleanupInterval: NodeJS.Timeout | null = null;
 
   static init(): void {
-    // Cleanup expired sessions every 5 minutes
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupExpiredSessions();
-    }, 5 * 60 * 1000);
+    // Only initialize in full Node.js environment (not Edge Runtime)
+    if (typeof setInterval !== 'undefined' && typeof process !== 'undefined' && process.versions && process.versions.node) {
+      // Cleanup expired sessions every 5 minutes
+      this.cleanupInterval = setInterval(() => {
+        this.cleanupExpiredSessions();
+      }, 5 * 60 * 1000);
+    }
   }
 
   static async createSession(userId: string, email: string, deviceInfo: SessionInfo['deviceInfo']): Promise<string> {
@@ -262,13 +265,13 @@ export class SessionManager {
   }
 }
 
-// Initialize session manager
-if (typeof window === 'undefined') {
+// Initialize session manager only in full Node.js environment (not Edge Runtime)
+if (typeof window === 'undefined' && typeof process !== 'undefined' && process.versions && process.versions.node) {
   SessionManager.init();
 }
 
-// Cleanup on process exit
-if (typeof process !== 'undefined' && process.on) {
+// Cleanup on process exit (only in full Node.js environment)
+if (typeof process !== 'undefined' && process.versions && process.versions.node && process.on) {
   process.on('beforeExit', () => {
     SessionManager.destroy();
   });
