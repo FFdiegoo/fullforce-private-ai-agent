@@ -36,11 +36,11 @@ export function useChatSession(mode: 'technical' | 'procurement') {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('id')
-        .eq('email', user.email)
+        .eq('email', user.email) // Changed from id to email
         .single();
 
       if (error) {
-        console.error('Error getting user profile:', error);
+        console.error('Error getting user profile:', error.message);
         return null;
       }
 

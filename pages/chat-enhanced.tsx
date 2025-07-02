@@ -35,9 +35,8 @@ export default function ChatEnhancedPage() {
   }, [messages]);
 
   const handleSendMessage = async (text: string, model: 'simple' | 'complex') => {
-    // Dynamically select the endpoint based on the model
-    const endpoint = model === 'complex' ? '/api/chat-rag' : '/api/chat-with-context';
-    await sendMessage(text, model, endpoint);
+    // Always use the RAG endpoint for all queries
+    await sendMessage(text, model, '/api/chat-rag');
   };
 
   const handleSessionSelect = (sessionId: string) => {
