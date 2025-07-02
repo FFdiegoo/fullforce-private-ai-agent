@@ -1,8 +1,7 @@
-'use client'
-
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabaseClient'
+import { useAuth } from '../lib/useAuth'
 
 interface DebugInfo {
   step?: string;
@@ -51,268 +50,124 @@ export default function Setup2FAPage() {
   const [error, setError] = useState('')
   const [debugInfo, setDebugInfo] = useState<DebugInfo>({})
   const router = useRouter()
+  const { user: authUser, loading: authLoading, isAuthenticated } = useAuth();
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    if (!authLoading) {
+      if (!isAuthenticated || !authUser) {
+        console.log('❌ No authentication, redirecting to login');
+        router.push('/login');
+        return;
+      }
 
-  const checkAuth = async () => {
+      // Diego bypass
+      if (authUser.email === 'diego.a.scognamiglio@gmail.com') {
+        console.log('🔓 Diego detected, redirecting to select-assistant');
+        router.push('/select-assistant');
+        return;
+      }
+
+      checkExisting2FA();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, authUser, router]);
+
+  const checkExisting2FA = async () => {
+    if (!authUser) return;
+
     try {
-      console.log('🔍 Starting auth check...')
-      setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'getting_session' }))
-      
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      console.log('📋 Session check result:', {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        userEmail: session?.user?.email,
-        sessionError: sessionError?.message
-      })
-      
-      setDebugInfo((prev: DebugInfo) => ({ 
-        ...prev, 
-        hasSession: !!session,
-        userEmail: session?.user?.email,
-        sessionError: sessionError?.message
-      }))
-      
-      if (sessionError) {
-        console.error('❌ Session error:', sessionError)
-        setError(`Session error: ${sessionError.message}`)
-        return
-      }
-      
-      if (!session || !session.user) {
-        console.log('❌ No valid session, redirecting to login')
-        setDebugInfo((prev: DebugInfo) => ({ ...prev, redirectReason: 'no_session' }))
-        router.push('/login')
-        return
-      }
+      console.log('🔍 Checking existing 2FA setup...');
+      setDebugInfo(prev => ({ ...prev, step: 'checking_existing_2fa' }));
 
-      console.log('✅ Valid session found, checking user profile...')
-      setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'checking_profile' }))
-
-      // Get user profile - with better error handling
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('email', session.user.email)
-        .single()
+        .eq('email', authUser.email)
+        .single();
 
-      console.log('👤 Profile check result:', {
+      setDebugInfo(prev => ({
+        ...prev,
         hasProfile: !!profile,
         profileEmail: profile?.email,
         twoFactorEnabled: profile?.two_factor_enabled,
         profileError: profileError?.message
-      })
-
-      setDebugInfo((prev: DebugInfo) => ({ 
-        ...prev, 
-        hasProfile: !!profile,
-        profileEmail: profile?.email,
-        twoFactorEnabled: profile?.two_factor_enabled,
-        profileError: profileError?.message
-      }))
-
-      // If profile doesn't exist, try to create it
-      if (profileError && profileError.code === 'PGRST116') {
-        console.log('🔧 Profile not found, attempting to create...')
-        setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'creating_profile' }))
-        
-        const profileCreated = await createUserProfile(session.access_token)
-        if (profileCreated) {
-          // Retry getting the profile
-          const { data: newProfile, error: newProfileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', session.user.email)
-            .single()
-
-          if (newProfile) {
-            console.log('✅ Profile created and retrieved successfully')
-            setUser(newProfile)
-            setDebugInfo((prev: DebugInfo) => ({ 
-              ...prev, 
-              profileCreated: true,
-              hasProfile: true,
-              profileEmail: newProfile.email,
-              twoFactorEnabled: newProfile.two_factor_enabled
-            }))
-            
-            // Continue with 2FA setup
-            await initiate2FASetup(session.access_token)
-            return
-          }
-        }
-        
-        setError('Failed to create user profile. Please contact support.')
-        return
-      }
+      }));
 
       if (profileError) {
-        console.error('❌ Profile error:', profileError)
-        setError(`Profile error: ${profileError.message}`)
-        return
+        console.error('❌ Profile error:', profileError);
+        setError(`Profile error: ${profileError.message}`);
+        return;
       }
 
-      // Check if 2FA is already enabled
       if (profile?.two_factor_enabled) {
-        console.log('✅ 2FA already enabled, redirecting to dashboard')
-        setDebugInfo((prev: DebugInfo) => ({ ...prev, redirectReason: '2fa_already_enabled' }))
-        router.push('/select-assistant')
-        return
+        console.log('✅ 2FA already enabled, redirecting...');
+        router.push('/select-assistant');
+        return;
       }
 
-      console.log('🎯 2FA not enabled, proceeding with setup')
-      setUser(profile || { email: session.user.email })
-      setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'initiating_2fa_setup' }))
-      
-      // Auto-start 2FA setup when component loads
-      await initiate2FASetup(session.access_token)
-    } catch (error) {
-      console.error('❌ Auth check error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      setError(`Auth check failed: ${errorMessage}`)
-      setDebugInfo((prev: DebugInfo) => ({ 
-        ...prev, 
-        authCheckError: errorMessage,
-        step: 'auth_check_failed'
-      }))
+      console.log('ℹ️ 2FA not enabled, showing setup');
+      setUser(authUser);
+      await initiate2FASetup();
+    } catch (error: any) {
+      console.error('❌ 2FA check error:', error);
+      setError(`2FA check failed: ${error.message}`);
+      setDebugInfo(prev => ({ ...prev, authCheckError: error.message }));
     }
-  }
+  };
 
-  const createUserProfile = async (accessToken: string): Promise<boolean> => {
+  const initiate2FASetup = async () => {
     try {
-      console.log('🔧 Creating user profile...')
-      
-      const response = await fetch('/api/auth/create-profile', {
+      setLoading(true)
+      setError('')
+      setDebugInfo(prev => ({ ...prev, step: 'calling_2fa_api' }));
+
+      const session = supabase.auth.getSession
+        ? (await supabase.auth.getSession()).data.session
+        : null;
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        setError('No session found, please login again.');
+        return;
+      }
+
+      const response = await fetch('/api/auth/setup-2fa', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         }
-      })
+      });
 
-      const data = await response.json()
-      
-      if (response.ok) {
-        console.log('✅ Profile created successfully:', data.profile)
-        setDebugInfo((prev: DebugInfo) => ({ ...prev, profileCreated: true }))
-        return true
-      } else {
-        console.error('❌ Profile creation failed:', data)
-        setDebugInfo((prev: DebugInfo) => ({ 
-          ...prev, 
-          profileCreationError: data.error || 'Unknown error'
-        }))
-        return false
-      }
-    } catch (error) {
-      console.error('❌ Profile creation error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      setDebugInfo((prev: DebugInfo) => ({ 
-        ...prev, 
-        profileCreationError: errorMessage
-      }))
-      return false
-    }
-  }
-
-  const initiate2FASetup = async (accessToken: string) => {
-    try {
-      setLoading(true)
-      setError('')
-      
-      console.log('🔄 Initiating 2FA setup...')
-      setDebugInfo((prev: DebugInfo) => ({ ...prev, step: 'calling_2fa_api' }))
-      
-      const apiUrl = '/api/auth/setup-2fa'
-      const requestMethod = 'POST'
-      const authHeaderPresent = !!accessToken
-      
-      setDebugInfo((prev: DebugInfo) => ({ 
-        ...prev, 
-        apiUrl,
-        requestMethod,
-        authHeaderPresent
-      }))
-      
-      console.log('📡 Making API request:', {
-        url: apiUrl,
-        method: requestMethod,
-        hasToken: authHeaderPresent,
-        tokenLength: accessToken?.length || 0
-      })
-      
-      const response = await fetch(apiUrl, {
-        method: requestMethod,
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      console.log('📡 Response received:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      })
-      
-      setDebugInfo((prev: DebugInfo) => ({ 
-        ...prev, 
+      setDebugInfo(prev => ({
+        ...prev,
         apiResponseStatus: response.status,
         apiResponseOk: response.ok
-      }))
-      
+      }));
+
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error('❌ Response error:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        })
-        throw new Error(`HTTP ${response.status}: ${errorText}`)
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      const data = await response.json()
-      console.log('✅ 2FA setup data received:', { 
-        hasQrCode: !!data.qrCodeUrl, 
-        hasSecret: !!data.secret,
-        backupCodesCount: data.backupCodes?.length || 0,
-        qrCodeLength: data.qrCodeUrl?.length || 0
-      })
-      
-      setDebugInfo((prev: DebugInfo) => ({ 
-        ...prev, 
+      const data = await response.json();
+      setQrCodeUrl(data.qrCodeUrl);
+      setBackupCodes(data.backupCodes || []);
+      setSecret(data.secret);
+
+      setDebugInfo(prev => ({
+        ...prev,
         hasQrCode: !!data.qrCodeUrl,
         hasSecret: data.secret ? `${data.secret.substring(0, 10)}...` : 'none',
         backupCodesCount: data.backupCodes?.length || 0
-      }))
-      
-      if (!data.qrCodeUrl) {
-        throw new Error('QR code niet ontvangen van server')
-      }
-      
-      setQrCodeUrl(data.qrCodeUrl)
-      setBackupCodes(data.backupCodes || [])
-      setSecret(data.secret)
-      
-      console.log('🎯 Setup completed successfully')
-      
-    } catch (error) {
-      console.error('❌ 2FA setup error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      setError(`2FA setup failed: ${errorMessage}`)
-      setDebugInfo((prev: DebugInfo) => ({ 
-        ...prev, 
-        setupError: errorMessage
-      }))
+      }));
+    } catch (error: any) {
+      setError(`2FA setup failed: ${error.message}`);
+      setDebugInfo(prev => ({ ...prev, setupError: error.message }));
     } finally {
       setLoading(false)
     }
-  }
+  };
 
   const verify2FA = async () => {
     if (!verificationCode || verificationCode.length !== 6) {
@@ -323,81 +178,48 @@ export default function Setup2FAPage() {
     try {
       setLoading(true)
       setError('')
-      
-      console.log('🔐 Starting 2FA verification...')
-      
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!session) {
-        setError('Session expired, please refresh the page')
-        return
+
+      const session = supabase.auth.getSession
+        ? (await supabase.auth.getSession()).data.session
+        : null;
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        setError('Session expired, please refresh the page');
+        return;
       }
 
-      // 🔧 FIX: Enhanced verification attempt logging
-      const verificationAttempt = {
-        tokenLength: verificationCode.length,
-        secretLength: secret.length,
-        timestamp: new Date().toISOString(),
-        serverTime: new Date().toUTCString(),
-        clientTime: new Date().toLocaleString()
-      }
-      
-      setDebugInfo((prev: DebugInfo) => ({ 
-        ...prev, 
-        verificationAttempt
-      }))
-
-      console.log('📡 Sending verification request:', {
-        hasSecret: !!secret,
-        secretLength: secret.length,
-        secretPreview: secret.substring(0, 10) + '...',
-        tokenLength: verificationCode.length,
-        token: verificationCode,
-        backupCodesCount: backupCodes.length,
-        currentTime: new Date().toISOString()
-      })
-      
       const response = await fetch('/api/auth/setup-2fa', {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
-          secret: secret, // 🔧 FIX: Send the secret from the setup
+          secret: secret,
           token: verificationCode,
           backupCodes: backupCodes
         })
-      })
+      });
 
-      const responseData = await response.json()
+      const responseData = await response.json();
 
-      console.log('📡 Verification response:', {
-        status: response.status,
-        ok: response.ok,
-        data: responseData
-      })
-
-      setDebugInfo((prev: DebugInfo) => ({ 
+      setDebugInfo(prev => ({ 
         ...prev, 
         verificationResponse: {
           status: response.status,
           ok: response.ok,
           error: responseData.error
         }
-      }))
+      }));
 
       if (response.ok) {
-        console.log('✅ 2FA verification successful!')
         setStep(3)
       } else {
-        console.error('❌ Verification failed:', responseData)
         setError(responseData.error || 'Verification failed')
       }
-    } catch (error) {
-      console.error('❌ 2FA verification error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      setError(`Verification failed: ${errorMessage}`)
+    } catch (error: any) {
+      setError(`Verification failed: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -420,7 +242,6 @@ ${backupCodes.map((code, index) => `${index + 1}. ${code}`).join('\n')}
 
 These codes can be used if you don't have access to your authenticator app.
 `
-
     const blob = new Blob([content], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -429,29 +250,6 @@ These codes can be used if you don't have access to your authenticator app.
     a.click()
     URL.revokeObjectURL(url)
     alert('Backup codes downloaded')
-  }
-
-  const retrySetup = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
-      await initiate2FASetup(session.access_token)
-    }
-  }
-
-  const forceSkipToSetup = () => {
-    setUser({ email: 'debug@test.com' })
-    setError('')
-  }
-
-  const createProfileManually = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
-      const success = await createUserProfile(session.access_token)
-      if (success) {
-        // Retry the whole auth check
-        await checkAuth()
-      }
-    }
   }
 
   if (loading && !qrCodeUrl && !error) {
@@ -496,32 +294,6 @@ These codes can be used if you don't have access to your authenticator app.
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-600 text-sm mb-3">{error}</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={retrySetup}
-                className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
-              >
-                🔄 Retry
-              </button>
-              <button
-                onClick={createProfileManually}
-                className="text-sm bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded transition-colors"
-              >
-                👤 Create Profile
-              </button>
-              <button
-                onClick={forceSkipToSetup}
-                className="text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-700 px-3 py-1 rounded transition-colors"
-              >
-                🚀 Force Skip (Debug)
-              </button>
-              <button
-                onClick={() => router.push('/login')}
-                className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
-              >
-                🔑 To Login
-              </button>
-            </div>
           </div>
         )}
 
@@ -555,14 +327,6 @@ These codes can be used if you don't have access to your authenticator app.
                   <div className="w-48 h-48 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
                     <div className="text-center">
                       <span className="text-gray-500 text-sm">QR Code loading...</span>
-                      {!loading && (
-                        <button
-                          onClick={retrySetup}
-                          className="block mt-2 text-xs text-indigo-600 hover:text-indigo-800"
-                        >
-                          🔄 Reload
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -605,20 +369,6 @@ These codes can be used if you don't have access to your authenticator app.
               <p className="text-sm text-gray-600 mb-4">
                 Enter the 6-digit code shown in your authenticator app
               </p>
-              
-              {/* 🔧 FIX: Enhanced debugging info */}
-              <div className="mb-4 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                <strong>Debug Info:</strong><br />
-                Current time: {new Date().toLocaleTimeString()}<br />
-                Secret length: {secret.length}<br />
-                Secret preview: {secret.substring(0, 10)}...<br />
-                {debugInfo.verificationAttempt && (
-                  <>
-                    Last attempt: {debugInfo.verificationAttempt.timestamp}<br />
-                    Response: {debugInfo.verificationResponse?.status} - {debugInfo.verificationResponse?.error || 'OK'}
-                  </>
-                )}
-              </div>
               
               <input
                 type="text"
