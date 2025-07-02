@@ -49,7 +49,6 @@ export async function middleware(request: NextRequest) {
         '84.86.144.131',
         '185.56.55.239',
         '45.147.87.232',
-        // Add more from env
         ...(process.env.ALLOWED_IPS?.split(',').map(ip => ip.trim()) || [])
       ];
 
@@ -69,25 +68,43 @@ export async function middleware(request: NextRequest) {
       }
     } catch (rateLimitError) {
       console.error('Rate limiting error:', rateLimitError);
-      // Continue without rate limiting if it fails
     }
 
-    // --- Session Validation ---
+    // --- Session Refresh & Validation ---
+    try {
+      const { data: { session }, error } = await EnhancedSessionManager.supabase.auth.getSession();
+
+      if (error) {
+        console.warn('⚠️ Middleware: Session error:', error.message);
+      }
+
+      if (session && session.expires_at) {
+        const expiresAt = session.expires_at * 1000;
+        const now = Date.now();
+        const timeUntilExpiry = expiresAt - now;
+        const refreshThreshold = 5 * 60 * 1000;
+
+        if (timeUntilExpiry < refreshThreshold && timeUntilExpiry > 0) {
+          console.log('🔄 Middleware: Refreshing session');
+          await EnhancedSessionManager.supabase.auth.refreshSession();
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Middleware: Session refresh error:', e);
+    }
+
     const session = await EnhancedSessionManager.validateSessionFromRequest(request);
 
     if (!session) {
-      // Redirect to login if no valid session
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    // --- Optional: Admin path check ---
     if (pathname.startsWith('/admin')) {
       // TODO: Add admin role/permission check if needed
     }
 
-    // --- Build response with session info and security headers ---
     const response = NextResponse.next();
     response.headers.set('x-user-id', session.userId);
     response.headers.set('x-user-email', session.email);
@@ -124,13 +141,10 @@ function getClientIP(req: NextRequest): string | null {
 
 function isIPAllowed(ip: string, allowedIPs: string[]): boolean {
   if (allowedIPs.includes(ip)) return true;
-
-  // Normalize IPv6 addresses for comparison
   if (ip.includes(':')) {
     const normalizeIPv6 = (addr: string) => addr.toLowerCase().replace(/^::ffff:/, '');
     return allowedIPs.some(allowedIP => normalizeIPv6(allowedIP) === normalizeIPv6(ip));
   }
-
   return false;
 }
 
@@ -154,8 +168,6 @@ function getRateLimitType(pathname: string): 'auth' | 'upload' | 'chat' | 'admin
 }
 
 async function applyRateLimit(ip: string | null, type: string) {
-  // TODO: Replace with your real rate limiting logic
-  // For now, simple in-memory or always allow
   return {
     success: true,
     remaining: 100,
