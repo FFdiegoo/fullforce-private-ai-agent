@@ -1,40 +1,55 @@
 import { useState, useEffect } from 'react';
-import { supabase, getCurrentSession } from './supabaseClient';
-import { User, Session } from '@supabase/supabase-js';
+import { supabase } from './supabaseClient';
+import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthState {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  error: string | null;
+  isAuthenticated: boolean;
 }
 
 export function useAuth() {
-  const [authState, setAuthState] = useState<AuthState>({
+  const [state, setState] = useState<AuthState>({
     user: null,
     session: null,
     loading: true,
-    error: null
+    isAuthenticated: false,
   });
 
   useEffect(() => {
-    // Get initial session
-    getCurrentSession().then(session => {
-      setAuthState({
-        user: session?.user || null,
+    async function getSession() {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        setState({ user: null, session: null, loading: false, isAuthenticated: false });
+        return;
+      }
+      setState({
+        user: session?.user ?? null,
         session,
         loading: false,
-        error: null
+        isAuthenticated: !!session,
       });
-    }).catch(error => {
-      console.error('❌ Initial auth check failed:', error);
-      setAuthState({
-        user: null,
-        session: null,
+    }
+
+    getSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setState({
+        user: session?.user ?? null,
+        session,
         loading: false,
-        error: error.message
+        isAuthenticated: !!session,
       });
     });
+
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
+
+  return state;
+}
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
