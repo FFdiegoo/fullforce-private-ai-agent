@@ -1,7 +1,3 @@
-Stap 4: Fix Chat API Authentication
-Bestand: pages/api/chat-with-context.ts
-Wijziging: Voeg auth check toe aan het begin van de handler (na regel 25):
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ChatResponse>
