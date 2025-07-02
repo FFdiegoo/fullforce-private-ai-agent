@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { EnhancedSessionManager } from './lib/enhanced-session-manager';
+import { supabase } from './lib/supabaseClient';
 
 const PUBLIC_PATHS = [
   '/',
@@ -72,7 +73,7 @@ export async function middleware(request: NextRequest) {
 
     // --- Session Refresh & Validation ---
     try {
-      const { data: { session }, error } = await EnhancedSessionManager.supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
         console.warn('⚠️ Middleware: Session error:', error.message);
@@ -86,7 +87,7 @@ export async function middleware(request: NextRequest) {
 
         if (timeUntilExpiry < refreshThreshold && timeUntilExpiry > 0) {
           console.log('🔄 Middleware: Refreshing session');
-          await EnhancedSessionManager.supabase.auth.refreshSession();
+          await supabase.auth.refreshSession();
         }
       }
     } catch (e) {
