@@ -1,25 +1,6 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { OpenAI } from 'openai';
-import { supabase } from '@/lib/supabaseClient';
-import { RAGPipeline } from '@/lib/rag/pipeline';
-import { openaiApiKey } from '@/lib/rag/config';
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: openaiApiKey,
-});
-
-// Define response type
-interface ChatResponse {
-  reply: string;
-  modelUsed?: string;
-  sources?: Array<{
-    content: string;
-    metadata: any;
-    similarity: number;
-  }>;
-  error?: string;
-}
+Stap 4: Fix Chat API Authentication
+Bestand: pages/api/chat-with-context.ts
+Wijziging: Voeg auth check toe aan het begin van de handler (na regel 25):
 
 export default async function handler(
   req: NextApiRequest,
@@ -33,125 +14,35 @@ export default async function handler(
     });
   }
 
-  // Extract request data
-  const { prompt, mode = 'technical', model = 'simple', includeSources = false } = req.body;
-
-  // Validate request data
-  if (!prompt || typeof prompt !== 'string') {
-    return res.status(400).json({ 
-      reply: 'Invalid request',
-      error: 'Prompt is required and must be a string'
-    });
-  }
-
+  // AUTH CHECK - Voeg dit toe
   try {
-    // Validate environment variables
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    // 1. Create RAG pipeline
-    const pipeline = new RAGPipeline(supabase, openaiApiKey);
-
-    // 2. Search for relevant documents
-    console.log(`🔍 Searching for documents relevant to: "${prompt.substring(0, 50)}..."`);
-    const similarDocuments = await pipeline.searchSimilarDocuments(prompt);
-    
-    // 3. Prepare context from similar documents
-    let context = '';
-    const sources: any[] = [];
-    
-    if (similarDocuments && similarDocuments.length > 0) {
-      console.log(`✅ Found ${similarDocuments.length} relevant documents`);
-      
-      // Extract content and format as context
-      context = similarDocuments.map((doc, index) => {
-        // Save source for response
-        sources.push({
-          content: doc.content.substring(0, 150) + '...',
-          metadata: doc.metadata,
-          similarity: doc.similarity
-        });
-        
-        // Format as context
-        return `[Document ${index + 1}]: ${doc.content}`;
-      }).join('\n\n');
-    } else {
-      console.log('⚠️ No relevant documents found');
-    }
-
-    // 4. Choose the appropriate system prompt based on mode
-    const systemPrompt = mode === 'technical' 
-      ? `Je bent CeeS, een technische AI-assistent voor CS Rental. Help gebruikers met technische documentatie en ondersteuning. Geef duidelijke, praktische antwoorden.
-      
-Gebruik de volgende context om je antwoorden te verbeteren:
-
-${context}`
-      : `Je bent ChriS, een inkoop AI-assistent voor CS Rental. Help gebruikers met inkoop en onderdelen informatie. Focus op praktische inkoop-gerelateerde vragen.
-      
-Gebruik de volgende context om je antwoorden te verbeteren:
-
-${context}`;
-
-    // 5. Choose the appropriate model based on complexity
-    let selectedModel;
-    if (model === 'complex') {
-      selectedModel = process.env.OPENAI_MODEL_COMPLEX || 'gpt-4';
-    } else {
-      selectedModel = process.env.OPENAI_MODEL_SIMPLE || 'gpt-4-turbo';
-    }
-
-    // 6. Generate response with OpenAI
-    console.log(`🤖 Generating response using ${selectedModel}...`);
-    const completion = await openai.chat.completions.create({
-      model: selectedModel,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt }
-      ],
-      max_tokens: model === 'complex' ? 2000 : 1000,
-      temperature: model === 'complex' ? 0.3 : 0.7,
-    });
-
-    // 7. Extract and return the response
-    const reply = completion.choices?.[0]?.message?.content || 'Sorry, er ging iets mis bij het genereren van een antwoord.';
-    
-    // 8. Return structured response
-    return res.status(200).json({ 
-      reply, 
-      modelUsed: selectedModel,
-      sources: includeSources ? sources : undefined
-    });
-
-  } catch (error: any) {
-    console.error('❌ Error in chat-with-context API:', error);
-
-    // Handle different error types
-    if (error.name === 'AuthenticationError') {
-      return res.status(500).json({ 
-        reply: 'OpenAI API authenticatie mislukt. Neem contact op met de beheerder.',
-        error: 'Authentication failed'
-      });
-    }
-    
-    if (error.name === 'RateLimitError') {
-      return res.status(429).json({ 
-        reply: 'Te veel verzoeken. Probeer het over een paar minuten opnieuw.',
-        error: 'Rate limit exceeded'
-      });
-    }
-    
-    if (error.name === 'TimeoutError') {
-      return res.status(504).json({ 
-        reply: 'Het verzoek duurde te lang. Probeer het opnieuw met een kortere vraag.',
-        error: 'Request timeout'
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({
+        reply: 'Authentication required',
+        error: 'No authorization header provided'
       });
     }
 
-    // Generic error response
-    return res.status(500).json({ 
-      reply: 'Er is een fout opgetreden bij het verwerken van je verzoek. Probeer het later opnieuw.',
-      error: error.message || 'Unknown error'
+    // Validate session with Supabase
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  
+    if (authError || !user) {
+      return res.status(401).json({
+        reply: 'Invalid authentication',
+        error: 'Session validation failed'
+      });
+    }
+
+    console.log('✅ Authenticated request from:', user.email);
+  } catch (authError) {
+    console.error('❌ Auth validation error:', authError);
+    return res.status(401).json({
+      reply: 'Authentication failed',
+      error: 'Unable to validate session'
     });
   }
-}
+
+  // Extract request data (bestaande code blijft hetzelfde)
+  const { prompt, mode = 'technical', model = 'simple', includeSources = fa
