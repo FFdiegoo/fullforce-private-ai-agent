@@ -33,7 +33,7 @@ class EnhancedRateLimiter {
     this.config = config;
     
     // Cleanup expired entries every 5 minutes
-    if (typeof setInterval !== 'undefined') {
+    if (typeof setInterval !== 'undefined' && typeof window === 'undefined') {
       setInterval(() => this.cleanup(), 5 * 60 * 1000);
     }
   }
@@ -154,28 +154,28 @@ class EnhancedRateLimiter {
 // Enhanced rate limiter instances with logging
 export const enhancedRateLimiters = {
   auth: new EnhancedRateLimiter('AUTH', {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-    maxRequests: parseInt(process.env.RATE_LIMIT_AUTH_MAX || '5')
+    windowMs: parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_WINDOW_MS || '900000' : '900000'), // 15 minutes
+    maxRequests: parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_AUTH_MAX || '5' : '5')
   }),
   
   upload: new EnhancedRateLimiter('UPLOAD', {
     windowMs: 60 * 60 * 1000, // 1 hour
-    maxRequests: parseInt(process.env.RATE_LIMIT_UPLOAD_MAX || '10')
+    maxRequests: parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_UPLOAD_MAX || '10' : '10')
   }),
   
   chat: new EnhancedRateLimiter('CHAT', {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-    maxRequests: parseInt(process.env.RATE_LIMIT_CHAT_MAX || '50')
+    windowMs: parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_WINDOW_MS || '900000' : '900000'), // 15 minutes
+    maxRequests: parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_CHAT_MAX || '50' : '50')
   }),
   
   admin: new EnhancedRateLimiter('ADMIN', {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-    maxRequests: parseInt(process.env.RATE_LIMIT_ADMIN_MAX || '20')
+    windowMs: parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_WINDOW_MS || '900000' : '900000'), // 15 minutes
+    maxRequests: parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_ADMIN_MAX || '20' : '20')
   }),
   
   general: new EnhancedRateLimiter('GENERAL', {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100')
+    windowMs: parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_WINDOW_MS || '900000' : '900000'), // 15 minutes
+    maxRequests: parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_MAX_REQUESTS || '100' : '100')
   })
 };
 

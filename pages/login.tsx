@@ -23,7 +23,12 @@ export default function Login() {
       }
 
       // Check 2FA for other users
-      checkTwoFactorAndRedirect(user.email);
+      if (user.email) {
+        checkTwoFactorAndRedirect(user.email);
+      } else {
+        console.warn('⚠️ User authenticated but email is undefined');
+        router.push('/setup-2fa');
+      }
     }
   }, [authLoading, isAuthenticated, user, router]);
 

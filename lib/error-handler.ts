@@ -133,7 +133,7 @@ export class ErrorHandler {
       status: 500,
       body: {
         error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred',
+        message: typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred',
         errorId,
         type: 'INTERNAL_ERROR'
       }
@@ -170,22 +170,24 @@ export class ErrorHandler {
   }
 }
 
-// Global error handler for unhandled promises
-process.on('unhandledRejection', async (reason: any, promise: Promise<any>) => {
-  const error = reason instanceof Error ? reason : new Error(String(reason));
-  await ErrorHandler.handleSystemError(error, {
-    action: 'UNHANDLED_REJECTION',
-    resource: 'system'
+// Global error handler for unhandled promises - only in Node.js environment
+if (typeof window === 'undefined' && typeof process !== 'undefined' && process.versions && process.versions.node) {
+  process.on('unhandledRejection', async (reason: any, promise: Promise<any>) => {
+    const error = reason instanceof Error ? reason : new Error(String(reason));
+    await ErrorHandler.handleSystemError(error, {
+      action: 'UNHANDLED_REJECTION',
+      resource: 'system'
+    });
   });
-});
 
-// Global error handler for uncaught exceptions
-process.on('uncaughtException', async (error: Error) => {
-  await ErrorHandler.handleSystemError(error, {
-    action: 'UNCAUGHT_EXCEPTION',
-    resource: 'system'
+  // Global error handler for uncaught exceptions
+  process.on('uncaughtException', async (error: Error) => {
+    await ErrorHandler.handleSystemError(error, {
+      action: 'UNCAUGHT_EXCEPTION',
+      resource: 'system'
+    });
+    
+    // Exit process after logging
+    process.exit(1);
   });
-  
-  // Exit process after logging
-  process.exit(1);
-});
+}

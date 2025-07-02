@@ -19,8 +19,8 @@ export async function rateLimit(
   } = {}
 ): Promise<RateLimitResult> {
   const {
-    windowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
-    maxRequests = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+    windowMs = parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_WINDOW_MS || '900000' : '900000'),
+    maxRequests = parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_MAX_REQUESTS || '100' : '100'),
     keyGenerator = (req) => req.ip || 'anonymous'
   } = options;
 
@@ -65,7 +65,7 @@ export async function rateLimit(
 }
 
 // Cleanup old entries periodically
-if (typeof setInterval !== 'undefined') {
+if (typeof setInterval !== 'undefined' && typeof window === 'undefined') {
   setInterval(() => {
     const now = Date.now();
     for (const [key, value] of memoryStore.entries()) {
