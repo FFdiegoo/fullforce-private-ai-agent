@@ -13,6 +13,7 @@ if (!supabaseAnonKey) {
   console.error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable');
 }
 
+// Enhanced client configuration for better session management
 export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey,
@@ -20,11 +21,24 @@ export const supabase = createClient(
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: 'supabase.auth.token',
+      debug: process.env.NODE_ENV === 'development'
     },
     global: {
       headers: {
-        'X-Client-Info': 'fullforce-ai-agent'
+        'X-Client-Info': 'fullforce-ai-agent',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    },
+    db: {
+      schema: 'public'
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
       }
     }
   }
