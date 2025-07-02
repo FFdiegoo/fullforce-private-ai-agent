@@ -26,8 +26,8 @@ export class EnhancedAuditLogger {
   private flushInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    // Only set up interval in Node.js environment
-    if (typeof setInterval !== 'undefined') {
+    // Only set up interval in Node.js environment (not Edge Runtime)
+    if (typeof setInterval !== 'undefined' && typeof process !== 'undefined' && process.versions && process.versions.node) {
       this.flushInterval = setInterval(() => this.flush(), 5000);
     }
   }
@@ -47,7 +47,7 @@ export class EnhancedAuditLogger {
         metadata: {
           ...data.metadata,
           timestamp: new Date().toISOString(),
-          environment: process.env.NODE_ENV || 'development'
+          environment: (typeof process !== 'undefined' && process.env) ? process.env.NODE_ENV || 'development' : 'development'
         }
       };
 
@@ -267,8 +267,8 @@ export class EnhancedAuditLogger {
 // Export singleton instance
 export const auditLogger = EnhancedAuditLogger.getInstance();
 
-// Cleanup on process exit (only in Node.js environment)
-if (typeof process !== 'undefined' && process.on) {
+// Cleanup on process exit (only in full Node.js environment, not Edge Runtime)
+if (typeof process !== 'undefined' && process.versions && process.versions.node && process.on) {
   process.on('beforeExit', () => {
     auditLogger.destroy();
   });

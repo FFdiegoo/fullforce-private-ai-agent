@@ -41,9 +41,10 @@ class ErrorMonitoring {
   private enabled: boolean;
 
   constructor() {
-    this.enabled = process.env.ERROR_MONITORING_ENABLED !== 'false';
+    this.enabled = (typeof process !== 'undefined' && process.env) ? process.env.ERROR_MONITORING_ENABLED !== 'false' : true;
     
-    if (this.enabled && typeof setInterval !== 'undefined') {
+    // Only set up interval in full Node.js environment (not Edge Runtime)
+    if (this.enabled && typeof setInterval !== 'undefined' && typeof process !== 'undefined' && process.versions && process.versions.node) {
       // Flush errors every 30 seconds
       this.flushInterval = setInterval(() => this.flush(), 30000);
       console.log('🔍 Error Monitoring initialized');
@@ -86,7 +87,8 @@ class ErrorMonitoring {
     this.errorBuffer.push(errorReport);
 
     // Log to console immediately for development
-    if (process.env.NODE_ENV === 'development') {
+    const nodeEnv = (typeof process !== 'undefined' && process.env) ? process.env.NODE_ENV : 'development';
+    if (nodeEnv === 'development') {
       console.error(`🚨 [${severity}] ${category}: ${error.message}`, {
         errorId,
         context
@@ -250,7 +252,8 @@ class ErrorMonitoring {
     });
 
     // In production, you would send to Slack, email, PagerDuty, etc.
-    if (process.env.ADMIN_ERROR_NOTIFICATIONS === 'true') {
+    const adminNotifications = (typeof process !== 'undefined' && process.env) ? process.env.ADMIN_ERROR_NOTIFICATIONS : 'false';
+    if (adminNotifications === 'true') {
       // Placeholder for notification system
       console.log('📧 Critical error notification would be sent to admins');
     }
@@ -318,8 +321,8 @@ class ErrorMonitoring {
 // Export singleton instance
 export const errorMonitoring = ErrorMonitoring.getInstance();
 
-// Global error handlers
-if (typeof process !== 'undefined' && process.on) {
+// Global error handlers (only in full Node.js environment, not Edge Runtime)
+if (typeof process !== 'undefined' && process.versions && process.versions.node && process.on) {
   process.on('unhandledRejection', async (reason: any, promise: Promise<any>) => {
     const error = reason instanceof Error ? reason : new Error(String(reason));
     await errorMonitoring.captureError(error, {

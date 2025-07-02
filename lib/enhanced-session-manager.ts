@@ -17,22 +17,25 @@ export interface SessionInfo {
 }
 
 export class EnhancedSessionManager {
-  private static readonly SESSION_TIMEOUT = parseInt(process.env.SESSION_TIMEOUT_MINUTES || '30') * 60 * 1000;
-  private static readonly REFRESH_THRESHOLD = parseInt(process.env.SESSION_REFRESH_THRESHOLD_MINUTES || '5') * 60 * 1000;
+  private static readonly SESSION_TIMEOUT = parseInt((typeof process !== 'undefined' && process.env) ? process.env.SESSION_TIMEOUT_MINUTES || '30' : '30') * 60 * 1000;
+  private static readonly REFRESH_THRESHOLD = parseInt((typeof process !== 'undefined' && process.env) ? process.env.SESSION_REFRESH_THRESHOLD_MINUTES || '5' : '5') * 60 * 1000;
   private static readonly MAX_CONCURRENT_SESSIONS = 3;
 
   private static activeSessions = new Map<string, SessionInfo>();
   private static cleanupInterval: NodeJS.Timeout | null = null;
 
   static init(): void {
-    // Cleanup expired sessions every 2 minutes
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupExpiredSessions();
-    }, 2 * 60 * 1000);
+    // Only initialize cleanup in full Node.js environment (not Edge Runtime)
+    if (typeof setInterval !== 'undefined' && typeof process !== 'undefined' && process.versions && process.versions.node) {
+      // Cleanup expired sessions every 2 minutes
+      this.cleanupInterval = setInterval(() => {
+        this.cleanupExpiredSessions();
+      }, 2 * 60 * 1000);
 
-    console.log('🔐 Enhanced Session Manager initialized');
-    console.log(`   Session timeout: ${this.SESSION_TIMEOUT / 60000} minutes`);
-    console.log(`   Refresh threshold: ${this.REFRESH_THRESHOLD / 60000} minutes`);
+      console.log('🔐 Enhanced Session Manager initialized');
+      console.log(`   Session timeout: ${this.SESSION_TIMEOUT / 60000} minutes`);
+      console.log(`   Refresh threshold: ${this.REFRESH_THRESHOLD / 60000} minutes`);
+    }
   }
 
   static async createSession(userId: string, email: string, deviceInfo: SessionInfo['deviceInfo']): Promise<string> {
@@ -314,13 +317,13 @@ export class EnhancedSessionManager {
   }
 }
 
-// Initialize enhanced session manager on server side
-if (typeof window === 'undefined') {
+// Initialize enhanced session manager on server side (not Edge Runtime)
+if (typeof window === 'undefined' && typeof process !== 'undefined' && process.versions && process.versions.node) {
   EnhancedSessionManager.init();
 }
 
-// Cleanup on process exit
-if (typeof process !== 'undefined' && process.on) {
+// Cleanup on process exit (only in full Node.js environment, not Edge Runtime)
+if (typeof process !== 'undefined' && process.versions && process.versions.node && process.on) {
   process.on('beforeExit', () => {
     EnhancedSessionManager.destroy();
   });
