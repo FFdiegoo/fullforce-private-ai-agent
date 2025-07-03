@@ -29,6 +29,8 @@
     "rag:process": "node scripts/process-document.js",
     "rag:status": "node scripts/check-rag-status.js",
     "rag:mark-for-indexing": "node scripts/mark-documents-for-indexing.js",
+    "rag:process-all": "node scripts/process-all-pending-documents.js",
+    "rag:monitor": "node scripts/monitor-rag-status.js",
     "bulk-upload": "node scripts/bulk-upload.js",
     "bulk-upload:handleidingen": "node scripts/bulk-upload-handleidingen.js",
     "bulk-upload:monitor": "node scripts/bulk-upload-monitor.js",

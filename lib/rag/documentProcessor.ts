@@ -10,19 +10,26 @@ export class DocumentProcessor {
 
   async processDocument(metadata: DocumentMetadata, options: ProcessingOptions): Promise<TextChunk[]> {
     try {
+      console.log(`🔍 Processing document: ${metadata.filename} (${metadata.storage_path})`);
+      
       // Download document from Supabase Storage
       const { data, error } = await this.supabase
         .storage
         .from('company-docs')
         .download(metadata.storage_path);
 
-      if (error) throw error;
+      if (error) {
+        console.error(`❌ Error downloading document: ${error.message}`);
+        throw error;
+      }
 
       // Convert blob to text
       const text = await data.text();
+      console.log(`✅ Downloaded and extracted ${text.length} characters`);
 
       // Split into chunks
       const chunks = this.createChunks(text, options.chunkSize, options.chunkOverlap);
+      console.log(`✅ Created ${chunks.length} chunks`);
 
       // Create TextChunk objects with metadata
       return chunks.map((content, index) => ({
@@ -31,7 +38,7 @@ export class DocumentProcessor {
         chunk_index: index,
       }));
     } catch (error) {
-      console.error(`Error processing document ${metadata.filename}:`, error);
+      console.error(`❌ Error processing document ${metadata.filename}:`, error);
       throw error;
     }
   }
