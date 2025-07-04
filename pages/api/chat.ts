@@ -1,8 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { OpenAI } from 'openai';
-import { supabase } from '../../lib/supabaseClient';
-import { RAGPipeline } from '../../lib/rag/pipeline';
-import { openaiApiKey } from '../../lib/rag/config';
+import { supabase } from '../lib/supabaseClient';
+import { RAGPipeline } from '../lib/rag/pipeline';
+import { openaiApiKey } from '../lib/rag/config';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -135,7 +135,7 @@ ${context}`;
     });
 
   } catch (error: any) {
-    console.error('❌ Error in chat-rag API:', error);
+    console.error('❌ Error in chat API:', error);
 
     // Fallback response if context retrieval fails but we can still use OpenAI
     if (error.message.includes('match_documents') || error.message.includes('vector')) {
