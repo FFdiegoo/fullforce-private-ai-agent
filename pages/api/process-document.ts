@@ -84,7 +84,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
           extractedText = docData.value;
         } catch (docError) {
-          console.error('❌ Error extracting text from DOC:', docError);
+          const error = docError as Error;
+          console.error('❌ Error extracting text from DOC:', error);
           extractedText = `[Error extracting text from DOC file: ${document.filename}]`;
         }
       }
@@ -102,15 +103,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           extractedText = await fileData.text();
           console.log(`⚠️ Using fallback text extraction for ${document.mime_type}`);
         } catch (textError) {
-          console.error('❌ Fallback text extraction failed:', textError);
+          const error = textError as Error;
+          console.error('❌ Fallback text extraction failed:', error);
           extractedText = `[Unsupported file format: ${document.mime_type}]`;
         }
       }
     } catch (extractionError) {
-      console.error('❌ Text extraction error:', extractionError);
+      const error = extractionError as Error;
+      console.error('❌ Text extraction error:', error);
       return res.status(500).json({ 
         error: 'Failed to extract text from document', 
-        details: extractionError.message 
+        details: error.message 
       });
     }
 
