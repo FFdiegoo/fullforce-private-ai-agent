@@ -1,8 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { OpenAI } from 'openai';
-import { supabase } from '../lib/supabaseClient';
-import { RAGPipeline } from '../lib/rag/pipeline';
-import { openaiApiKey } from '../lib/rag/config';
+import { supabase } from '../../lib/supabaseClient';
+import { RAGPipeline } from '../../lib/rag/pipeline';
+import { openaiApiKey } from '../../lib/rag/config';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
