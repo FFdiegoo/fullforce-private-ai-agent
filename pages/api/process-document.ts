@@ -130,13 +130,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Process document with extracted text
     console.log('🧠 Starting RAG pipeline processing...');
     
-    // Create a modified metadata object with the extracted text
-    const documentWithText = {
-      ...document,
-      extractedText // Add the extracted text to the metadata
-    } as DocumentMetadata;
+    // Add the extracted text to the metadata object
+    document.extractedText = extractedText;
 
-    await pipeline.processDocument(documentWithText, {
+    await pipeline.processDocument(document, {
       chunkSize: RAG_CONFIG.chunkSize,
       chunkOverlap: RAG_CONFIG.chunkOverlap,
       skipExisting: false,
