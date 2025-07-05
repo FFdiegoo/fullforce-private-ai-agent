@@ -11,13 +11,14 @@ export interface DocumentMetadata {
   versie: string;
   uploaded_by: string;
   last_updated: string; // ISO-datum als string
+  extractedText?: string; // Added field for pre-extracted text
 }
 
 export type Embedding = number[]; // vector van floats
 
 export interface TextChunk {
   content: string;
-  metadata: DocumentMetadata;
+  metadata: any; // DocumentMetadata or subset
   chunk_index: number;
   embedding?: Embedding; // optioneel: alleen als AI embedding is gegenereerd
 }

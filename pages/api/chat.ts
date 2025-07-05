@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextApiRequest, NextApiResponse } from 'next';
 import { OpenAI } from 'openai';
 import { supabase } from '../../lib/supabaseClient';
 import { RAGPipeline } from '../../lib/rag/pipeline';
@@ -18,33 +18,28 @@ interface ChatResponse {
     metadata: any;
     similarity: number;
   }>;
-  error?: string;
 }
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ChatResponse>
+  res: NextApiResponse<ChatResponse | { error: string }>
 ) {
   // Only allow POST requests
   if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      reply: 'Method not allowed',
-      error: 'Only POST requests are supported'
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   // Extract request data
-  const { prompt, mode = 'technical', model = 'simple', includeSources = false } = req.body;
+  const { prompt, mode = 'technical', model = 'simple' } = req.body;
 
   // Validate request data
   if (!prompt || typeof prompt !== 'string') {
-    return res.status(400).json({ 
-      reply: 'Invalid request',
-      error: 'Prompt is required and must be a string'
-    });
+    return res.status(400).json({ error: 'Prompt is required and must be a string' });
   }
 
   try {
+    console.log(`🔍 Processing chat request: "${prompt.substring(0, 50)}..."`);
+    
     // Validate environment variables
     if (!openaiApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -60,23 +55,12 @@ export default async function handler(
     // 3. Prepare context from similar documents
     let context = '';
     const sources: any[] = [];
-    const MAX_CONTEXT_CHARS = 13000; // Approximately 3500 tokens
-    let currentContextSize = 0;
     
     if (similarDocuments && similarDocuments.length > 0) {
       console.log(`✅ Found ${similarDocuments.length} relevant documents`);
       
-      // Build context while respecting the size limit
-      for (let i = 0; i < similarDocuments.length; i++) {
-        const doc = similarDocuments[i];
-        const docContent = `[Document ${i + 1}]: ${doc.content}`;
-        
-        // Check if adding this document would exceed the context limit
-        if (currentContextSize + docContent.length > MAX_CONTEXT_CHARS) {
-          console.log(`⚠️ Context size limit reached (${currentContextSize}/${MAX_CONTEXT_CHARS} chars). Stopping at ${i}/${similarDocuments.length} documents.`);
-          break;
-        }
-        
+      // Extract content and format as context
+      context = similarDocuments.map((doc, index) => {
         // Save source for response
         sources.push({
           content: doc.content.substring(0, 150) + '...',
@@ -84,13 +68,9 @@ export default async function handler(
           similarity: doc.similarity
         });
         
-        // Add to context
-        if (context) context += '\n\n';
-        context += docContent;
-        currentContextSize += docContent.length;
-      }
-      
-      console.log(`📊 Final context size: ${currentContextSize} characters (approx. ${Math.round(currentContextSize / 4)} tokens)`);
+        // Format as context
+        return `[Document ${index + 1}]: ${doc.content}`;
+      }).join('\n\n');
     } else {
       console.log('⚠️ No relevant documents found');
     }
@@ -128,61 +108,96 @@ ${context}`;
       temperature: model === 'complex' ? 0.3 : 0.7,
     });
 
-    // 7. Extract and return the response
+    // 7. Extract the response
     const reply = completion.choices?.[0]?.message?.content || 'Sorry, er ging iets mis bij het genereren van een antwoord.';
     
-    // 8. Log the chat interaction to chat_logs table
+    // 8. Log the prompt, context, and response to chat_logs table
     try {
       await supabase.from('chat_logs').insert({
-        prompt: prompt,
-        reply: reply, 
-        modelUsed: selectedModel,
-        source_count: sources.length,
-        context_length: currentContextSize,
-        created_at: new Date().toISOString()
+        prompt,
+        context: context || 'No relevant context found',
+        response: reply,
+        model: selectedModel,
+        mode,
+        timestamp: new Date().toISOString(),
+        has_context: context.length > 0
       });
-      console.log('✅ Chat interaction logged successfully');
     } catch (logError) {
-      console.error('❌ Failed to log chat interaction:', logError);
+      console.error('Failed to log chat:', logError);
       // Continue even if logging fails
     }
 
-    // 9. Return structured response
+    // 9. Return the response
     return res.status(200).json({ 
       reply, 
       modelUsed: selectedModel,
-      sources: includeSources && sources.length > 0 ? sources : undefined
+      sources: sources.length > 0 ? sources : undefined
     });
 
   } catch (error: any) {
-    console.error('❌ Error in chat-with-context API:', error);
+    console.error('❌ Error in chat API:', error);
+
+    // Fallback response if context retrieval fails but we can still use OpenAI
+    if (error.message.includes('match_documents') || error.message.includes('vector')) {
+      try {
+        console.log('⚠️ Vector search failed, falling back to direct OpenAI query');
+        
+        // Choose the appropriate model based on complexity
+        let selectedModel;
+        if (model === 'complex') {
+          selectedModel = process.env.OPENAI_MODEL_COMPLEX || 'gpt-4';
+        } else {
+          selectedModel = process.env.OPENAI_MODEL_SIMPLE || 'gpt-4-turbo';
+        }
+        
+        // Generate fallback response
+        const fallbackSystemPrompt = mode === 'technical'
+          ? 'Je bent CeeS, een technische AI-assistent voor CS Rental. Help gebruikers met technische documentatie en ondersteuning. Geef duidelijke, praktische antwoorden. Als je het antwoord niet weet, geef dan aan dat je geen relevante informatie in de documentatie kon vinden.'
+          : 'Je bent ChriS, een inkoop AI-assistent voor CS Rental. Help gebruikers met inkoop en onderdelen informatie. Focus op praktische inkoop-gerelateerde vragen. Als je het antwoord niet weet, geef dan aan dat je geen relevante informatie in de documentatie kon vinden.';
+        
+        const completion = await openai.chat.completions.create({
+          model: selectedModel,
+          messages: [
+            { role: 'system', content: fallbackSystemPrompt },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: model === 'complex' ? 2000 : 1000,
+          temperature: model === 'complex' ? 0.3 : 0.7,
+        });
+        
+        const reply = completion.choices?.[0]?.message?.content || 'Sorry, er ging iets mis bij het genereren van een antwoord.';
+        
+        return res.status(200).json({ 
+          reply, 
+          modelUsed: selectedModel + ' (fallback)'
+        });
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError);
+      }
+    }
 
     // Handle different error types
     if (error.name === 'AuthenticationError') {
       return res.status(500).json({ 
-        reply: 'OpenAI API authenticatie mislukt. Neem contact op met de beheerder.',
-        error: 'Authentication failed'
+        error: 'OpenAI API authenticatie mislukt. Neem contact op met de beheerder.'
       });
     }
     
     if (error.name === 'RateLimitError') {
       return res.status(429).json({ 
-        reply: 'Te veel verzoeken. Probeer het over een paar minuten opnieuw.',
-        error: 'Rate limit exceeded'
+        error: 'Te veel verzoeken. Probeer het over een paar minuten opnieuw.'
       });
     }
     
     if (error.name === 'TimeoutError') {
       return res.status(504).json({ 
-        reply: 'Het verzoek duurde te lang. Probeer het opnieuw met een kortere vraag.',
-        error: 'Request timeout'
+        error: 'Het verzoek duurde te lang. Probeer het opnieuw met een kortere vraag.'
       });
     }
 
     // Generic error response
     return res.status(500).json({ 
-      reply: 'Er is een fout opgetreden bij het verwerken van je verzoek. Probeer het later opnieuw.',
-      error: error.message || 'Unknown error'
+      error: 'Er is een fout opgetreden bij het verwerken van je verzoek. Probeer het later opnieuw.'
     });
   }
 }
