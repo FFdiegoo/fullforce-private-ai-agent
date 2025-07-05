@@ -1,9 +1,7 @@
 import { DocumentProcessor } from '../lib/document-processor';
 import * as fs from 'fs';
 import * as path from 'path';
-import pdfParse from 'pdf-parse'; // ✅
-
-const parse = pdfParse.default ?? pdfParse; // ✅ fallback voor module-type compatibiliteit
+import pdfParse from 'pdf-parse'; // ✅ blijft zo
 
 const filePath = process.argv[2];
 
@@ -22,7 +20,7 @@ async function main() {
     }
 
     const pdfBuffer = await fs.promises.readFile(filePath);
-    const pdfData = await parse(pdfBuffer); // ✅
+    const pdfData = await pdfParse(pdfBuffer); // ✅ direct gebruiken
 
     console.log('📖 Extracted text length:', pdfData.text.length);
 
