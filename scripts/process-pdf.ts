@@ -1,7 +1,9 @@
 import { DocumentProcessor } from '../lib/document-processor';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse'; // ✅
+
+const parse = pdfParse.default ?? pdfParse; // ✅ fallback voor module-type compatibiliteit
 
 const filePath = process.argv[2];
 
@@ -14,23 +16,20 @@ async function main() {
   try {
     console.log('📄 Processing PDF:', filePath);
 
-    // Check if file exists
     if (!fs.existsSync(filePath)) {
       console.error('❌ File not found:', filePath);
       process.exit(1);
     }
 
-    // Read PDF file
     const pdfBuffer = await fs.promises.readFile(filePath);
-    const pdfData = await pdfParse(pdfBuffer);
+    const pdfData = await parse(pdfBuffer); // ✅
 
     console.log('📖 Extracted text length:', pdfData.text.length);
 
-    // Process the document
     await DocumentProcessor.processDocument(
       path.basename(filePath),
       pdfData.text,
-      { 
+      {
         file_path: filePath,
         file_name: path.basename(filePath),
         directory: path.dirname(filePath),
