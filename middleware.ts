@@ -39,7 +39,6 @@ export async function middleware(req: NextRequest) {
         '84.86.144.131',
         '185.56.55.239',
         '45.147.87.232',
-        '20.171.73.127',
       ];
 
       if (process.env.ALLOWED_IPS) {
