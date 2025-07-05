@@ -1,8 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { OpenAI } from 'openai';
-import { supabase } from '@/lib/supabaseClient';
-import { RAGPipeline } from '@/lib/rag/pipeline';
-import { openaiApiKey } from '@/lib/rag/config';
+import { supabase } from '../../lib/supabaseClient';
+import { RAGPipeline } from '../../lib/rag/pipeline';
+import { openaiApiKey } from '../../lib/rag/config';
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: openaiApiKey,
+});
 
 // Define response type
 interface ChatResponse {
@@ -16,11 +21,6 @@ interface ChatResponse {
   error?: string;
 }
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: openaiApiKey,
-});
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ChatResponse>
@@ -32,38 +32,6 @@ export default async function handler(
       error: 'Only POST requests are supported'
     });
   }
-
-  // AUTH CHECK - Temporarily disabled for debugging
-  /*
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({
-        reply: 'Authentication required',
-        error: 'No authorization header provided'
-      });
-    }
-
-    // Validate session with Supabase
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  
-    if (authError || !user) {
-      return res.status(401).json({
-        reply: 'Invalid authentication',
-        error: 'Session validation failed'
-      });
-    }
-
-    console.log('✅ Authenticated request from:', user.email);
-  } catch (authError) {
-    console.error('❌ Auth validation error:', authError);
-    return res.status(401).json({
-      reply: 'Authentication failed',
-      error: 'Unable to validate session'
-    });
-  }
-  */
 
   // Extract request data
   const { prompt, mode = 'technical', model = 'simple', includeSources = false } = req.body;
@@ -116,12 +84,12 @@ export default async function handler(
     const systemPrompt = mode === 'technical' 
       ? `Je bent CeeS, een technische AI-assistent voor CS Rental. Help gebruikers met technische documentatie en ondersteuning. Geef duidelijke, praktische antwoorden.
       
-Gebruik de volgende context om je antwoorden te verbeteren:
+${context ? 'Gebruik de volgende context om je antwoorden te verbeteren:' : 'Ik kon geen relevante informatie vinden in de documentatie. Geef een algemeen antwoord of stel voor om de vraag anders te formuleren.'}
 
 ${context}`
       : `Je bent ChriS, een inkoop AI-assistent voor CS Rental. Help gebruikers met inkoop en onderdelen informatie. Focus op praktische inkoop-gerelateerde vragen.
       
-Gebruik de volgende context om je antwoorden te verbeteren:
+${context ? 'Gebruik de volgende context om je antwoorden te verbeteren:' : 'Ik kon geen relevante informatie vinden in de documentatie. Geef een algemeen antwoord of stel voor om de vraag anders te formuleren.'}
 
 ${context}`;
 
@@ -148,7 +116,23 @@ ${context}`;
     // 7. Extract and return the response
     const reply = completion.choices?.[0]?.message?.content || 'Sorry, er ging iets mis bij het genereren van een antwoord.';
     
-    // 8. Return structured response
+    // 8. Log the chat interaction to chat_logs table
+    try {
+      await supabase.from('chat_logs').insert({
+        prompt: prompt,
+        reply: reply,
+        modelUsed: selectedModel,
+        source_count: sources.length,
+        context_length: context.length,
+        created_at: new Date().toISOString()
+      });
+      console.log('✅ Chat interaction logged successfully');
+    } catch (logError) {
+      console.error('❌ Failed to log chat interaction:', logError);
+      // Continue even if logging fails
+    }
+
+    // 9. Return structured response
     return res.status(200).json({ 
       reply, 
       modelUsed: selectedModel,
