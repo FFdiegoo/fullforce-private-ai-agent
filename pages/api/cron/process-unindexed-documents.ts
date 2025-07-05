@@ -152,7 +152,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           chunkCount: chunkCount || 0
         });
       } catch (error) {
-        console.error(`[CRON] ❌ Error processing ${document.filename}:`, error.message);
+  const err = error as Error;
+  console.error(`[CRON] ❌ Error processing ${document.filename}:`, err.message);
         
         // Update document with error
         await supabaseAdmin
