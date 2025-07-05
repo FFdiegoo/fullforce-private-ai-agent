@@ -6,7 +6,8 @@ import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
-const API_KEY = process.env.CRON_API_KEY || 'default-secure-key-change-me';
+// Secure API key check
+const API_KEY = process.env.CRON_API_KEY || 'default-fallback-key';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -15,14 +16,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const apiKey = req.headers['x-api-key'] || req.query.key;
   if (!apiKey || apiKey !== API_KEY) {
-    console.error('❌ Invalid API key');
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'Unauthorized: Invalid API key' });
   }
 
   try {
-    console.log('🔄 Starting CRON job to process unindexed documents');
+    console.log('🔄 CRON job started: processing unindexed documents');
 
     const limit = parseInt(req.query.limit as string) || 10;
+
     const { data: documents, error: fetchError } = await supabase
       .from('documents_metadata')
       .select('*')
@@ -33,60 +34,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (fetchError) {
       console.error('❌ Error fetching documents:', fetchError);
-      return res.status(500).json({ error: 'Failed to fetch documents', details: fetchError.message });
+      return res.status(500).json({ error: 'Failed to fetch documents' });
     }
 
     if (!documents || documents.length === 0) {
-      console.log('✅ No documents need processing');
-      return res.status(200).json({ message: 'No documents need processing' });
+      console.log('✅ No documents to process');
+      return res.status(200).json({ message: 'No documents to process' });
     }
 
-    console.log(`📊 Found ${documents.length} documents to process`);
     const results = [];
 
     for (const document of documents) {
       try {
-        console.log(`[CRON] Processing ${document.filename} (ID: ${document.id})`);
-        
+        console.log(`[CRON] Processing: ${document.filename}`);
+
         const { data: fileData, error: downloadError } = await supabase
           .storage
           .from('company-docs')
           .download(document.storage_path);
 
         if (downloadError) {
-          throw new Error(`Download failed: ${downloadError.message}`);
+          throw new Error(`Failed to download: ${downloadError.message}`);
         }
 
         let extractedText = '';
 
-        if (document.mime_type === 'application/pdf' || document.filename.toLowerCase().endsWith('.pdf')) {
+        if (document.mime_type === 'application/pdf' || document.filename.endsWith('.pdf')) {
           const pdfData = await pdfParse(Buffer.from(await fileData.arrayBuffer()));
           extractedText = pdfData.text;
-          console.log(`[CRON] [EXTRACTED] ${document.filename} (${extractedText.length} chars) from PDF`);
         } else if (
           document.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-          document.filename.toLowerCase().endsWith('.docx')
+          document.filename.endsWith('.docx')
         ) {
-          const docxData = await mammoth.extractRawText({ buffer: Buffer.from(await fileData.arrayBuffer()) });
+          const docxData = await mammoth.extractRawText({
+            buffer: Buffer.from(await fileData.arrayBuffer()),
+          });
           extractedText = docxData.value;
-          console.log(`[CRON] [EXTRACTED] ${document.filename} (${extractedText.length} chars) from DOCX`);
-        } else if (
-          document.mime_type === 'text/plain' ||
-          document.filename.toLowerCase().endsWith('.txt')
-        ) {
-          extractedText = await fileData.text();
-          console.log(`[CRON] [EXTRACTED] ${document.filename} (${extractedText.length} chars) from text file`);
         } else {
-          try {
-            extractedText = await fileData.text();
-            console.log(`[CRON] [EXTRACTED] ${document.filename} (${extractedText.length} chars) using fallback`);
-          } catch (textError) {
-            throw new Error(`Unsupported file format: ${document.mime_type}`);
-          }
+          extractedText = await fileData.text();
         }
 
         if (!extractedText || extractedText.trim().length === 0) {
-          throw new Error('No text could be extracted from document');
+          throw new Error('No text extracted');
         }
 
         document.extractedText = extractedText;
@@ -101,10 +90,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { count: chunkCount, error: countError } = await supabase
           .from('document_chunks')
           .select('*', { count: 'exact', head: true })
-          .eq('metadata->>id', document.id);
+          .eq('metadata->id', document.id);
 
         if (countError) {
-          console.error('❌ Error getting chunk count:', countError);
+          console.error('⚠️ Error counting chunks:', countError.message);
         }
 
         await supabaseAdmin
@@ -113,13 +102,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             processed: true,
             processed_at: new Date().toISOString(),
             chunk_count: chunkCount || 0,
-            last_error: null
+            last_error: null,
           })
           .eq('id', document.id);
 
         console.log(`[CRON] ✅ ${document.filename} → ${chunkCount || 0} chunks`);
-        results.push({ id: document.id, filename: document.filename, success: true, chunkCount: chunkCount || 0 });
 
+        results.push({ id: document.id, filename: document.filename, success: true, chunkCount: chunkCount || 0 });
       } catch (error) {
         const err = error as Error;
         console.error(`[CRON] ❌ Error processing ${document.filename}:`, err.message);
@@ -127,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await supabaseAdmin
           .from('documents_metadata')
           .update({
-            last_error: `Processing failed: ${err.message}`
+            last_error: `Processing failed: ${err.message}`,
           })
           .eq('id', document.id);
 
@@ -136,18 +125,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.status(200).json({
-      message: `Processed ${results.length} documents`,
+      message: `Processed ${results.length} document(s)`,
       processed: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length,
-      results
+      results,
     });
-
   } catch (error) {
     const err = error as Error;
-    console.error('❌ CRON job error:', err.message);
-    return res.status(500).json({
-      error: 'Failed to process documents',
-      details: err.message
-    });
+    console.error('❌ CRON job failed:', err.message);
+    return res.status(500).json({ error: 'Unexpected error', details: err.message });
   }
 }
