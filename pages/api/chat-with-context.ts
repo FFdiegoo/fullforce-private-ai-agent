@@ -60,12 +60,23 @@ export default async function handler(
     // 3. Prepare context from similar documents
     let context = '';
     const sources: any[] = [];
+    const MAX_CONTEXT_CHARS = 13000; // Approximately 3500 tokens
+    let currentContextSize = 0;
     
     if (similarDocuments && similarDocuments.length > 0) {
       console.log(`✅ Found ${similarDocuments.length} relevant documents`);
       
-      // Extract content and format as context
-      context = similarDocuments.map((doc, index) => {
+      // Build context while respecting the size limit
+      for (let i = 0; i < similarDocuments.length; i++) {
+        const doc = similarDocuments[i];
+        const docContent = `[Document ${i + 1}]: ${doc.content}`;
+        
+        // Check if adding this document would exceed the context limit
+        if (currentContextSize + docContent.length > MAX_CONTEXT_CHARS) {
+          console.log(`⚠️ Context size limit reached (${currentContextSize}/${MAX_CONTEXT_CHARS} chars). Stopping at ${i}/${similarDocuments.length} documents.`);
+          break;
+        }
+        
         // Save source for response
         sources.push({
           content: doc.content.substring(0, 150) + '...',
@@ -73,9 +84,13 @@ export default async function handler(
           similarity: doc.similarity
         });
         
-        // Format as context
-        return `[Document ${index + 1}]: ${doc.content}`;
-      }).join('\n\n');
+        // Add to context
+        if (context) context += '\n\n';
+        context += docContent;
+        currentContextSize += docContent.length;
+      }
+      
+      console.log(`📊 Final context size: ${currentContextSize} characters (approx. ${Math.round(currentContextSize / 4)} tokens)`);
     } else {
       console.log('⚠️ No relevant documents found');
     }
@@ -120,10 +135,10 @@ ${context}`;
     try {
       await supabase.from('chat_logs').insert({
         prompt: prompt,
-        reply: reply,
+        reply: reply, 
         modelUsed: selectedModel,
         source_count: sources.length,
-        context_length: context.length,
+        context_length: currentContextSize,
         created_at: new Date().toISOString()
       });
       console.log('✅ Chat interaction logged successfully');
