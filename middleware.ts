@@ -4,7 +4,8 @@ import { EnhancedSessionManager } from './lib/enhanced-session-manager';
 
 type IPAddress = string;
 
-import { githubActionIPs } from '@/lib/github-action-ips';
+import { githubActionsCIDRs } from '@/lib/ip/githubActionsIPs';
+import CidrMatcher from 'cidr-matcher';
 
 // Helper function to check if an IP is allowed
 function isIPAllowed(ip: string, allowedList: string[]): boolean {
@@ -46,28 +47,31 @@ export async function middleware(req: NextRequest) {
 
     // IP Whitelisting (only in production)
     if (!isDevelopment) {
-      const primaryAllowedIPs = [
+      const primaryIPs = [
         '127.0.0.1',
         '::1',
-        '2a02:a46e:549e:0:e4c4:26b3:e601:6782',
         '84.86.144.131',
-        '185.56.55.239', 
-        '45.147.87.232'
+        '185.56.55.239',
+        '45.147.87.232',
+        '2a02:a46e:549e:0:e4c4:26b3:e601:6782'
       ];
       
       // Add more from env to primary list
       if (process.env.ALLOWED_IPS) {
-        primaryAllowedIPs.push(...process.env.ALLOWED_IPS.split(',').map(ip => ip.trim()));
+        primaryIPs.push(...process.env.ALLOWED_IPS.split(',').map(ip => ip.trim()));
       }
 
       // First check against primary IPs (fast check)
-      const isPrimaryAllowed = isIPAllowed(ip, primaryAllowedIPs);
+      const isPrimaryAllowed = isIPAllowed(ip, primaryIPs);
       
       // Only check against GitHub IPs if not in primary list
       let isAllowed = isPrimaryAllowed;
+      
       if (!isPrimaryAllowed) {
-        console.log('🔍 Checking against GitHub Action IPs...');
-        isAllowed = isIPAllowed(ip, githubActionIPs);
+        console.log('🔍 Checking against GitHub Actions CIDR ranges...');
+        // Initialize matcher only when needed (performance optimization)
+        const matcher = new CidrMatcher(githubActionsCIDRs);
+        isAllowed = matcher.contains(ip);
       }
 
       if (!isAllowed) {

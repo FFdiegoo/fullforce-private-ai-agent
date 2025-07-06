@@ -6,8 +6,8 @@ import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
-// Secure API key check
-const API_KEY = process.env.CRON_API_KEY || 'default-fallback-key';
+// Secure API key for CRON job authentication
+const API_KEY = process.env.CRON_API_KEY || 'default-secure-key-change-me';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -16,7 +16,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const apiKey = req.headers['x-api-key'] || req.query.key;
   if (!apiKey || apiKey !== API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid API key' });
+    console.error('❌ Invalid API key');
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
