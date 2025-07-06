@@ -6,6 +6,11 @@ import CidrMatcher from 'cidr-matcher';
 
 type IPAddress = string;
 
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  runtime: 'edge'
+};
+
 // Helper function to check if an IP is allowed
 function isIPAllowed(ip: string, allowedList: string[]): boolean {
   return allowedList.some(allowedIP => {
@@ -17,12 +22,6 @@ function isIPAllowed(ip: string, allowedList: string[]): boolean {
     return false;
   });
 }
-
-export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
-};
 
 export async function middleware(req: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === 'development';
