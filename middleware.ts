@@ -4,7 +4,7 @@ import { EnhancedSessionManager } from './lib/enhanced-session-manager';
 
 type IPAddress = string;
 
-import { githubActionIPs } from './lib/github-action-ips';
+import { githubActionIPs } from '@/lib/github-action-ips';
 
 export const config = {
   matcher: [
@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
   try {
     // Get client IP with better error handling
     const ip: IPAddress = getClientIP(req);
-      const ip = getClientIP(request);
+    
     if (!ip) {
       console.warn('❌ Could not determine client IP');
       return new NextResponse(JSON.stringify({ 
@@ -39,11 +39,10 @@ export async function middleware(req: NextRequest) {
         '::1',
         '2a02:a46e:549e:0:e4c4:26b3:e601:6782',
         '84.86.144.131',
-        '185.56.55.239',
-        '45.147.87.232',
-        const envIPs = process.env.ALLOWED_IPS.split(',').map(ip => ip.trim());
-        allowedIPs.push(...envIPs);
-      ]
+        '185.56.55.239', 
+        '45.147.87.232'
+      ];
+      
       // Add more from env to primary list
       if (process.env.ALLOWED_IPS) {
         primaryAllowedIPs.push(...process.env.ALLOWED_IPS.split(',').map(ip => ip.trim()));
@@ -55,14 +54,18 @@ export async function middleware(req: NextRequest) {
       // Only check against GitHub IPs if not in primary list
       let isAllowed = isPrimaryAllowed;
       if (!isPrimaryAllowed) {
+        console.log('🔍 Checking against GitHub Action IPs...');
         isAllowed = isIPAllowed(ip, githubActionIPs);
       }
 
       if (!isAllowed) {
+        console.log('🚫 IP not allowed:', ip);
+        return res.status(403).json({ 
+          error: 'Access denied',
+          message: `Your IP (${ip}) is not authorized to access this resource`,
+          timestamp: new Date().toISOString()
+        });
       }
-
-      const isAllowed = allowedIPs.some(allowedIP => {
-        if (ip === allowedIP) return true;
         if (ip.includes(':') && allowedIP.includes(':')) {
           const normalizeIPv6 = (addr: string) => addr.toLowerCase().replace(/^::ffff:/, '');
           return normalizeIPv6(ip) === normalizeIPv6(allowedIP);
