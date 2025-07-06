@@ -117,8 +117,7 @@ function getClientIP(req: NextRequest): string | null {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
     req.headers.get('cf-connecting-ip') ||
-    req.ip ||
-    null
+    '127.0.0.1' // Fallback IP
   );
 }
 
