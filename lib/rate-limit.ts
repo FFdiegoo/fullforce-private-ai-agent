@@ -21,7 +21,11 @@ export async function rateLimit(
   const {
     windowMs = parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_WINDOW_MS || '900000' : '900000'),
     maxRequests = parseInt(typeof process !== 'undefined' && process.env ? process.env.RATE_LIMIT_MAX_REQUESTS || '100' : '100'),
-    keyGenerator = (req) => req.ip || 'anonymous'
+    keyGenerator = (req) => 
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('x-real-ip')?.trim() ||
+      req.headers.get('cf-connecting-ip')?.trim() ||
+      'anonymous'
   } = options;
 
   const key = keyGenerator(request);
