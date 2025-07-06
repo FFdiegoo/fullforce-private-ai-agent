@@ -39,7 +39,6 @@ export async function middleware(req: NextRequest) {
         '84.86.144.131',
         '185.56.55.239',
         '45.147.87.232',
-        "actions": [
     "4.148.0.0/16",
     "4.149.0.0/18",
     "4.149.64.0/19",
@@ -5315,8 +5314,6 @@ export async function middleware(req: NextRequest) {
     "2a01:111:f403:f904::/62",
     "2a01:111:f403:f908::/62",
     "2a01:111:f403:f90c::/62"
-  ],
-      ];
 
       if (process.env.ALLOWED_IPS) {
         const envIPs = process.env.ALLOWED_IPS.split(',').map(ip => ip.trim());
