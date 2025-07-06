@@ -2,7 +2,6 @@
 // This is a shortened example list - add all 4500+ IPs as needed
 export const githubActionsCIDRs: string[] = [
   // GitHub Actions IP ranges
-"actions": [
     "4.148.0.0/16",
     "4.149.0.0/18",
     "4.149.64.0/19",
