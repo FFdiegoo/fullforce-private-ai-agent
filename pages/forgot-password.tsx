@@ -73,19 +73,28 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4">
-      <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl w-full max-w-md p-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Forgot Password
+    <div className="min-h-screen bg-[#f7f8f9] flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-md w-full max-w-[420px] p-8">
+        <div className="mb-6 text-center">
+          <div className="flex justify-center mb-6">
+            <Image 
+              src="https://csrental.nl/wp-content/uploads/2023/03/CS-Rental-logo-1.png" 
+              alt="CS Rental Logo" 
+              width={100} 
+              height={40} 
+              className="h-10 w-auto"
+            />
+          </div>
+          <h1 className="text-[22px] font-semibold text-[#111827]">
+            Wachtwoord vergeten
           </h1>
-          <p className="mt-3 text-gray-600">
-            Enter your email address and we'll send you a link to reset your password
+          <p className="mt-1 text-[15px] text-[#6b7280]">
+            Voer je e-mailadres in en we sturen je een link om je wachtwoord te resetten
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
@@ -93,15 +102,15 @@ export default function ForgotPassword() {
         <form onSubmit={handleForgotPassword} className="space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
+              E-mailadres
             </label>
             <input
               type="email"
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-              placeholder="Enter your email"
+              className="w-full px-3 py-2 rounded-md border border-[#d1d5db] focus:outline-none focus:ring-1 focus:ring-[#2563eb] focus:border-[#2563eb] transition-all duration-200"
+              placeholder="naam@csrental.nl"
               required
             />
           </div>
@@ -109,22 +118,22 @@ export default function ForgotPassword() {
           <button
             type="submit"
             disabled={loading || !email}
-            className={`w-full py-3 px-4 rounded-xl font-medium transition-all duration-200 ${
+            className={`w-full py-3 px-4 rounded-md font-medium transition-all duration-200 ${
               loading || !email
                 ? 'bg-gray-300 cursor-not-allowed text-gray-500'
-                : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:opacity-90 transform hover:scale-[1.02]'
+                : 'bg-[#2563eb] text-white hover:bg-[#1d4ed8]'
             }`}
           >
-            {loading ? 'Sending Reset Link...' : 'Send Reset Link'}
+            {loading ? 'Link versturen...' : 'Verstuur reset link'}
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <button
             onClick={() => router.push('/login')}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-[#2563eb] hover:text-[#1d4ed8] transition-colors"
           >
-            Back to Login
+            Terug naar inloggen
           </button>
         </div>
       </div>

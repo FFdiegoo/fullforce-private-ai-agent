@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
-import { useAuth } from '../lib/useAuth';
+import { useAuth } from '../lib/useAuth'; 
+import Image from 'next/image';
 
 export default function Login() {
   const router = useRouter();
@@ -129,17 +130,28 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4">
-      <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl w-full max-w-md p-8 transform transition-all hover:scale-[1.01]">
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Welcome Back
+    <div className="min-h-screen bg-[#f7f8f9] flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-md w-full max-w-[420px] p-8">
+        <div className="mb-6">
+          <div className="flex justify-center mb-6">
+            <Image 
+              src="https://csrental.nl/wp-content/uploads/2023/03/CS-Rental-logo-1.png" 
+              alt="CS Rental Logo" 
+              width={100} 
+              height={40} 
+              className="h-10 w-auto"
+            />
+          </div>
+          <h1 className="text-[22px] font-semibold text-[#111827] text-center">
+            Welkom terug
           </h1>
-          <p className="mt-3 text-gray-600">Sign in to your account</p>
+          <p className="mt-1 text-[15px] text-[#6b7280] text-center">
+            Log in met je interne account
+          </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
@@ -155,8 +167,8 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-              placeholder="Enter your email"
+              className="w-full px-3 py-2 rounded-md border border-[#d1d5db] focus:outline-none focus:ring-1 focus:ring-[#2563eb] focus:border-[#2563eb] transition-all duration-200"
+              placeholder="naam@csrental.nl"
               required
             />
           </div>
@@ -171,8 +183,8 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-              placeholder="Enter your password"
+              className="w-full px-3 py-2 rounded-md border border-[#d1d5db] focus:outline-none focus:ring-1 focus:ring-[#2563eb] focus:border-[#2563eb] transition-all duration-200"
+              placeholder="Voer je wachtwoord in"
               required
             />
           </div>
@@ -180,39 +192,39 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading || !email || !password}
-            className={`w-full py-3 px-4 rounded-xl font-medium transition-all duration-200 ${
+            className={`w-full py-3 px-4 rounded-md font-medium transition-all duration-200 ${
               loading || !email || !password
                 ? 'bg-gray-300 cursor-not-allowed text-gray-500'
-                : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:opacity-90 transform hover:scale-[1.02]'
+                : 'bg-[#2563eb] text-white hover:bg-[#1d4ed8]'
             }`}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Bezig met inloggen...' : 'Log in'}
           </button>
         </form>
 
-        <div className="mt-4 text-center">
+        <div className="mt-3 text-center">
           <p className="text-xs text-gray-500">
-            Press <span className="bg-gray-100 px-2 py-1 rounded">Enter</span> to sign in
+            Druk op <span className="bg-gray-100 px-2 py-1 rounded">Enter</span> om in te loggen
           </p>
         </div>
 
         <div className="mt-6 text-center space-y-2">
           <button
             onClick={() => router.push('/forgot-password')}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors block"
+            className="text-sm text-[#2563eb] hover:text-[#1d4ed8] transition-colors block"
           >
-            Forgot your password?
+            Wachtwoord vergeten?
           </button>
           <button
             onClick={() => router.push('/diego-login')}
-            className="text-sm text-purple-600 hover:text-purple-800 transition-colors block"
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors block"
           >
             👨‍💻 Diego Admin Access
           </button>
         </div>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          Secure login powered by Supabase
+        <div className="mt-6 text-center text-xs text-[#9ca3af]">
+          Secure login via Supabase
         </div>
       </div>
     </div>
