@@ -29,6 +29,13 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   try {
+    console.log('🧪 Headers received:');
+    for (const [key, value] of req.headers.entries()) {
+      console.log(`🔹 ${key}: ${value}`);
+    }
+
+    console.log('🧪 process.env.CRON_BYPASS_KEY:', process.env.CRON_BYPASS_KEY);
+
     // Check for CRON bypass key
     const cronBypassKey = req.headers.get('x-cron-key') || req.headers.get('X-Cron-Key');
     
