@@ -6,6 +6,18 @@ type IPAddress = string;
 
 import { githubActionIPs } from '@/lib/github-action-ips';
 
+// Helper function to check if an IP is allowed
+function isIPAllowed(ip: string, allowedList: string[]): boolean {
+  return allowedList.some(allowedIP => {
+    if (ip === allowedIP) return true;
+    if (ip.includes(':') && allowedIP.includes(':')) {
+      const normalizeIPv6 = (addr: string) => addr.toLowerCase().replace(/^::ffff:/, '');
+      return normalizeIPv6(ip) === normalizeIPv6(allowedIP);
+    }
+    return false;
+  });
+}
+
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico).*)',
@@ -60,10 +72,13 @@ export async function middleware(req: NextRequest) {
 
       if (!isAllowed) {
         console.log('🚫 IP not allowed:', ip);
-        return res.status(403).json({ 
+        return new NextResponse(JSON.stringify({ 
           error: 'Access denied',
           message: `Your IP (${ip}) is not authorized to access this resource`,
           timestamp: new Date().toISOString()
+        }), { 
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
         });
       }
     }
