@@ -30,7 +30,11 @@ export async function middleware(req: NextRequest) {
 
   try {
     // Check for CRON bypass key
-    const cronBypassKey = req.headers.get('x-cron-key');
+    const cronBypassKey = req.headers.get('x-cron-key') || req.headers.get('X-Cron-Key');
+    
+    console.log('🔒 x-cron-key header:', cronBypassKey);
+    console.log('🔑 Loaded env key:', process.env.CRON_BYPASS_KEY);
+    
     if (cronBypassKey && cronBypassKey === process.env.CRON_BYPASS_KEY) {
       console.log('✅ CRON bypass key accepted — skipping IP check');
       return NextResponse.next(); // Skip IP check
