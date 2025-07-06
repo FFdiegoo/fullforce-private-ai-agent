@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { EnhancedSessionManager } from './lib/enhanced-session-manager';
 import { githubActionsCIDRs } from './lib/ip/githubActionsIPs';
-import { isIpInAnyCidr } from './lib/ip-utils';
+import CidrMatcher from 'cidr-matcher';
 
 type IPAddress = string;
 
@@ -65,34 +65,15 @@ export async function middleware(req: NextRequest) {
       
       // Only check against GitHub IPs if not in primary list (using CidrMatcher)
       let isAllowed = isPrimaryAllowed;
-      let isGitHubIp = false;
       
       if (!isPrimaryAllowed) {
         console.log('🔍 Checking against GitHub Actions CIDR ranges...');
-        try {
-          // Use our custom IP utility instead of CidrMatcher
-          isGitHubIp = isIpInAnyCidr(ip, githubActionsCIDRs);
-          isAllowed = isGitHubIp;
-          console.log(`🔍 IP check result: ${ip} is ${isGitHubIp ? 'a GitHub Actions IP' : 'not a GitHub Actions IP'}`);
-        } catch (error) {
-          console.error('❌ Error checking GitHub CIDR ranges:', error);
-        }
+        // Initialize matcher only when needed (performance optimization)
+        const matcher = new CidrMatcher(githubActionsCIDRs);
+        const isGitHubIp = matcher.contains(ip);
+        isAllowed = isGitHubIp;
+        console.log(`🔍 IP check result: ${ip} is ${isGitHubIp ? 'a GitHub Actions IP' : 'not a GitHub Actions IP'}`);
       }
-      
-      // Check for GitHub-specific headers as additional verification
-      const isGitHubRequest = 
-        request.headers.get('x-github-actions') === 'true' ||
-        request.headers.get('x-github-workflow') !== null ||
-        request.headers.get('x-github-run-id') !== null ||
-        (request.headers.get('user-agent') || '').toLowerCase().includes('github-actions');
-      
-      // Allow if it's a GitHub IP and has GitHub headers
-      if (isGitHubIp && isGitHubRequest) {
-        isAllowed = true;
-        console.log('✅ Request authorized via GitHub IP and headers');
-      }
-      
-      console.log(`[IP CHECK] IP: ${ip}, isPrimary: ${isPrimaryAllowed}, isGitHub: ${isGitHubIp}, hasGitHubHeaders: ${isGitHubRequest}, finalDecision: ${isAllowed ? 'ALLOWED' : 'BLOCKED'}`);
 
       if (!isAllowed) {
         console.log('🚫 IP not allowed:', ip);
