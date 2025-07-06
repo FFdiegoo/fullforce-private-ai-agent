@@ -4,6 +4,8 @@ import { EnhancedSessionManager } from './lib/enhanced-session-manager';
 
 type IPAddress = string;
 
+import { githubActionIPs } from './lib/github-action-ips';
+
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico).*)',
@@ -17,7 +19,7 @@ export async function middleware(req: NextRequest) {
   try {
     // Get client IP with better error handling
     const ip: IPAddress = getClientIP(req);
-
+      const ip = getClientIP(request);
     if (!ip) {
       console.warn('❌ Could not determine client IP');
       return new NextResponse(JSON.stringify({ 
@@ -32,18 +34,30 @@ export async function middleware(req: NextRequest) {
 
     // IP Whitelisting (only in production)
     if (!isDevelopment) {
-      const allowedIPs: IPAddress[] = [
+      const primaryAllowedIPs = [
         '127.0.0.1',
         '::1',
         '2a02:a46e:549e:0:e4c4:26b3:e601:6782',
         '84.86.144.131',
         '185.56.55.239',
         '45.147.87.232',
-
-      if (process.env.ALLOWED_IPS) {
         const envIPs = process.env.ALLOWED_IPS.split(',').map(ip => ip.trim());
         allowedIPs.push(...envIPs);
+      // Add more from env to primary list
+      if (process.env.ALLOWED_IPS) {
+        primaryAllowedIPs.push(...process.env.ALLOWED_IPS.split(',').map(ip => ip.trim()));
       }
+
+      // First check against primary IPs (fast check)
+      const isPrimaryAllowed = isIPAllowed(ip, primaryAllowedIPs);
+      
+      // Only check against GitHub IPs if not in primary list
+      let isAllowed = isPrimaryAllowed;
+      if (!isPrimaryAllowed) {
+        isAllowed = isIPAllowed(ip, githubActionIPs);
+      }
+
+      if (!isAllowed) {
 
       const isAllowed = allowedIPs.some(allowedIP => {
         if (ip === allowedIP) return true;
