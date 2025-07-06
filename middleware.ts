@@ -43,6 +43,7 @@ export async function middleware(req: NextRequest) {
         '45.147.87.232',
         const envIPs = process.env.ALLOWED_IPS.split(',').map(ip => ip.trim());
         allowedIPs.push(...envIPs);
+      ]
       // Add more from env to primary list
       if (process.env.ALLOWED_IPS) {
         primaryAllowedIPs.push(...process.env.ALLOWED_IPS.split(',').map(ip => ip.trim()));
@@ -58,6 +59,7 @@ export async function middleware(req: NextRequest) {
       }
 
       if (!isAllowed) {
+      }
 
       const isAllowed = allowedIPs.some(allowedIP => {
         if (ip === allowedIP) return true;
