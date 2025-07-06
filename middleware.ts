@@ -8,7 +8,7 @@ type IPAddress = string;
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-  runtime: 'edge'
+  runtime: 'experimental-edge'
 };
 
 // Helper function to check if an IP is allowed
