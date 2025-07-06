@@ -66,25 +66,6 @@ export async function middleware(req: NextRequest) {
           timestamp: new Date().toISOString()
         });
       }
-        if (ip.includes(':') && allowedIP.includes(':')) {
-          const normalizeIPv6 = (addr: string) => addr.toLowerCase().replace(/^::ffff:/, '');
-          return normalizeIPv6(ip) === normalizeIPv6(allowedIP);
-        }
-        return false;
-      });
-
-      if (!isAllowed) {
-        console.warn(`🚫 Blocked IP: ${ip} trying to access ${pathname}`);
-        return new NextResponse(JSON.stringify({ 
-          error: 'IP restriction',
-          message: 'Your IP is not authorized to access this resource',
-          ip: ip,
-          timestamp: new Date().toISOString()
-        }), { 
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
     }
 
     // Rate Limiting with error handling
