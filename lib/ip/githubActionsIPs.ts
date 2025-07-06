@@ -5277,5 +5277,4 @@ export const githubActionsCIDRs: string[] = [
     "2a01:111:f403:f904::/62",
     "2a01:111:f403:f908::/62",
     "2a01:111:f403:f90c::/62"
-  ],
 ];
