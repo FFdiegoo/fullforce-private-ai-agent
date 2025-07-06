@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
-import { useAuth } from '../lib/useAuth'; 
+import { useAuth } from '../lib/useAuth';
 import Image from 'next/image';
 
 export default function Login() {
