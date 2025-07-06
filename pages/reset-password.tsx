@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import Image from 'next/image';
-import Image from 'next/image';
 
 export default function ResetPassword() {
   const router = useRouter();

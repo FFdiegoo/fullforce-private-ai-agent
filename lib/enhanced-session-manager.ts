@@ -117,7 +117,7 @@ export class EnhancedSessionManager {
 
     const deviceInfo = {
       userAgent: request.headers.get('user-agent') || 'unknown',
-      ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
       deviceId: request.headers.get('x-device-id') || 'unknown'
     };
 
