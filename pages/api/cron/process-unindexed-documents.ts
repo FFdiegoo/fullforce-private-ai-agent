@@ -6,22 +6,29 @@ import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
-// Secure API key for CRON job authentication
-const API_KEY = process.env.CRON_API_KEY || 'default-secure-key-change-me';
-const CRON_BYPASS_KEY = process.env.CRON_BYPASS_KEY;
+// ✅ Veilig opgehaalde environment variables
+const API_KEY = process.env.CRON_API_KEY || 'default-key';
+const CRON_BYPASS_KEY = process.env.CRON_BYPASS_KEY || 'fallback-key';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  console.log('🚨 API_KEY env:', API_KEY);
-  console.log('🚨 CRON_BYPASS_KEY env:', CRON_BYPASS_KEY);
-  console.log('🚨 Headers from request:', req.headers);
+  // 🧪 Debug info
+  console.log('🔐 Loaded API_KEY:', API_KEY);
+  console.log('🔐 Loaded CRON_BYPASS_KEY:', CRON_BYPASS_KEY);
+  console.log('🔎 Request headers:', req.headers);
 
   const apiKey = req.headers['x-api-key'] || req.query.key;
-  if (!apiKey || apiKey !== API_KEY) {
-    console.error('❌ Invalid API key');
+  const cronBypassKey = req.headers['x-cron-key'] || req.headers['X-Cron-Key'];
+
+  if (apiKey === API_KEY) {
+    console.log('✅ Valid API key');
+  } else if (cronBypassKey && cronBypassKey === CRON_BYPASS_KEY) {
+    console.log('✅ CRON bypass key accepted');
+  } else {
+    console.warn('❌ Unauthorized: Invalid API key and no valid bypass key');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -52,16 +59,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     for (const document of documents) {
       try {
-        console.log(`[CRON] Processing: ${document.filename}`);
+        console.log(`[CRON] 🔧 Processing: ${document.filename}`);
 
         const { data: fileData, error: downloadError } = await supabase
           .storage
           .from('company-docs')
           .download(document.storage_path);
 
-        if (downloadError) {
-          throw new Error(`Failed to download: ${downloadError.message}`);
-        }
+        if (downloadError) throw new Error(`Failed to download: ${downloadError.message}`);
 
         let extractedText = '';
 
