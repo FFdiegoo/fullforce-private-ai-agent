@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/cron/process-unindexed-documents.ts": {
+      "env": ["CRON_API_KEY", "CRON_BYPASS_KEY"]
+    }
+  }
+}

@@ -8,11 +8,16 @@ import mammoth from 'mammoth';
 
 // Secure API key for CRON job authentication
 const API_KEY = process.env.CRON_API_KEY || 'default-secure-key-change-me';
+const CRON_BYPASS_KEY = process.env.CRON_BYPASS_KEY;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  console.log('🚨 API_KEY env:', API_KEY);
+  console.log('🚨 CRON_BYPASS_KEY env:', CRON_BYPASS_KEY);
+  console.log('🚨 Headers from request:', req.headers);
 
   const apiKey = req.headers['x-api-key'] || req.query.key;
   if (!apiKey || apiKey !== API_KEY) {
