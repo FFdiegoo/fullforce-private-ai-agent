@@ -21,5 +21,5 @@ The `/bolt` directory enables seamless integration with:
 As features are added, this directory will be organized into subdirectories such as:
 - `/workflows` - Custom automation workflows
 - `/api` - API integration configurations
-- `/models` - AI model configurations and prompts
+- `/models` - AI model configurations and prompts.
 - `/experiments` - Proof of concepts and experimental features.
