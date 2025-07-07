@@ -1,7 +1,7 @@
 {
   "functions": {
     "middleware.ts": {
-      "env": ["CRON_BYPASS_KEY", "NODE_ENV"]
+      "env": ["CRON_BYPASS_KEY", "ALLOWED_IPS", "NODE_ENV"]
     },
     "api/cron/process-unindexed-documents.ts": {
       "env": ["CRON_API_KEY", "CRON_BYPASS_KEY"]
