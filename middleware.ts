@@ -67,9 +67,10 @@ export async function middleware(req: NextRequest) {
         '127.0.0.1',
         '::1',
         '84.86.144.131',
+        '213.124.97.74', #abc
         '185.56.55.239',
         '45.147.87.232',
-        '2a02:a46e:549e:0:e4c4:26b3:e601:6782'
+        '2a02:a46e:549e:0:e4c4:26b3:e601:6782',
       ];
       
       // Add more from env to primary list
