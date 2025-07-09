@@ -61,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         console.log(`[CRON] 🔧 Processing: ${document.filename}`);
 
-        const { data: fileData, error: downloadError } = await supabase
+        const { data: fileData, error: downloadError } = await supabaseAdmin
           .storage
           .from('company-docs')
           .download(document.storage_path);
