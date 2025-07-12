@@ -6,37 +6,58 @@ import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
-// ✅ Veilig opgehaalde environment variables
+// ✅ Environment vars
 const API_KEY = process.env.CRON_API_KEY || 'default-key';
 const CRON_BYPASS_KEY = process.env.CRON_BYPASS_KEY || 'fallback-key';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+function validateAndNormalizePath(storagePath: string): string {
+  if (!storagePath || storagePath.trim() === '') throw new Error('Invalid storage path');
+  return storagePath.startsWith('/') ? storagePath.substring(1) : storagePath;
+}
 
-  // 🧪 Debug info
-  console.log('🔐 Loaded API_KEY:', API_KEY);
-  console.log('🔐 Loaded CRON_BYPASS_KEY:', CRON_BYPASS_KEY);
-  console.log('🔎 Request headers:', req.headers);
+async function downloadWithRetry(supabaseAdmin: any, path: string, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📥 Attempt ${attempt}: downloading ${path}`);
+      const { data, error } = await supabaseAdmin.storage.from('company-docs').download(path);
+
+      if (error) {
+        const msg = error.message || error.error || JSON.stringify(error);
+        if (attempt === maxRetries) throw new Error(`Download failed: ${msg}`);
+        console.warn(`⚠️ Download error [${attempt}]: ${msg}`);
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        continue;
+      }
+
+      if (!data) throw new Error('Supabase returned null fileData');
+      return data;
+    } catch (err: any) {
+      if (attempt === maxRetries) throw err;
+      console.warn(`⚠️ Retry download exception [${attempt}]: ${err.message}`);
+      await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const apiKey = req.headers['x-api-key'] || req.query.key;
-  const cronBypassKey = req.headers['x-cron-key'] || req.headers['X-Cron-Key'];
+  const cronKey = req.headers['x-cron-key'] || req.headers['X-Cron-Key'];
 
   if (apiKey === API_KEY) {
-    console.log('✅ Valid API key');
-  } else if (cronBypassKey && cronBypassKey === CRON_BYPASS_KEY) {
-    console.log('✅ CRON bypass key accepted');
+    console.log('✅ API key OK');
+  } else if (cronKey && cronKey === CRON_BYPASS_KEY) {
+    console.log('✅ CRON bypass key OK');
   } else {
-    console.warn('❌ Unauthorized: Invalid API key and no valid bypass key');
+    console.warn('❌ Unauthorized access attempt');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    console.log('🔄 CRON job started: processing unindexed documents');
-
     const limit = parseInt(req.query.limit as string) || 10;
 
+    // 🧠 Fetch unprocessed documents
     const { data: documents, error: fetchError } = await supabase
       .from('documents_metadata')
       .select('*')
@@ -46,53 +67,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(limit);
 
     if (fetchError) {
-      console.error('❌ Error fetching documents:', fetchError);
+      console.error('❌ Failed to fetch documents:', fetchError);
       return res.status(500).json({ error: 'Failed to fetch documents' });
     }
 
-    if (!documents || documents.length === 0) {
+    if (!documents?.length) {
       console.log('✅ No documents to process');
       return res.status(200).json({ message: 'No documents to process' });
     }
 
     const results = [];
 
-    for (const document of documents) {
+    for (const doc of documents) {
       try {
-        console.log(`[CRON] 🔧 Processing: ${document.filename}`);
+        console.log(`📄 Processing: ${doc.filename} (${doc.storage_path})`);
 
-        const { data: fileData, error: downloadError } = await supabaseAdmin
-          .storage
-          .from('company-docs')
-          .download(document.storage_path);
-
-        if (downloadError) throw new Error(`Failed to download: ${downloadError.message}`);
+        const normalizedPath = validateAndNormalizePath(doc.storage_path);
+        const fileData = await downloadWithRetry(supabaseAdmin, normalizedPath);
 
         let extractedText = '';
+        const arrayBuffer = await fileData.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
 
-        if (document.mime_type === 'application/pdf' || document.filename.endsWith('.pdf')) {
-          const pdfData = await pdfParse(Buffer.from(await fileData.arrayBuffer()));
-          extractedText = pdfData.text;
+        if (doc.mime_type === 'application/pdf' || doc.filename.endsWith('.pdf')) {
+          const parsed = await pdfParse(buffer);
+          extractedText = parsed.text;
         } else if (
-          document.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-          document.filename.endsWith('.docx')
+          doc.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+          doc.filename.endsWith('.docx')
         ) {
-          const docxData = await mammoth.extractRawText({
-            buffer: Buffer.from(await fileData.arrayBuffer()),
-          });
-          extractedText = docxData.value;
-        } else {
+          const parsed = await mammoth.extractRawText({ buffer });
+          extractedText = parsed.value;
+        } else if (doc.mime_type === 'text/plain' || doc.filename.endsWith('.txt')) {
           extractedText = await fileData.text();
+        } else {
+          try {
+            extractedText = await fileData.text();
+          } catch {
+            throw new Error(`Unsupported file format: ${doc.mime_type}`);
+          }
         }
 
-        if (!extractedText || extractedText.trim().length === 0) {
-          throw new Error('No text extracted');
-        }
+        if (!extractedText.trim()) throw new Error('Empty text after extraction');
 
-        document.extractedText = extractedText;
+        doc.extractedText = extractedText;
 
         const pipeline = new RAGPipeline(supabase, openaiApiKey);
-        await pipeline.processDocument(document, {
+        await pipeline.processDocument(doc, {
           chunkSize: RAG_CONFIG.chunkSize,
           chunkOverlap: RAG_CONFIG.chunkOverlap,
           skipExisting: false,
@@ -101,11 +122,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { count: chunkCount, error: countError } = await supabase
           .from('document_chunks')
           .select('*', { count: 'exact', head: true })
-          .eq('metadata->id', document.id);
+          .eq('metadata->id', doc.id);
 
-        if (countError) {
-          console.error('⚠️ Error counting chunks:', countError.message);
-        }
+        if (countError) console.warn('⚠️ Chunk count error:', countError.message);
 
         await supabaseAdmin
           .from('documents_metadata')
@@ -115,35 +134,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             chunk_count: chunkCount || 0,
             last_error: null,
           })
-          .eq('id', document.id);
+          .eq('id', doc.id);
 
-        console.log(`[CRON] ✅ ${document.filename} → ${chunkCount || 0} chunks`);
-
-        results.push({ id: document.id, filename: document.filename, success: true, chunkCount: chunkCount || 0 });
-      } catch (error) {
-        const err = error as Error;
-        console.error(`[CRON] ❌ Error processing ${document.filename}:`, err.message);
-
+        console.log(`✅ Processed ${doc.filename} → ${chunkCount || 0} chunks`);
+        results.push({ id: doc.id, filename: doc.filename, success: true, chunkCount: chunkCount || 0 });
+      } catch (err: any) {
+        console.error(`❌ Failed to process ${doc.filename}: ${err.message}`);
         await supabaseAdmin
           .from('documents_metadata')
           .update({
-            last_error: `Processing failed: ${err.message}`,
+            processed_at: new Date().toISOString(),
+            last_error: err.message,
           })
-          .eq('id', document.id);
+          .eq('id', doc.id);
 
-        results.push({ id: document.id, filename: document.filename, success: false, error: err.message });
+        results.push({ id: doc.id, filename: doc.filename, success: false, error: err.message });
       }
     }
 
+    const success = results.filter(r => r.success).length;
+    const failed = results.length - success;
+
     return res.status(200).json({
-      message: `Processed ${results.length} document(s)`,
-      processed: results.filter(r => r.success).length,
-      failed: results.filter(r => !r.success).length,
+      message: `Processed ${results.length} documents`,
+      processed: success,
+      failed,
       results,
     });
-  } catch (error) {
-    const err = error as Error;
-    console.error('❌ CRON job failed:', err.message);
+
+  } catch (err: any) {
+    console.error('💥 CRON job failed:', err.message);
     return res.status(500).json({ error: 'Unexpected error', details: err.message });
   }
 }
