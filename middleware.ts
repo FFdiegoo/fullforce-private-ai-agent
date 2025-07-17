@@ -67,6 +67,7 @@ export async function middleware(req: NextRequest) {
         '127.0.0.1',
         '::1',
         '84.86.144.131',
+        '185.21.52.181', // csrental gast
         '213.124.97.74', // abc
         '185.56.55.239',
         '45.147.87.232',
