@@ -1,4 +1,4 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env node
 
 /**
  * Bulk Upload Script for D:\ Drive to Supabase Storage
@@ -7,19 +7,18 @@
  * while preserving the original folder structure.
  */
 
-import { createClient } from '@supabase/supabase-js';
-import * as fs from 'fs';
-import * as path from 'path';
-import { promisify } from 'util';
+const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+const path = require('path');
+const { promisify } = require('util');
 
 // Load environment variables
-import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+require('dotenv').config({ path: '.env.local' });
 
 // Configuration
 const CONFIG = {
-  SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   SOURCE_PATH: 'D:\\',
   BUCKET_NAME: 'company_documents',
   MAX_FILE_SIZE: 1024 * 1024 * 1024, // 1GB
@@ -48,30 +47,8 @@ const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
 const readFile = promisify(fs.readFile);
 
-// Types
-interface UploadResult {
-  filePath: string;
-  storagePath: string;
-  success: boolean;
-  error?: string;
-  fileSize: number;
-  signedUrl?: string;
-}
-
-interface UploadStats {
-  totalFiles: number;
-  processedFiles: number;
-  successfulUploads: number;
-  failedUploads: number;
-  skippedFiles: number;
-  totalSize: number;
-  uploadedSize: number;
-  startTime: Date;
-  endTime?: Date;
-}
-
 // Global stats
-const stats: UploadStats = {
+const stats = {
   totalFiles: 0,
   processedFiles: 0,
   successfulUploads: 0,
@@ -79,16 +56,17 @@ const stats: UploadStats = {
   skippedFiles: 0,
   totalSize: 0,
   uploadedSize: 0,
-  startTime: new Date()
+  startTime: new Date(),
+  endTime: null
 };
 
 // Results storage
-const results: UploadResult[] = [];
+const results = [];
 
 /**
  * Check if file should be skipped based on extension or path
  */
-function shouldSkipFile(filePath: string): boolean {
+function shouldSkipFile(filePath) {
   const skipExtensions = [
     '.tmp', '.temp', '.log', '.cache', '.lock',
     '.sys', '.dll', '.exe', '.msi', '.bat', '.cmd',
@@ -128,9 +106,9 @@ function shouldSkipFile(filePath: string): boolean {
 /**
  * Get MIME type based on file extension
  */
-function getMimeType(filePath: string): string {
+function getMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
-  const mimeTypes: Record<string, string> = {
+  const mimeTypes = {
     '.pdf': 'application/pdf',
     '.doc': 'application/msword',
     '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -165,7 +143,7 @@ function getMimeType(filePath: string): string {
 /**
  * Convert Windows path to storage path
  */
-function getStoragePath(filePath: string): string {
+function getStoragePath(filePath) {
   // Remove D:\ prefix and convert backslashes to forward slashes
   const relativePath = path.relative(CONFIG.SOURCE_PATH, filePath);
   return relativePath.replace(/\\/g, '/');
@@ -174,7 +152,7 @@ function getStoragePath(filePath: string): string {
 /**
  * Format file size for display
  */
-function formatFileSize(bytes: number): string {
+function formatFileSize(bytes) {
   if (bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -185,7 +163,7 @@ function formatFileSize(bytes: number): string {
 /**
  * Upload a single file to Supabase Storage with retry logic
  */
-async function uploadFile(filePath: string, retryCount = 0): Promise<UploadResult> {
+async function uploadFile(filePath, retryCount = 0) {
   const storagePath = getStoragePath(filePath);
   
   try {
@@ -260,8 +238,8 @@ async function uploadFile(filePath: string, retryCount = 0): Promise<UploadResul
 /**
  * Recursively scan directory and collect all file paths
  */
-async function scanDirectory(dirPath: string): Promise<string[]> {
-  const files: string[] = [];
+async function scanDirectory(dirPath) {
+  const files = [];
   
   try {
     const entries = await readdir(dirPath);
@@ -270,9 +248,9 @@ async function scanDirectory(dirPath: string): Promise<string[]> {
       const fullPath = path.join(dirPath, entry);
       
       try {
-        const stats = await stat(fullPath);
+        const fileStats = await stat(fullPath);
         
-        if (stats.isDirectory()) {
+        if (fileStats.isDirectory()) {
           // Skip certain system directories
           if (shouldSkipFile(fullPath)) {
             console.log(`   ⏩ Skipping directory: ${fullPath}`);
@@ -282,7 +260,7 @@ async function scanDirectory(dirPath: string): Promise<string[]> {
           // Recursively scan subdirectory
           const subFiles = await scanDirectory(fullPath);
           files.push(...subFiles);
-        } else if (stats.isFile()) {
+        } else if (fileStats.isFile()) {
           // Skip certain file types
           if (shouldSkipFile(fullPath)) {
             console.log(`   ⏩ Skipping file: ${fullPath}`);
@@ -305,7 +283,7 @@ async function scanDirectory(dirPath: string): Promise<string[]> {
 /**
  * Process files in batches with concurrency control
  */
-async function processFilesInBatches(files: string[]): Promise<void> {
+async function processFilesInBatches(files) {
   console.log(`📦 Processing ${files.length} files in batches of ${CONFIG.CONCURRENT_UPLOADS}...`);
   
   for (let i = 0; i < files.length; i += CONFIG.CONCURRENT_UPLOADS) {
@@ -349,7 +327,7 @@ async function processFilesInBatches(files: string[]): Promise<void> {
 /**
  * Ensure bucket exists
  */
-async function ensureBucketExists(): Promise<boolean> {
+async function ensureBucketExists() {
   console.log('🪣 Checking if bucket exists...');
   
   try {
@@ -391,7 +369,7 @@ async function ensureBucketExists(): Promise<boolean> {
 /**
  * Generate final report
  */
-function generateReport(): void {
+function generateReport() {
   stats.endTime = new Date();
   const duration = stats.endTime.getTime() - stats.startTime.getTime();
   const durationMinutes = Math.round(duration / 60000);
@@ -451,7 +429,7 @@ function generateReport(): void {
 /**
  * Main execution function
  */
-async function main(): Promise<void> {
+async function main() {
   console.log('🚀 Starting Bulk Upload from D:\\ to Supabase Storage');
   console.log('='.repeat(60));
   console.log(`📂 Source: ${CONFIG.SOURCE_PATH}`);
@@ -536,4 +514,4 @@ if (require.main === module) {
   });
 }
 
-export { main, uploadFile, scanDirectory };
+module.exports = { main, uploadFile, scanDirectory };
