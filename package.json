@@ -31,12 +31,9 @@
     "rag:mark-for-indexing": "node scripts/mark-documents-for-indexing.js",
     "rag:process-all": "node scripts/process-all-pending-documents.js",
     "rag:monitor": "node scripts/monitor-rag-status.js",
-    "bulk-upload": "node scripts/bulk-upload.js",
-    "bulk-upload:handleidingen": "node scripts/bulk-upload-handleidingen.js",
-    "bulk-upload:monitor": "node scripts/bulk-upload-monitor.js",
-    "bulk-upload:verify": "node scripts/bulk-upload-verify.js",
-    "mirror-folders": "node scripts/mirror-folders.js",
-    "upload-from-drive": "node scripts/bulk-upload-from-local-drive.js"
+    "process:documents": "ts-node scripts/process-unindexed-documents.ts",
+    "process:test": "ts-node scripts/test-document-processing.ts",
+    "process:cron": "curl -X GET \"http://localhost:3000/api/cron/process-unindexed-documents?key=${CRON_API_KEY}\""
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
