@@ -1,0 +1,185 @@
+{
+  "timestamp": "2025-07-03T01:53:21.529Z",
+  "configuration": {
+    "sourceDir": "D:\\020 Koeling",
+    "targetCategory": "Technisch",
+    "maxFileSize": 1073741824
+  },
+  "statistics": {
+    "totalFiles": 769,
+    "totalBytes": 2182192697,
+    "uploadedFiles": 736,
+    "uploadedBytes": 789390539,
+    "skippedFiles": 0,
+    "failedFiles": 33,
+    "duration": 4667,
+    "successRate": 95.70871261378413
+  },
+  "errors": [
+    {
+      "file": "23 Chillers\\16050 - CSC-16\\16050 - CSC-16 Logboek\\16050 - ENR008W03_rev.10_STD_RV[1].pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16050 - CSC-16/16050 - CSC-16 Logboek/16050 - ENR008W03_rev.10_STD_RV[1].pdf",
+      "timestamp": "2025-07-03T00:40:06.738Z"
+    },
+    {
+      "file": "23 Chillers\\16050 - CSC-16\\16050 - CSC-16 Logboek\\16050 - LP-ENR-016SP08_ENR.016-Spec.043-19_XR30CX[1].pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16050 - CSC-16/16050 - CSC-16 Logboek/16050 - LP-ENR-016SP08_ENR.016-Spec.043-19_XR30CX[1].pdf",
+      "timestamp": "2025-07-03T00:40:11.998Z"
+    },
+    {
+      "file": "23 Chillers\\16050 - CSC-16\\16050 - CSC-16 Logboek\\16050 - SFI-ENR-016-SP325-22[1].pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16050 - CSC-16/16050 - CSC-16 Logboek/16050 - SFI-ENR-016-SP325-22[1].pdf",
+      "timestamp": "2025-07-03T00:40:21.279Z"
+    },
+    {
+      "file": "23 Chillers\\16050 - CSC-16\\~$C 16 Chiller-CSrental.docx",
+      "error": "Invalid key: Technisch/23 Chillers/16050 - CSC-16/~$C 16 Chiller-CSrental.docx",
+      "timestamp": "2025-07-03T00:40:39.254Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\16052 - CSC-38 Logboek\\16052 - DIM-ENR-038SP18_Rev.00_-_Dimensionale_ENR.038_CX.CST...SP_Spec.044-22[1] (1).pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/16052 - CSC-38 Logboek/16052 - DIM-ENR-038SP18_Rev.00_-_Dimensionale_ENR.038_CX.CST...SP_Spec.044-22[1] (1).pdf",
+      "timestamp": "2025-07-03T00:41:08.575Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\16052 - CSC-38 Logboek\\16052 - DIM-ENR-038SP18_Rev.00_-_Dimensionale_ENR.038_CX.CST...SP_Spec.044-22[1] (4).pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/16052 - CSC-38 Logboek/16052 - DIM-ENR-038SP18_Rev.00_-_Dimensionale_ENR.038_CX.CST...SP_Spec.044-22[1] (4).pdf",
+      "timestamp": "2025-07-03T00:41:13.080Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\16052 - CSC-38 Logboek\\16052 - ENR030W02_rev.12_STD_dixell[1] (1).pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/16052 - CSC-38 Logboek/16052 - ENR030W02_rev.12_STD_dixell[1] (1).pdf",
+      "timestamp": "2025-07-03T00:41:19.368Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\16052 - CSC-38 Logboek\\16052 - ENR030W02_rev.12_STD_dixell[1] (4).pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/16052 - CSC-38 Logboek/16052 - ENR030W02_rev.12_STD_dixell[1] (4).pdf",
+      "timestamp": "2025-07-03T00:41:25.713Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\16052 - CSC-38 Logboek\\16052 - LP-ENR-030ST03__IC121CX_enr_1_circ_1_gradino_europa_FACTORY[1] (5).pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/16052 - CSC-38 Logboek/16052 - LP-ENR-030ST03__IC121CX_enr_1_circ_1_gradino_europa_FACTORY[1] (5).pdf",
+      "timestamp": "2025-07-03T00:41:31.361Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\16052 - CSC-38 Logboek\\16052 - LP-ENR-030ST03__IC121CX_enr_1_circ_1_gradino_europa_FACTORY[1].pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/16052 - CSC-38 Logboek/16052 - LP-ENR-030ST03__IC121CX_enr_1_circ_1_gradino_europa_FACTORY[1].pdf",
+      "timestamp": "2025-07-03T00:41:35.941Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\16052 - CSC-38 Logboek\\16052 - SFI-ENR-038-SP044-22[1] (1).pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/16052 - CSC-38 Logboek/16052 - SFI-ENR-038-SP044-22[1] (1).pdf",
+      "timestamp": "2025-07-03T00:41:42.233Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\16052 - CSC-38 Logboek\\16052 - SFI-ENR-038-SP044-22[1] (6).pdf",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/16052 - CSC-38 Logboek/16052 - SFI-ENR-038-SP044-22[1] (6).pdf",
+      "timestamp": "2025-07-03T00:41:47.342Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\~$C 38 Chiller-CSrental.docx",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/~$C 38 Chiller-CSrental.docx",
+      "timestamp": "2025-07-03T00:42:04.731Z"
+    },
+    {
+      "file": "23 Chillers\\16052 - CSC-38\\~$structies CSC 38.docx",
+      "error": "Invalid key: Technisch/23 Chillers/16052 - CSC-38/~$structies CSC 38.docx",
+      "timestamp": "2025-07-03T00:42:09.000Z"
+    },
+    {
+      "file": "23 Chillers\\16056 - CSC-75\\~$C 75 Chiller-CSrental.docx",
+      "error": "Invalid key: Technisch/23 Chillers/16056 - CSC-75/~$C 75 Chiller-CSrental.docx",
+      "timestamp": "2025-07-03T00:43:53.350Z"
+    },
+    {
+      "file": "23 Chillers\\16056 - CSC-75\\~$structies CSC 75 - aangepast.docx",
+      "error": "Invalid key: Technisch/23 Chillers/16056 - CSC-75/~$structies CSC 75 - aangepast.docx",
+      "timestamp": "2025-07-03T00:43:57.610Z"
+    },
+    {
+      "file": "23 Chillers\\Koelmachine 130 kW - TKM130 (5).tif",
+      "error": "The object exceeded the maximum allowed size",
+      "timestamp": "2025-07-03T00:50:43.522Z"
+    },
+    {
+      "file": "23 Chillers\\Koelmachine 130 kW - TKM130(1).tif",
+      "error": "The object exceeded the maximum allowed size",
+      "timestamp": "2025-07-03T00:58:11.002Z"
+    },
+    {
+      "file": "23 Chillers\\Koelmachine 160 kW - TKM160 (2).tif",
+      "error": "The object exceeded the maximum allowed size",
+      "timestamp": "2025-07-03T01:04:09.457Z"
+    },
+    {
+      "file": "23 Chillers\\Koelmachine 160 kW - TKM160 (3).tif",
+      "error": "The object exceeded the maximum allowed size",
+      "timestamp": "2025-07-03T01:09:43.540Z"
+    },
+    {
+      "file": "23 Chillers\\Koelmachine 30 kW - TKM30 (2).tif",
+      "error": "The object exceeded the maximum allowed size",
+      "timestamp": "2025-07-03T01:17:59.396Z"
+    },
+    {
+      "file": "23 Chillers\\Koelmachine 30 kW - TKM30 (3).tif",
+      "error": "The object exceeded the maximum allowed size",
+      "timestamp": "2025-07-03T01:24:52.676Z"
+    },
+    {
+      "file": "23 Chillers\\Koelmachine 50 kW - TKM50 (2).tif",
+      "error": "The object exceeded the maximum allowed size",
+      "timestamp": "2025-07-03T01:31:30.714Z"
+    },
+    {
+      "file": "23 Chillers\\Koelmachine 50 kW - TKM50 (4).tif",
+      "error": "The object exceeded the maximum allowed size",
+      "timestamp": "2025-07-03T01:40:06.477Z"
+    },
+    {
+      "file": "23 Chillers\\Koelmachine 75 kW - TKM75 (2) fotoshop TKM75.tif",
+      "error": "The object exceeded the maximum allowed size",
+      "timestamp": "2025-07-03T01:46:38.522Z"
+    },
+    {
+      "file": "24 Rooftop units\\16040 - PT-20000\\16040 - logboek 20KW 16040-001\\~$2021-00297 IBS RTX04 20kw 16040-001.pdf",
+      "error": "Invalid key: Technisch/24 Rooftop units/16040 - PT-20000/16040 - logboek 20KW 16040-001/~$2021-00297 IBS RTX04 20kw 16040-001.pdf",
+      "timestamp": "2025-07-03T01:49:28.895Z"
+    },
+    {
+      "file": "24 Rooftop units\\16040 - PT-20000\\16040 - logboek 20KW 16040-001\\~$gboek 2237472-2021-00297 (1).pdf",
+      "error": "Invalid key: Technisch/24 Rooftop units/16040 - PT-20000/16040 - logboek 20KW 16040-001/~$gboek 2237472-2021-00297 (1).pdf",
+      "timestamp": "2025-07-03T01:49:33.259Z"
+    },
+    {
+      "file": "24 Rooftop units\\16040 - PT-20000\\~$-20.000-WP-CSrental.docx",
+      "error": "Invalid key: Technisch/24 Rooftop units/16040 - PT-20000/~$-20.000-WP-CSrental.docx",
+      "timestamp": "2025-07-03T01:49:51.314Z"
+    },
+    {
+      "file": "24 Rooftop units\\16041 - PT-40000\\~$-40.000-WP-CSrental.docx",
+      "error": "Invalid key: Technisch/24 Rooftop units/16041 - PT-40000/~$-40.000-WP-CSrental.docx",
+      "timestamp": "2025-07-03T01:50:14.736Z"
+    },
+    {
+      "file": "24 Rooftop units\\16042 - PT-10 CH\\16042 - Leveranciersgegevens\\荷兰说明书user manual.docx",
+      "error": "Invalid key: Technisch/24 Rooftop units/16042 - PT-10 CH/16042 - Leveranciersgegevens/荷兰说明书user manual.docx",
+      "timestamp": "2025-07-03T01:50:24.643Z"
+    },
+    {
+      "file": "24 Rooftop units\\16042 - PT-10 CH\\16042 - Leveranciersgegevens\\荷兰说明书user manual.pdf",
+      "error": "Invalid key: Technisch/24 Rooftop units/16042 - PT-10 CH/16042 - Leveranciersgegevens/荷兰说明书user manual.pdf",
+      "timestamp": "2025-07-03T01:50:29.534Z"
+    },
+    {
+      "file": "24 Rooftop units\\16043 - PT-17 CH\\16043 - Leveranciersgegevens\\16043 - 荷兰说明书user manual.docx",
+      "error": "Invalid key: Technisch/24 Rooftop units/16043 - PT-17 CH/16043 - Leveranciersgegevens/16043 - 荷兰说明书user manual.docx",
+      "timestamp": "2025-07-03T01:50:56.185Z"
+    },
+    {
+      "file": "24 Rooftop units\\16043 - PT-17 CH\\16043 - Leveranciersgegevens\\16043 - 荷兰说明书user manual.pdf",
+      "error": "Invalid key: Technisch/24 Rooftop units/16043 - PT-17 CH/16043 - Leveranciersgegevens/16043 - 荷兰说明书user manual.pdf",
+      "timestamp": "2025-07-03T01:51:01.082Z"
+    }
+  ]
+}
