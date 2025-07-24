@@ -71,20 +71,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 }
-    }
-
-    const success = results.filter(r => r.success).length;
-    const failed = results.length - success;
-
-    return res.status(200).json({
-      message: `Processed ${results.length} documents`,
-      processed: success,
-      failed,
-      results,
-    });
-
-  } catch (err: any) {
-    console.error('💥 CRON job failed:', err.message);
-    return res.status(500).json({ error: 'Unexpected error', details: err.message });
-  }
-}
