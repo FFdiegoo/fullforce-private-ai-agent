@@ -1,0 +1,19 @@
+{
+  "name": "bulk-upload-scripts",
+  "version": "1.0.0",
+  "description": "Bulk upload scripts for Supabase Storage",
+  "main": "bulk-upload-d-drive.ts",
+  "scripts": {
+    "upload-d-drive": "ts-node bulk-upload-d-drive.ts",
+    "test-upload": "ts-node bulk-upload-d-drive.ts --test"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.2",
+    "dotenv": "^16.6.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17"
+  }
+}
