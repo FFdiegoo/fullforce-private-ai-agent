@@ -26,7 +26,7 @@
   "process:documents": "ts-node scripts/process-unindexed-documents.ts",
   "process:test": "ts-node scripts/test-document-processing.ts",
   "process:cron": "curl -X GET \"http://localhost:3000/api/cron/process-unindexed-documents?key=${CRON_API_KEY}\"",
-  "upload-d-drive": "ts-node scripts/bulk-upload-d-drive.ts"
+  "upload-d-drive": "node scripts/bulk-upload-d-drive.js"
 },
   "dependencies": {
     "@prisma/client": "^6.9.0",
