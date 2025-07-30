@@ -23,6 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
 
+    // Zoek relevante chunks inclusief bijbehorende documentinfo
     const relevantChunks = await DocumentService.searchChunks(query, limit, threshold);
 
     if (relevantChunks.length === 0) {
@@ -31,28 +32,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant. The user asked a question but no relevant documents were found in the knowledge base. Provide a helpful general response and suggest they might want to upload relevant documents.'
+            content:
+              'You are a helpful assistant. The user asked a question but no relevant documents were found in the knowledge base. Provide a helpful general response and suggest they might want to upload relevant documents.',
           },
           {
             role: 'user',
-            content: query
-          }
+            content: query,
+          },
         ],
         max_tokens: 500,
         temperature: 0.7,
       });
 
       return res.status(200).json({
-        response: completion.choices[0]?.message?.content || 'I could not find relevant information in the knowledge base.',
+        response:
+          completion.choices[0]?.message?.content ||
+          'I could not find relevant information in the knowledge base.',
         sources: [],
         context_used: false,
         documents_searched: 0,
       });
     }
 
-    // Voorzie context van chunks — alleen data beschikbaar in chunk zelf
     const context = relevantChunks
-      .map((chunk, index) => `[Document ${index + 1}]\n${chunk.content}`)
+      .map(
+        (chunk, index) =>
+          `[Document ${index + 1}: ${chunk.document?.filename ?? 'unknown'}]\n${chunk.content}`,
+      )
       .join('\n\n');
 
     const completion = await openai.chat.completions.create({
@@ -60,15 +66,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       messages: [
         {
           role: 'system',
-          content: `You are a helpful assistant that answers questions based on the provided document context. Use the context to provide accurate, detailed answers. If the context doesn't contain enough information to answer the question, say so clearly.
-
-Context from documents:
-${context}`
+          content: `You are a helpful assistant that answers questions based on the provided document context. Use the context to provide accurate, detailed answers. If the context doesn't contain enough information to answer the question, say so clearly.\n\nContext from documents:\n${context}`,
         },
         {
           role: 'user',
-          content: query
-        }
+          content: query,
+        },
       ],
       max_tokens: 1000,
       temperature: 0.3,
@@ -76,6 +79,7 @@ ${context}`
 
     const sources = relevantChunks.map((chunk) => ({
       document_id: chunk.document_id,
+      filename: chunk.document?.filename ?? 'unknown',
       chunk_index: chunk.chunk_index,
       content_preview: chunk.content.slice(0, 200) + '...',
     }));
@@ -87,12 +91,8 @@ ${context}`
       documents_searched: relevantChunks.length,
       query_processed: query,
     });
-
   } catch (error) {
     console.error('RAG chat error:', error);
     res.status(500).json({
       error: 'RAG chat failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-}
+      details: error instanceof E
