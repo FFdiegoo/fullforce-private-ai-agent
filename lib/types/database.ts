@@ -48,7 +48,14 @@ export interface DocumentChunk {
 }
 
 // Type for DocumentChunk with loaded document relation
-export interface DocumentChunkWithDocument extends DocumentChunk {
+export interface DocumentChunkWithDocument {
+  id: string;
+  document_id: string;
+  chunk_index: number;
+  content: string;
+  embedding?: string;
+  metadata?: any;
+  created_at: Date;
   document: {
     id: string;
     filename: string;
