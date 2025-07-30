@@ -97,3 +97,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: 'RAG chat failed',
       details:
         error instanceof Error ? error.message : 'Unknown error',
+
+    }
+    )
+  }
+}
