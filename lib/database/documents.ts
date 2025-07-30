@@ -164,7 +164,7 @@ export class DocumentService {
     });
   }
 
-  // Delete document and all chunks
+  // Delete document and all chunks.
   static async deleteDocument(documentId: string): Promise<void> {
     await prisma.document.delete({
       where: { id: documentId },
