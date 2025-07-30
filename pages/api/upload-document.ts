@@ -1,4 +1,4 @@
-@@ .. @@
+import { NextApiRequest, NextApiResponse } from 'next';
 +import { DocumentService } from '../../lib/database/documents';
 +import { EmbeddingStatus } from '../../lib/types/database';
 +import formidable from 'formidable';
