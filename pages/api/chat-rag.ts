@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { DocumentService } from '../../lib/database/documents';
-import { EmbeddingStatus, DocumentChunkWithDocument } from '../../lib/types/database';
+import { DocumentChunkWithDocument } from '../../lib/types/database';
 import { OpenAI } from 'openai';
 
 const openai = new OpenAI({
@@ -79,7 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const sources = relevantChunks.map((chunk) => ({
       document_id: chunk.document_id,
-      filename: chunk.document.filename,
+      filename: chunk.document?.filename ?? 'unknown',
       chunk_index: chunk.chunk_index,
       content_preview: chunk.content.slice(0, 200) + '...',
     }));
@@ -93,11 +93,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error('RAG chat error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'RAG chat failed',
-      details: error instanceof E
-
-    }
-    )
-  }
-}
+      details:
