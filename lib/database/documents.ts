@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { Document, DocumentChunk, EmbeddingStatus, DocumentStatus } from '../types/database';
+import { Document, DocumentChunk, DocumentChunkWithDocument, EmbeddingStatus, DocumentStatus } from '../types/database';
 
 const prisma = new PrismaClient();
 
