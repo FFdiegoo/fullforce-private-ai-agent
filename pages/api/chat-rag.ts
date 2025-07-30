@@ -95,10 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('RAG chat error:', error);
     return res.status(500).json({
       error: 'RAG chat failed',
-      details:
-        error instanceof Error ? error.message : 'Unknown error',
-
-    }
-    )
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }
