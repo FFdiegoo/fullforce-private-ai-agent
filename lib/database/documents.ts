@@ -130,7 +130,7 @@ export class DocumentService {
     query: string,
     limit: number = 10,
     threshold: number = 0.7
-  ): Promise<DocumentChunk[]> {
+  ): Promise<DocumentChunkWithDocument[]> {
     // This is a placeholder - in production you'd use vector similarity search
     // For now, we'll do text-based search
     return await prisma.documentChunk.findMany({
@@ -153,7 +153,7 @@ export class DocumentService {
       },
       take: limit,
       orderBy: { created_at: 'desc' },
-    });
+    }) as DocumentChunkWithDocument[];
   }
 
   // Get document with chunks

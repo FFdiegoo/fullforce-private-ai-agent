@@ -44,6 +44,18 @@ export interface DocumentChunk {
   embedding?: string;
   metadata?: any;
   created_at: Date;
+  document?: Document; // Optional relation
+}
+
+// Type for DocumentChunk with loaded document relation
+export interface DocumentChunkWithDocument extends DocumentChunk {
+  document: {
+    id: string;
+    filename: string;
+    safe_filename: string;
+    content_type: string;
+    upload_date: Date;
+  };
 }
 
 export interface User {

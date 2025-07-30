@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { DocumentService } from '../../lib/database/documents';
-import { EmbeddingStatus } from '../../lib/types/database';
+import { EmbeddingStatus, DocumentChunkWithDocument } from '../../lib/types/database';
 import { OpenAI } from 'openai';
 
 const openai = new OpenAI({
@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Zoek relevante chunks inclusief bijbehorende documentinfo
-    const relevantChunks = await DocumentService.searchChunks(query, limit, threshold);
+    const relevantChunks: DocumentChunkWithDocument[] = await DocumentService.searchChunks(query, limit, threshold);
 
     if (relevantChunks.length === 0) {
       const completion = await openai.chat.completions.create({
@@ -79,7 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const sources = relevantChunks.map((chunk) => ({
       document_id: chunk.document_id,
-      filename: chunk.document?.filename ?? 'unknown',
+      filename: chunk.document.filename,
       chunk_index: chunk.chunk_index,
       content_preview: chunk.content.slice(0, 200) + '...',
     }));
