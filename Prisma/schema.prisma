@@ -25,16 +25,28 @@ model User {
 }
 
 model Document {
-  id           String          @id @default(cuid())
-  filename     String
-  originalName String
-  fileSize     Int
-  mimeType     String
-  uploadPath   String
-  status       DocumentStatus  @default(PENDING)
-  processedAt  DateTime?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id              String          @id @default(cuid())
+  filename        String
+  originalName    String
+  fileSize        Int
+  mimeType        String
+  uploadPath      String
+  status          DocumentStatus  @default(PENDING)
+  processedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // RAG Pipeline Required Fields
+  safe_filename    String          @unique
+  file_size        Int
+  content_type     String
+  upload_date      DateTime        @default(now())
+  processed_date   DateTime?
+  embedding_status EmbeddingStatus @default(PENDING)
+  chunk_count      Int?
+  content          String?         @db.Text
+  summary          String?         @db.Text
+  metadata         Json?
 
   // Metadata
   department   String?
@@ -51,21 +63,24 @@ model Document {
 }
 
 model DocumentChunk {
-  id         String    @id @default(cuid())
-  content    String
-  embedding  Json?     // Was: String?, nu: Json? → geschikt voor vectorformaten
-  chunkIndex Int
-  createdAt  DateTime  @default(now())
-  documentId String
-  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  document_id String
+  chunk_index Int
+  content     String    @db.Text
+  embedding   String?   @db.Text
+  metadata    Json?
+  created_at  DateTime  @default(now())
+  
+  document Document @relation(fields: [document_id], references: [id], onDelete: Cascade)
 
+  @@unique([document_id, chunk_index])
   @@map("document_chunks")
 }
 
 model ChatSession {
   id        String   @id @default(cuid())
   userId    String
-  messages  Json     // Was: String, nu: Json → betere AI-compatibiliteit
+  messages  Json
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -90,5 +105,12 @@ enum Role {
 enum DocumentStatus {
   PENDING
   PROCESSED
+  FAILED
+}
+
+enum EmbeddingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
   FAILED
 }
