@@ -19,16 +19,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Query is required' });
     }
 
-    // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
 
-    // Search for relevant document chunks
     const relevantChunks = await DocumentService.searchChunks(query, limit, threshold);
 
     if (relevantChunks.length === 0) {
-      // No relevant documents found, provide general response
       const completion = await openai.chat.completions.create({
         model: 'gpt-4-turbo',
         messages: [
@@ -53,12 +50,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Prepare context from relevant chunks
+    // Voorzie context van chunks — alleen data beschikbaar in chunk zelf
     const context = relevantChunks
-      .map((chunk, index) => `[Document ${index + 1}: ${chunk.document?.filename}]\n${chunk.content}`)
+      .map((chunk, index) => `[Document ${index + 1}]\n${chunk.content}`)
       .join('\n\n');
 
-    // Generate response using RAG
     const completion = await openai.chat.completions.create({
       model: 'gpt-4-turbo',
       messages: [
@@ -78,10 +74,8 @@ ${context}`
       temperature: 0.3,
     });
 
-    // Prepare source information
-    const sources = relevantChunks.map(chunk => ({
+    const sources = relevantChunks.map((chunk) => ({
       document_id: chunk.document_id,
-      filename: chunk.document?.filename,
       chunk_index: chunk.chunk_index,
       content_preview: chunk.content.slice(0, 200) + '...',
     }));
