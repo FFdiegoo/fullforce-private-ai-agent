@@ -1,8 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
-import { DocumentProcessor } from '../../../lib/document-processor';
+import { EnhancedDocumentProcessor } from '../../../lib/document-processor-enhanced';
 
-// ✅ Environment vars
+// Environment vars
 const API_KEY = process.env.CRON_API_KEY || 'default-key';
 const CRON_BYPASS_KEY = process.env.CRON_BYPASS_KEY || 'fallback-key';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
@@ -36,8 +36,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
 
-    // Initialize document processor
-    const processor = new DocumentProcessor(
+    // Initialize enhanced document processor
+    const processor = new EnhancedDocumentProcessor(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       OPENAI_API_KEY,
@@ -47,27 +47,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     );
 
+    console.log(`🔄 Starting CRON job to process up to ${limit} documents`);
+
     // Process documents
     const results = await processor.processDocuments(limit);
 
+    console.log(`✅ CRON job completed: ${results.successful}/${results.processed} documents processed successfully`);
+
     return res.status(200).json({
-      message: `Processed ${results.processed} documents`,
-      processed: results.successful,
-      failed: results.failed,
-      results: results.results.map(r => ({
+      success: true,
+      message: `CRON job completed: processed ${results.processed} documents`,
+      results: {
+        processed: results.processed,
+        successful: results.successful,
+        failed: results.failed,
+        total_time_ms: results.totalTime
+      },
+      documents: results.results.map(r => ({
         id: r.documentId,
         filename: r.filename,
         success: r.success,
-        chunkCount: r.chunksCreated,
+        chunks_created: r.chunksCreated,
+        processing_time_ms: r.processingTime,
         error: r.error
-      }))
+      })),
+      timestamp: new Date().toISOString()
     });
 
   } catch (error: any) {
     console.error('💥 CRON job failed:', error.message);
     return res.status(500).json({ 
-      error: 'Processing failed', 
-      details: error.message 
+      success: false,
+      error: 'CRON processing failed', 
+      details: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 }

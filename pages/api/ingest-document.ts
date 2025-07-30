@@ -1,8 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { DocumentService } from '../../lib/database/documents';
-import { EmbeddingStatus } from '../../lib/types/database';
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '../../lib/supabaseClient';
+import { EnhancedDocumentProcessor } from '../../lib/document-processor-enhanced';
+import { auditLogger } from '../../lib/audit-logger';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -10,82 +9,112 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { document_id, safe_filename } = req.body;
+    // Verify authentication
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No authorization header' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { document_id, safe_filename, batch_size = 5 } = req.body;
 
     if (!document_id && !safe_filename) {
       return res.status(400).json({ error: 'Document ID or safe filename required' });
     }
 
-    // Get document
-    let document;
+    // Validate environment variables
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'Missing required environment variables' });
+    }
+
+    // Initialize enhanced document processor
+    const processor = new EnhancedDocumentProcessor(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      process.env.OPENAI_API_KEY,
+      {
+        chunkSize: 1000,
+        chunkOverlap: 200
+      }
+    );
+
     if (document_id) {
-      document = await DocumentService.getDocumentWithChunks(document_id);
-    } else {
-      document = await DocumentService.getDocumentBySafeFilename(safe_filename);
-    }
+      // Process specific document
+      const { data: document, error: docError } = await supabase
+        .from('documents_metadata')
+        .select('*')
+        .eq('id', document_id)
+        .single();
 
-    if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
-    }
-
-    // Update status to processing
-    await DocumentService.updateProcessingStatus(document.id, EmbeddingStatus.PROCESSING);
-
-    try {
-      // Read file content
-      const filePath = document.uploadPath;
-      if (!fs.existsSync(filePath)) {
-        throw new Error('File not found on disk');
+      if (docError || !document) {
+        return res.status(404).json({ error: 'Document not found' });
       }
 
-      const fileContent = fs.readFileSync(filePath, 'utf-8');
-      
-      // Simple text chunking (in production, use more sophisticated chunking)
-      const chunkSize = 1000;
-      const chunks = [];
-      
-      for (let i = 0; i < fileContent.length; i += chunkSize) {
-        const chunk = fileContent.slice(i, i + chunkSize);
-        chunks.push({
-          chunk_index: Math.floor(i / chunkSize),
-          content: chunk,
-          metadata: {
-            start_char: i,
-            end_char: i + chunk.length,
-            chunk_size: chunk.length,
-          },
-        });
-      }
+      console.log(`🔄 Processing document: ${document.filename}`);
+      const result = await processor.processDocument(document);
 
-      // Create document chunks
-      await DocumentService.createDocumentChunks(document.id, chunks);
-
-      // Update document status to completed
-      await DocumentService.updateProcessingStatus(
-        document.id,
-        EmbeddingStatus.COMPLETED,
-        chunks.length,
-        fileContent.slice(0, 5000), // First 5000 chars as preview
-        `Document processed with ${chunks.length} chunks` // Simple summary
-      );
-
-      res.status(200).json({
-        success: true,
-        document_id: document.id,
-        chunks_created: chunks.length,
-        embedding_status: EmbeddingStatus.COMPLETED,
-        processed_date: new Date(),
+      await auditLogger.logAuth('DOCUMENT_PROCESSED', user.id, {
+        documentId: document_id,
+        filename: document.filename,
+        success: result.success,
+        chunksCreated: result.chunksCreated
       });
 
-    } catch (processingError) {
-      // Update status to failed
-      await DocumentService.updateProcessingStatus(document.id, EmbeddingStatus.FAILED);
-      
-      throw processingError;
+      return res.status(200).json({
+        success: result.success,
+        document_id: result.documentId,
+        filename: result.filename,
+        chunks_created: result.chunksCreated,
+        processing_time_ms: result.processingTime,
+        error: result.error,
+        message: result.success 
+          ? `Document processed successfully with ${result.chunksCreated} chunks`
+          : `Document processing failed: ${result.error}`
+      });
+
+    } else {
+      // Process multiple documents (batch processing)
+      console.log(`🔄 Processing batch of ${batch_size} documents`);
+      const results = await processor.processDocuments(batch_size);
+
+      await auditLogger.logAuth('BATCH_DOCUMENTS_PROCESSED', user.id, {
+        batchSize: batch_size,
+        processed: results.processed,
+        successful: results.successful,
+        failed: results.failed,
+        totalTime: results.totalTime
+      });
+
+      return res.status(200).json({
+        success: true,
+        batch_results: {
+          processed: results.processed,
+          successful: results.successful,
+          failed: results.failed,
+          total_time_ms: results.totalTime
+        },
+        results: results.results.map(r => ({
+          document_id: r.documentId,
+          filename: r.filename,
+          success: r.success,
+          chunks_created: r.chunksCreated,
+          processing_time_ms: r.processingTime,
+          error: r.error
+        })),
+        message: `Batch processing complete: ${results.successful}/${results.processed} documents processed successfully`
+      });
     }
 
   } catch (error) {
     console.error('Ingest error:', error);
+    await auditLogger.logError(error as Error, 'DOCUMENT_INGEST');
+    
     res.status(500).json({
       error: 'Document ingestion failed',
       details: error instanceof Error ? error.message : 'Unknown error'
