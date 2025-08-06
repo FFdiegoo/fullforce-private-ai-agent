@@ -270,7 +270,7 @@ export class EnhancedDocumentProcessor {
         throw new Error('No embedding data received from OpenAI API');
       }
 
-      return response.data[0].embedding;
+      return response.data[0]!.embedding;
     } catch (error) {
       console.error('Error generating embedding:', error);
       throw error;
