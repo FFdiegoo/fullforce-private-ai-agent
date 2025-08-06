@@ -39,7 +39,6 @@ export class AuditLogger {
       metadata,
       ipAddress: ipAddress || null,
       userAgent: null,
-      userAgent: null,
       severity: 'INFO'
     });
   }
