@@ -72,7 +72,7 @@ class ErrorMonitoring {
       error: {
         name: error.name,
         message: error.message,
-        stack: error.stack
+        ...(error.stack && { stack: error.stack })
       },
       context: {
         ...context,
@@ -120,12 +120,16 @@ class ErrorMonitoring {
   ): Promise<string> {
     const context: ErrorContext = {
       ...additionalContext,
-      url: req?.url,
-      method: req?.method,
-      ipAddress: this.getClientIP(req),
-      userAgent: req?.headers?.['user-agent'],
-      requestId: req?.headers?.['x-request-id'] || this.generateRequestId()
+      ...(req?.url && { url: req.url }),
+      ...(req?.method && { method: req.method }),
+      ...(this.getClientIP(req) && { ipAddress: this.getClientIP(req) }),
+      ...(req?.headers?.['user-agent'] && { userAgent: req.headers['user-agent'] }),
+      ...(req?.headers?.['x-request-id'] && { requestId: req.headers['x-request-id'] })
     };
+
+    if (!context.requestId) {
+      context.requestId = this.generateRequestId();
+    }
 
     return this.captureError(error, context);
   }
@@ -372,4 +376,3 @@ if (typeof window !== 'undefined') {
     });
   });
 }
-        ...(error.stack && { stack: error.stack })

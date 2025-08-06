@@ -74,6 +74,8 @@ export class EnhancedSessionManager {
           }
         }, userId, deviceInfo.ipAddress);
       }
+        }, userId, deviceInfo.ipAddress);
+      }
     }
 
     // Check for suspicious activity

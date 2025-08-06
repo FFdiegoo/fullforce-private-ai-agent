@@ -5,7 +5,7 @@ interface Message {
   text: string;
   isUser: boolean;
   modelUsed?: string;
-  messageId?: string | undefined; // Explicit type for exactOptionalPropertyTypes
+  messageId?: string;
 }
 
 interface ChatSession {
