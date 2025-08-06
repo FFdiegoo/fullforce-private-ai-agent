@@ -185,7 +185,7 @@ export function useUploadQueue(options: UploadOptions = {}) {
 
     setFiles(prev => prev.map(f => 
       f.id === fileId 
-        ? { ...f, status: 'pending', error: undefined, progress: 0 }
+        ? { ...f, status: 'pending' as const, progress: 0 }
         : f
     ));
 
