@@ -94,22 +94,6 @@ export class EnhancedAuditLogger {
   async logDocument(action: string, documentId: string, userId?: string, metadata?: Record<string, any>): Promise<void> {
     const logData: AuditLogData = {
       action,
-    const logData: AuditLogData = {
-      action: `SECURITY_${event.type}`,
-      resource: 'security',
-      severity: event.severity
-    };
-    
-    if (userId) logData.userId = userId;
-    if (ipAddress) logData.ipAddress = ipAddress;
-    if (event.details) logData.metadata = event.details;
-    
-    await this.log(logData);
-    logData.metadata = combinedMetadata;
-    
-    await this.log(logData);
-    const logData: AuditLogData = {
-      action,
       resource: 'document',
       severity: 'INFO'
     };
@@ -121,9 +105,9 @@ export class EnhancedAuditLogger {
     logData.metadata = combinedMetadata;
     
     await this.log(logData);
-    const combinedMetadata: Record<string, any> = { adminAction: true };
-    if (targetUserId) combinedMetadata.targetUserId = targetUserId;
-    if (metadata) Object.assign(combinedMetadata, metadata);
+  }
+
+  async logAdmin(action: string, adminId: string, targetUserId?: string, metadata?: Record<string, any>): Promise<void> {
     const logData: AuditLogData = {
       action,
       resource: 'admin',
@@ -137,9 +121,9 @@ export class EnhancedAuditLogger {
     logData.metadata = combinedMetadata;
     
     await this.log(logData);
-    
-    if (userId) logData.userId = userId;
-    
+  }
+
+  async logError(action: string, error: Error, userId?: string, metadata?: Record<string, any>): Promise<void> {
     const logData: AuditLogData = {
       action,
       resource: 'system',
@@ -157,9 +141,9 @@ export class EnhancedAuditLogger {
     logData.metadata = combinedMetadata;
     
     await this.log(logData);
-    const logData: AuditLogData = {
-      action,
-      resource: 'system',
+  }
+
+  async logCritical(action: string, details: Record<string, any>, userId?: string): Promise<void> {
     const logData: AuditLogData = {
       action,
       resource: 'system',
@@ -208,18 +192,8 @@ export class EnhancedAuditLogger {
       this.buffer.unshift(...entries);
     }
   }
-    const logData: AuditLogData = {
-      action,
-      resource: 'auth',
-      severity: 'INFO'
-    };
-    
-    if (userId) logData.userId = userId;
-    if (metadata) logData.metadata = metadata;
-    if (ipAddress) logData.ipAddress = ipAddress;
-    
-    await this.log(logData);
 
+  private async sendCriticalAlert(action: string, details: Record<string, any>): Promise<void> {
     // Log to a separate critical events table if needed
     try {
       if (typeof supabaseAdmin !== 'undefined') {
