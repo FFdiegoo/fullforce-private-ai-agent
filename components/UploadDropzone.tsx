@@ -117,7 +117,7 @@ export default function UploadDropzone({
         ref={fileInputRef}
         type="file"
         multiple
-        accept={UploadUtils.SUPPORTED_TYPES.join(',')}
+        accept={UploadUtils.getSupportedTypes().join(',')}
         onChange={(e) => {
           if (e.target.files) {
             handleFileSelection(Array.from(e.target.files));

@@ -40,6 +40,10 @@ export class UploadUtils {
   private static readonly MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
   private static readonly RECOMMENDED_MAX_SIZE = 100 * 1024 * 1024; // 100MB
 
+  static getSupportedTypes(): string[] {
+    return [...this.SUPPORTED_TYPES];
+  }
+
   static validateFile(file: File, existingFiles: File[] = []): FileValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
