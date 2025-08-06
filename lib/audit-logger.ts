@@ -5,7 +5,7 @@ interface AuditLogData {
   userId: string | null;
   metadata?: any;
   ipAddress: string | null;
-  userAgent: string | null;
+  userAgent?: string | null;
   severity?: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL';
 }
 
@@ -38,6 +38,7 @@ export class AuditLogger {
       userId: userId || null,
       metadata,
       ipAddress: ipAddress || null,
+      userAgent: null,
       severity: 'INFO'
     });
   }
@@ -50,6 +51,8 @@ export class AuditLogger {
         error: error.message,
         stack: error.stack
       },
+      ipAddress: null,
+      userAgent: null,
       severity: 'ERROR'
     });
   }
