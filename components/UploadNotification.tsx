@@ -32,7 +32,7 @@ export default function UploadNotification({
 
       return () => clearTimeout(timer);
     } else {
-      return undefined; // Explicitly return void
+      return; // Explicitly return void
     }
   }, [duration]);
 
