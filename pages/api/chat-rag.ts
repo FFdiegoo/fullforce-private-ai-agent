@@ -71,6 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let response: string;
     let sources: any[] = [];
     let contextUsed = false;
+    let context = ''; // Declare context in a higher scope
     let modelUsed = model === 'complex' ? 'GPT-4.1' : 'GPT-4 Turbo';
 
     if (relevantChunks.length === 0) {
@@ -103,7 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       contextUsed = true;
       
       // Step 4: Build context from relevant chunks
-      const context = relevantChunks
+      context = relevantChunks
         .map((chunk, index) => {
           const metadata = chunk.metadata || {};
           const filename = metadata.filename || 'Unknown document';
