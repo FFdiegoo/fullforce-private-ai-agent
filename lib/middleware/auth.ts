@@ -1,5 +1,5 @@
 // Authentication middleware for API routes
-import { NextApiRequest, NextApiResponse } from 'next/server';
+import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../database/client';
 import { AuthenticationError, AuthorizationError } from '../utils/errors';
 import { Logger } from '../utils/logger';

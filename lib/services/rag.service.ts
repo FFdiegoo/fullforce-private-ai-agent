@@ -100,10 +100,11 @@ export class RAGService extends BaseService {
 
     let systemPrompt: string;
     let sources: DocumentSource[] = [];
+    let context = '';
 
     if (hasContext) {
       // Build context from search results
-      const context = searchResults
+      context = searchResults
         .map((result, index) => {
           const metadata = result.metadata || {};
           const filename = metadata.filename || 'Unknown document';

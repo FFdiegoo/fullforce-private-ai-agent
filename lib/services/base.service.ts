@@ -1,4 +1,5 @@
 // Base service class with common functionality
+import { z } from 'zod';
 import { auditLogger } from '../utils/audit-logger';
 import { Logger } from '../utils/logger';
 import type { Result } from '../types';

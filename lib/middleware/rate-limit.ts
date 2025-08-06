@@ -153,7 +153,7 @@ export function withRateLimit(limiterType: keyof typeof rateLimiters = 'general'
         const result = await limiter.limit(identifier);
         
         // Add rate limit headers
-        res.setHeader('X-RateLimit-Limit', limiter.config.maxRequests.toString());
+        res.setHeader('X-RateLimit-Limit', limiter.getStats().config.maxRequests.toString());
         res.setHeader('X-RateLimit-Remaining', result.remaining.toString());
         res.setHeader('X-RateLimit-Reset', Math.ceil(result.resetTime / 1000).toString());
         res.setHeader('X-RateLimit-Used', result.totalHits.toString());

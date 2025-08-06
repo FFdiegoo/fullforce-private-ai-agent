@@ -345,6 +345,12 @@ export class DocumentProcessor {
       for (let i = 0; i < textChunks.length; i++) {
         const chunk = textChunks[i];
         
+        // Ensure chunk is valid before processing
+        if (!chunk || chunk.trim().length === 0) {
+          console.warn(`   ⚠️ Skipping empty chunk ${i}`);
+          continue;
+        }
+
         try {
           const embedding = await this.generateEmbedding(chunk);
           
@@ -358,9 +364,9 @@ export class DocumentProcessor {
               total_chunks: textChunks.length,
               file_size: document.file_size,
               mime_type: document.mime_type,
-              afdeling: document.afdeling,
-              categorie: document.categorie,
-              onderwerp: document.onderwerp
+              ...(document.afdeling && { afdeling: document.afdeling }),
+              ...(document.categorie && { categorie: document.categorie }),
+              ...(document.onderwerp && { onderwerp: document.onderwerp })
             },
             chunk_index: i
           });
