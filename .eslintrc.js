@@ -1,6 +1,4 @@
 // ESLint configuration for enterprise-level code quality
-const { ESLint } = require('eslint');
-
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
