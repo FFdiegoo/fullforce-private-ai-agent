@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Get document statistics
         const { data: docStats, error: docStatsError } = await supabase
           .from('documents_metadata')
-          .select('processed, ready_for_indexing, mime_type, file_size, chunk_count')
+          .select('filename, processed, ready_for_indexing, mime_type, file_size, chunk_count')
           .order('last_updated', { ascending: false });
 
         if (docStatsError) {
