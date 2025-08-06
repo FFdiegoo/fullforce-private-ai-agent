@@ -76,7 +76,7 @@ class ErrorMonitoring {
       },
       context: {
         ...context,
-        stack: error.stack
+        ...(error.stack && { stack: error.stack })
       },
       severity,
       category,
@@ -305,7 +305,7 @@ class ErrorMonitoring {
       severityBreakdown: this.getSeverityBreakdown(this.errorBuffer),
       categoryBreakdown: this.getCategoryBreakdown(this.errorBuffer),
       recentErrors
-    };
+                  {this.state.error.stack || 'No stack trace available'}
   }
 
   destroy(): void {
@@ -372,3 +372,4 @@ if (typeof window !== 'undefined') {
     });
   });
 }
+        ...(error.stack && { stack: error.stack })
