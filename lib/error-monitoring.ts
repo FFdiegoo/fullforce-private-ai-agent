@@ -305,8 +305,7 @@ class ErrorMonitoring {
       severityBreakdown: this.getSeverityBreakdown(this.errorBuffer),
       categoryBreakdown: this.getCategoryBreakdown(this.errorBuffer),
       recentErrors
-                  {this.state.error.stack || 'No stack trace available'}
-      }
+    };
   }
 
   destroy(): void {
