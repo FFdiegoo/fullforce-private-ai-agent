@@ -2,10 +2,10 @@ import { supabaseAdmin } from './supabaseAdmin';
 
 interface AuditLogData {
   action: string;
-  userId?: string;
+  userId: string | null;
   metadata?: any;
-  ipAddress?: string;
-  userAgent?: string;
+  ipAddress: string | null;
+  userAgent: string | null;
   severity?: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL';
 }
 
@@ -35,9 +35,9 @@ export class AuditLogger {
   static async logAuth(action: string, userId?: string, metadata?: any, ipAddress?: string) {
     return this.log({
       action,
-      userId,
+      userId: userId || null,
       metadata,
-      ipAddress,
+      ipAddress: ipAddress || null,
       severity: 'INFO'
     });
   }
@@ -45,7 +45,7 @@ export class AuditLogger {
   static async logError(error: Error, action: string, userId?: string) {
     return this.log({
       action,
-      userId,
+      userId: userId || null,
       metadata: {
         error: error.message,
         stack: error.stack
