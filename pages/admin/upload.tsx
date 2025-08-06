@@ -10,6 +10,7 @@ interface Document {
   safe_filename: string;
   file_size: number;
   mime_type: string;
+  storage_path: string;
   afdeling: string;
   categorie: string;
   uploaded_by: string;
