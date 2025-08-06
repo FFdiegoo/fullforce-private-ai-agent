@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../lib/supabaseClient';
 import { EnhancedDocumentProcessor } from '../../lib/document-processor-enhanced';
-import { auditLogger } from '../../lib/audit-logger';
+import { auditLogger } from '../../lib/enhanced-audit-logger';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
