@@ -53,7 +53,6 @@ export class AuditLogger {
       },
       ipAddress: null,
       userAgent: null,
-      userAgent: null,
       severity: 'ERROR'
     });
   }
