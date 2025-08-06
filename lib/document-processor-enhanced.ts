@@ -403,6 +403,11 @@ export class EnhancedDocumentProcessor {
       for (let i = 0; i < textChunks.length; i++) {
         const chunk = textChunks[i];
         
+        if (!chunk || chunk.trim().length === 0) {
+          console.warn(`   ⚠️ Skipping empty chunk ${i}`);
+          continue;
+        }
+        
         try {
           const embedding = await this.generateEmbedding(chunk);
           
