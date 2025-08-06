@@ -421,9 +421,9 @@ export class EnhancedDocumentProcessor {
               total_chunks: textChunks.length,
               file_size: document.file_size,
               mime_type: document.mime_type,
-              afdeling: document.afdeling,
-              categorie: document.categorie,
-              onderwerp: document.onderwerp,
+              ...(document.afdeling && { afdeling: document.afdeling }),
+              ...(document.categorie && { categorie: document.categorie }),
+              ...(document.onderwerp && { onderwerp: document.onderwerp }),
               start_char: i * this.chunkSize,
               end_char: Math.min((i + 1) * this.chunkSize, extractedText.length)
             },
