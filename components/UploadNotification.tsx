@@ -31,6 +31,8 @@ export default function UploadNotification({
       }, duration);
 
       return () => clearTimeout(timer);
+    } else {
+      return undefined; // Explicitly return void
     }
   }, [duration]);
 
