@@ -84,3 +84,5 @@ export abstract class BaseService {
     return new Error(`Unexpected error in ${context}: ${String(error)}`);
   }
 }
+
+export { BaseService }
