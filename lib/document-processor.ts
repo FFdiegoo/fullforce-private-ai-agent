@@ -212,6 +212,10 @@ export class DocumentProcessor {
         input: text.substring(0, 8000), // Limit to 8000 characters for embedding
       });
 
+      if (!response.data || response.data.length === 0) {
+        throw new Error('No embedding data received from OpenAI API');
+      }
+
       return response.data[0].embedding;
     } catch (error) {
       console.error('Error generating embedding:', error);
