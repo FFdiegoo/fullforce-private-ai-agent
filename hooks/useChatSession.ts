@@ -5,7 +5,7 @@ interface Message {
   text: string;
   isUser: boolean;
   modelUsed?: string;
-  messageId?: string; // Add message ID for feedback
+  messageId?: string | undefined; // Explicit type for exactOptionalPropertyTypes
 }
 
 interface ChatSession {
@@ -222,7 +222,7 @@ export function useChatSession(mode: 'technical' | 'procurement') {
         text: data.reply, 
         isUser: false,
         modelUsed: data.modelUsed,
-        messageId: assistantMessageId ?? undefined
+        ...(assistantMessageId && { messageId: assistantMessageId })
       };
 
       setMessages(prev => [...prev, assistantMessage]);
