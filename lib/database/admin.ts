@@ -98,20 +98,20 @@ export class AdminDatabase {
             .select('*', { count: 'exact', head: true });
 
           if (error) {
-            logger.warn(`Failed to get count for table ${table}`, {}, new Error(error.message));
+            logger.warn(`Failed to get count for table ${table}`, { table, error: error.message });
             stats[table] = -1;
           } else {
             stats[table] = count || 0;
           }
         } catch (tableError) {
-          logger.warn(`Error querying table ${table}`, {}, tableError instanceof Error ? tableError : new Error(String(tableError)));
+          logger.warn(`Error querying table ${table}`, { table, error: tableError instanceof Error ? tableError.message : String(tableError) });
           stats[table] = -1;
         }
       }
 
       return stats;
     } catch (error) {
-      logger.error('Failed to get table statistics', {}, error instanceof Error ? error : new Error(String(error)));
+      logger.error('Failed to get table statistics', { error: error instanceof Error ? error.message : String(error) }, error instanceof Error ? error : new Error(String(error)));
       return {};
     }
   }
@@ -154,7 +154,7 @@ export class AdminDatabase {
       return { cleaned, errors };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Database cleanup failed', {}, new Error(errorMessage));
+      logger.error('Database cleanup failed', { error: errorMessage }, new Error(errorMessage));
       return { cleaned, errors: [errorMessage] };
     }
   }
