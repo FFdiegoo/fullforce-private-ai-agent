@@ -222,7 +222,7 @@ export function useChatSession(mode: 'technical' | 'procurement') {
         text: data.reply, 
         isUser: false,
         modelUsed: data.modelUsed,
-        messageId: assistantMessageId || undefined
+        messageId: assistantMessageId ?? undefined
       };
 
       setMessages(prev => [...prev, assistantMessage]);
