@@ -71,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let response: string;
     let sources: any[] = [];
     let contextUsed = false;
-    let context = ''; // Declare context in a higher scope
+    let context = ''; // Declare context in higher scope
     let modelUsed = model === 'complex' ? 'GPT-4.1' : 'GPT-4 Turbo';
 
     if (relevantChunks.length === 0) {
