@@ -3,7 +3,7 @@ import React from 'react';
 interface ModelSelectorProps {
   selectedModel: 'simple' | 'complex';
   onModelChange: (model: 'simple' | 'complex') => void;
-  disabled: boolean | undefined;
+  disabled?: boolean | undefined;
 }
 
 export default function ModelSelector({ selectedModel, onModelChange, disabled }: ModelSelectorProps) {
