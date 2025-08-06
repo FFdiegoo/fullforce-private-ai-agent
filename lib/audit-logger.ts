@@ -39,6 +39,7 @@ export class AuditLogger {
       metadata,
       ipAddress: ipAddress || null,
       userAgent: null,
+      userAgent: null,
       severity: 'INFO'
     });
   }
@@ -52,6 +53,7 @@ export class AuditLogger {
         stack: error.stack
       },
       ipAddress: null,
+      userAgent: null,
       userAgent: null,
       severity: 'ERROR'
     });
