@@ -83,17 +83,8 @@ if (typeof window !== 'undefined') {
   });
 
   // Monitor connection status
-  supabase.realtime.onOpen(() => {
-    logger.info('Realtime connection opened');
-  });
-
-  supabase.realtime.onClose(() => {
-    logger.warn('Realtime connection closed');
-  });
-
-  supabase.realtime.onError((error) => {
-    logger.error('Realtime connection error', {}, error);
-  });
+  // Note: Realtime connection monitoring is handled automatically by Supabase v2
+  logger.debug('Realtime client initialized');
 }
 
 // Connection health check
