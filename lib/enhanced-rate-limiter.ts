@@ -120,6 +120,7 @@ class EnhancedRateLimiter {
     Object.keys(this.store).forEach(key => {
       const entry = this.store[key];
       if (entry && entry.resetTime < now) {
+      }
       if (entry && entry.resetTime < now) {
         delete this.store[key];
         cleanedCount++;
