@@ -64,77 +64,96 @@ export class EnhancedAuditLogger {
   }
 
   async logAuth(action: string, userId?: string, metadata?: Record<string, any>, ipAddress?: string): Promise<void> {
-    await this.log({
+    const logData: AuditLogData = {
       action,
       resource: 'auth',
-      userId,
-      metadata,
-      ipAddress,
       severity: 'INFO'
-    });
+    };
+    
+    if (userId) logData.userId = userId;
+    if (metadata) logData.metadata = metadata;
+    if (ipAddress) logData.ipAddress = ipAddress;
+    
+    await this.log(logData);
   }
 
   async logSecurity(event: SecurityEvent, userId?: string, ipAddress?: string): Promise<void> {
-    await this.log({
+    const logData: AuditLogData = {
       action: `SECURITY_${event.type}`,
       resource: 'security',
-      userId,
-      metadata: event.details,
-      ipAddress,
       severity: event.severity
-    });
+    };
+    
+    if (userId) logData.userId = userId;
+    if (ipAddress) logData.ipAddress = ipAddress;
+    if (event.details) logData.metadata = event.details;
+    
+    await this.log(logData);
   }
 
   async logDocument(action: string, documentId: string, userId?: string, metadata?: Record<string, any>): Promise<void> {
-    await this.log({
+    const logData: AuditLogData = {
       action,
       resource: 'document',
-      userId,
-      metadata: {
-        ...metadata,
-        documentId
-      },
       severity: 'INFO'
-    });
+    };
+    
+    if (userId) logData.userId = userId;
+    
+    const combinedMetadata = { documentId };
+    if (metadata) Object.assign(combinedMetadata, metadata);
+    logData.metadata = combinedMetadata;
+    
+    await this.log(logData);
   }
 
   async logAdmin(action: string, adminId: string, targetUserId?: string, metadata?: Record<string, any>): Promise<void> {
-    await this.log({
+    const logData: AuditLogData = {
       action,
       resource: 'admin',
       userId: adminId,
-      metadata: {
-        ...metadata,
-        targetUserId,
-        adminAction: true
-      },
       severity: 'WARN'
-    });
+    };
+    
+    const combinedMetadata: Record<string, any> = { adminAction: true };
+    if (targetUserId) combinedMetadata.targetUserId = targetUserId;
+    if (metadata) Object.assign(combinedMetadata, metadata);
+    logData.metadata = combinedMetadata;
+    
+    await this.log(logData);
   }
 
   async logError(error: Error, action: string, userId?: string, metadata?: Record<string, any>): Promise<void> {
-    await this.log({
+    const logData: AuditLogData = {
       action,
       resource: 'system',
-      userId,
-      metadata: {
-        ...metadata,
-        error: error.message,
-        stack: error.stack,
-        errorType: error.constructor.name
-      },
       severity: 'ERROR'
-    });
+    };
+    
+    if (userId) logData.userId = userId;
+    
+    const combinedMetadata: Record<string, any> = {
+      error: error.message,
+      stack: error.stack,
+      errorType: error.constructor.name
+    };
+    if (metadata) Object.assign(combinedMetadata, metadata);
+    logData.metadata = combinedMetadata;
+    
+    await this.log(logData);
   }
 
   async logCritical(action: string, details: Record<string, any>, userId?: string): Promise<void> {
-    await this.log({
+    const logData: AuditLogData = {
       action,
       resource: 'system',
-      userId,
-      metadata: details,
-      severity: 'CRITICAL'
-    });
+      severity: 'CRITICAL',
+      metadata: details
+    };
+    
+    if (userId) logData.userId = userId;
+    
+    await this.log(logData);
 
     // Send immediate notification for critical events
     await this.sendCriticalAlert(action, details);
