@@ -266,6 +266,10 @@ export class EnhancedDocumentProcessor {
         encoding_format: 'float'
       });
 
+      if (!response.data || response.data.length === 0) {
+        throw new Error('No embedding data received from OpenAI API');
+      }
+
       return response.data[0].embedding;
     } catch (error) {
       console.error('Error generating embedding:', error);
