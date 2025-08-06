@@ -61,17 +61,19 @@ export class EnhancedSessionManager {
       const oldestSession = userSessions
         .sort((a, b) => a.lastActivity - b.lastActivity)[0];
 
-      await this.invalidateSession(this.getSessionIdByInfo(oldestSession), 'max_sessions_exceeded');
+      if (oldestSession) {
+        await this.invalidateSession(this.getSessionIdByInfo(oldestSession), 'max_sessions_exceeded');
 
-      await auditLogger.logSecurity({
-        type: 'SUSPICIOUS_ACTIVITY',
-        severity: 'WARN',
-        details: {
-          reason: 'max_concurrent_sessions_exceeded',
-          sessionCount: userSessions.length,
-          removedOldestSession: true
-        }
-      }, userId, deviceInfo.ipAddress);
+        await auditLogger.logSecurity({
+          type: 'SUSPICIOUS_ACTIVITY',
+          severity: 'WARN',
+          details: {
+            reason: 'max_concurrent_sessions_exceeded',
+            sessionCount: userSessions.length,
+            removedOldestSession: true
+          }
+        }, userId, deviceInfo.ipAddress);
+      }
     }
 
     // Check for suspicious activity
