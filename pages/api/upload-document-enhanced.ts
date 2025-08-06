@@ -121,8 +121,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
       const [fields, files] = await form.parse(req);
-      const uploadedFiles = Array.isArray(files.file) ? files.file : [files.file].filter(Boolean);
-
+      // Ensure uploadedFiles is an array of formidable.File, filtering out any undefined/null
+      const uploadedFiles: formidable.File[] = (Array.isArray(files.file) ? files.file : [files.file])
+        .filter((f): f is formidable.File => f !== undefined && f !== null);
       if (uploadedFiles.length === 0) {
         return res.status(400).json({ error: 'No valid files uploaded' });
       }
