@@ -159,7 +159,7 @@ export class EnhancedSessionManager {
 
         return true;
       } catch (error) {
-        await auditLogger.logError(error as Error, 'SESSION_REFRESH_ERROR', session.userId);
+        await auditLogger.logError('SESSION_REFRESH_ERROR', error as Error, session.userId);
         return false;
       }
     }
