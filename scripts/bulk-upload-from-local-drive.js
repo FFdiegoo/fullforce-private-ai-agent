@@ -182,23 +182,21 @@ async function processFile(file) {
     let fileStream = fs.createReadStream(file.path);
     
     // Upload to Supabase Storage with retry logic
+    const timestamp = Date.now();
+    const uniqueId = uuidv4().substring(0, 8);
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const safeFileName = `${timestamp}_${uniqueId}_${sanitizedName}`;
+    const storageDir = path.dirname(file.relativePath).replace(/\\/g, '/');
+    const storagePath = storageDir && storageDir !== '.' ? `${storageDir}/${safeFileName}` : safeFileName;
+
     let uploadAttempt = 0;
     let uploadSuccess = false;
     let uploadError = null;
-    let storagePath = '';
-    
+
     while (uploadAttempt < CONFIG.RETRY_ATTEMPTS && !uploadSuccess) {
       uploadAttempt++;
-      
+
       try {
-        // Generate safe filename with timestamp and UUID
-        const timestamp = Date.now();
-        const uniqueId = uuidv4().substring(0, 8);
-        const safeFileName = `${timestamp}_${uniqueId}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        
-        // Determine storage path
-        storagePath = file.relativePath.replace(/\\/g, '/');
-        
         // Upload to Supabase Storage
         const { data: storageData, error: storageError } = await supabase.storage
           .from(CONFIG.STORAGE_BUCKET)
@@ -207,21 +205,21 @@ async function processFile(file) {
             upsert: true, // Use upsert to overwrite if file exists
             duplex: 'half' // Optimize for large files
           });
-        
+
         if (storageError) {
           throw storageError;
         }
-        
+
         uploadSuccess = true;
-        
+
       } catch (error) {
         uploadError = error;
-        
+
         // If not the last attempt, wait before retrying
         if (uploadAttempt < CONFIG.RETRY_ATTEMPTS) {
           console.log(`⚠️ Upload attempt ${uploadAttempt} failed for ${file.name}, retrying...`);
           await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
-          
+
           // Create a new file stream for the retry
           fileStream.destroy();
           fileStream = fs.createReadStream(file.path);
@@ -241,7 +239,7 @@ async function processFile(file) {
       .from('documents_metadata')
       .insert({
         filename: file.name,
-        safe_filename: file.name,
+        safe_filename: safeFileName,
         storage_path: storagePath,
         file_size: file.size,
         mime_type: file.mimeType,
