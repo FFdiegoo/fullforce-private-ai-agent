@@ -22,12 +22,23 @@ export class EmbeddingGenerator {
       try {
         // Extract content from each chunk in the batch
         const contents = batch.map(chunk => chunk.content);
-        
+
         // Generate embeddings for the entire batch
         const embeddingResponse = await this.openai.embeddings.create({
           model,
           input: contents,
         });
+
+        if (
+          !embeddingResponse.data ||
+          embeddingResponse.data.length !== batch.length ||
+          embeddingResponse.data.some(d => !d.embedding)
+        ) {
+          console.error(
+            `❌ Embedding response missing data for batch starting at chunk ${i}`
+          );
+          throw new Error('Embedding response missing data');
+        }
 
         // Add embeddings to chunks
         for (let j = 0; j < batch.length; j++) {
@@ -42,13 +53,11 @@ export class EmbeddingGenerator {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
       } catch (error) {
-        console.error(`❌ Error generating embeddings for batch starting at chunk ${i}:`, error);
-        
-        // Add chunks without embeddings so we don't lose the content
-        batch.forEach(chunk => {
-          console.warn(`⚠️ Adding chunk ${chunk.chunk_index} without embedding due to error`);
-          embeddedChunks.push(chunk);
-        });
+        console.error(
+          `❌ Error generating embeddings for batch starting at chunk ${i}:`,
+          error
+        );
+        throw error;
       }
     }
 
