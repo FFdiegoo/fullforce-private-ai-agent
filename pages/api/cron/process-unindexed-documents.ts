@@ -6,6 +6,8 @@ import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import path from 'path';
+import Tesseract from 'tesseract.js';
+import JSZip from 'jszip';
 
 // ✅ Veilig opgehaalde environment variables
 const API_KEY = process.env.CRON_API_KEY || 'default-key';
@@ -114,25 +116,71 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (downloadError) throw new Error(`Failed to download: ${downloadError.message}`);
 
+        const arrayBuffer = await fileData.arrayBuffer();
         let extractedText = '';
 
         if (document.mime_type === 'application/pdf' || document.filename.endsWith('.pdf')) {
-          const pdfData = await pdfParse(Buffer.from(await fileData.arrayBuffer()));
+          const buffer = Buffer.from(arrayBuffer);
+          const pdfData = await pdfParse(buffer);
           extractedText = pdfData.text;
+          if (!extractedText.trim()) {
+            console.log(`[CRON] 🖼️ ${document.filename} appears to be image-only, running OCR`);
+            try {
+              const ocrResult = await Tesseract.recognize(buffer, 'eng');
+              extractedText = ocrResult.data.text;
+            } catch (ocrErr) {
+              console.error(`[CRON] ⚠️ OCR failed for ${document.filename}:`, ocrErr);
+            }
+          }
         } else if (
           document.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
           document.filename.endsWith('.docx')
         ) {
+          const buffer = Buffer.from(arrayBuffer);
           const docxData = await mammoth.extractRawText({
-            buffer: Buffer.from(await fileData.arrayBuffer()),
+            buffer,
           });
           extractedText = docxData.value;
+          if (!extractedText.trim()) {
+            console.log(`[CRON] 🖼️ ${document.filename} contains images only, attempting OCR`);
+            try {
+              const zip = await JSZip.loadAsync(buffer);
+              const media = zip.folder('word/media');
+              if (media) {
+                let ocrText = '';
+                const imagePromises: Promise<Buffer>[] = [];
+                media.forEach((relativePath, file) => {
+                  imagePromises.push(file.async('nodebuffer'));
+                });
+                const imageBuffers = await Promise.all(imagePromises);
+                for (const img of imageBuffers) {
+                  const ocrResult = await Tesseract.recognize(img, 'eng');
+                  ocrText += ocrResult.data.text + '\n';
+                }
+                extractedText = ocrText;
+              }
+            } catch (ocrErr) {
+              console.error(`[CRON] ⚠️ OCR failed for ${document.filename}:`, ocrErr);
+            }
+          }
         } else {
           extractedText = await fileData.text();
         }
 
         if (!extractedText || extractedText.trim().length === 0) {
-          throw new Error('No text extracted');
+          const message = 'No text found (even with OCR)';
+          await supabaseAdmin
+            .from('documents_metadata')
+            .update({
+              processed: true,
+              processed_at: new Date().toISOString(),
+              chunk_count: 0,
+              last_error: message,
+            })
+            .eq('id', document.id);
+
+          results.push({ id: document.id, filename: document.filename, success: false, error: message });
+          continue;
         }
 
         document.extractedText = extractedText;
