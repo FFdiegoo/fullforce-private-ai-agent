@@ -31,6 +31,8 @@ const CONFIG = {
   RETRY_DELAY: 2000, // ms
 };
 
+const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.doc', '.odt', '.csv', '.rtf'];
+
 // Validate configuration
 if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY) {
   console.error('❌ Missing Supabase credentials. Please check your .env.local file.');
@@ -70,7 +72,7 @@ async function main() {
   console.log(`📂 Source directory: ${CONFIG.SOURCE_DIR}`);
   console.log(`🔗 Supabase URL: ${CONFIG.SUPABASE_URL}`);
   console.log(`🪣 Storage bucket: ${CONFIG.STORAGE_BUCKET}`);
-  console.log(`📋 File types: All file types accepted`);
+  console.log(`📋 Supported file types: ${SUPPORTED_EXTENSIONS.join(', ')}`);
   console.log(`📏 Max file size: ${formatFileSize(CONFIG.MAX_FILE_SIZE)}`);
   console.log('');
 
@@ -319,15 +321,20 @@ function getFilesToUpload(dir) {
           traverseDir(fullPath, entryRelativePath);
         } else {
           try {
+            const ext = path.extname(entry.name).toLowerCase();
+            if (!SUPPORTED_EXTENSIONS.includes(ext)) {
+              console.warn(`⚠️ Skipping unsupported file type: ${fullPath}`);
+              continue;
+            }
             const stats = fs.statSync(fullPath);
             const mimeType = mime.lookup(fullPath) || 'application/octet-stream';
-            
+
             files.push({
               path: fullPath,
               relativePath: entryRelativePath,
               name: entry.name,
               size: stats.size,
-              extension: path.extname(entry.name).toLowerCase(),
+              extension: ext,
               mimeType: mimeType
             });
           } catch (error) {

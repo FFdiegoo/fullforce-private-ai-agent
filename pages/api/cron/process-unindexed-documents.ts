@@ -5,6 +5,7 @@ import { RAGPipeline } from '../../../lib/rag/pipeline';
 import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
+import path from 'path';
 
 // ✅ Veilig opgehaalde environment variables
 const API_KEY = process.env.CRON_API_KEY || 'default-key';
@@ -57,9 +58,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const results = [];
 
+    const SUPPORTED_MIME_TYPES = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'text/markdown',
+      'application/msword',
+      'application/vnd.oasis.opendocument.text',
+      'text/csv',
+      'text/rtf',
+    ];
+
+    const SUPPORTED_EXTENSIONS = [
+      '.pdf',
+      '.docx',
+      '.txt',
+      '.md',
+      '.doc',
+      '.odt',
+      '.csv',
+      '.rtf',
+    ];
+
     for (const document of documents) {
       try {
         console.log(`[CRON] 🔧 Processing: ${document.filename}`);
+
+        const extension = path.extname(document.filename || '').toLowerCase();
+        const mimeType = (document.mime_type || '').toLowerCase();
+        const isSupported =
+          SUPPORTED_MIME_TYPES.includes(mimeType) || SUPPORTED_EXTENSIONS.includes(extension);
+
+        if (!isSupported) {
+          const message = `Unsupported file type: ${mimeType || extension}`;
+          console.warn(`[CRON] ⚠️ Skipping ${document.filename}: ${message}`);
+
+          await supabaseAdmin
+            .from('documents_metadata')
+            .update({
+              processed: true,
+              processed_at: new Date().toISOString(),
+              chunk_count: 0,
+              last_error: message,
+            })
+            .eq('id', document.id);
+
+          results.push({ id: document.id, filename: document.filename, success: false, error: message });
+          continue;
+        }
 
         const { data: fileData, error: downloadError } = await supabase
           .storage

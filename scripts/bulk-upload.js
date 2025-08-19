@@ -37,6 +37,8 @@ const CONFIG = {
   METADATA_EXTRACTION: 'path', // 'path', 'filename', or 'manual'
 };
 
+const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.doc', '.odt', '.csv', '.rtf'];
+
 // Validate configuration
 if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY) {
   console.error('❌ Missing Supabase credentials. Please check your .env.local file.');
@@ -62,6 +64,7 @@ if (isMainThread) {
   console.log(`🪣 Storage bucket: ${CONFIG.STORAGE_BUCKET}`);
   console.log(`👷 Workers: ${CONFIG.CONCURRENT_WORKERS}`);
   console.log(`📦 Batch size: ${CONFIG.BATCH_SIZE}`);
+  console.log(`📋 Supported file types: ${SUPPORTED_EXTENSIONS.join(', ')}`);
   console.log('');
 
   // Initialize Supabase client for the main thread
@@ -286,8 +289,14 @@ else {
   async function uploadFile(filePath) {
     const fileName = path.basename(filePath);
     parentPort.postMessage({ type: 'log', message: `Processing: ${fileName}` });
-    
+
     try {
+      const ext = path.extname(fileName).toLowerCase();
+      if (!SUPPORTED_EXTENSIONS.includes(ext)) {
+        parentPort.postMessage({ type: 'log', message: `Skipping unsupported file type: ${fileName}` });
+        return { success: false, filename: fileName, error: 'Unsupported file type' };
+      }
+
       // Extract metadata from file path or name
       const metadata = extractMetadata(filePath);
       
@@ -425,7 +434,12 @@ function getAllFiles(dir) {
       } else {
         // Skip hidden files and temporary files
         if (!entry.name.startsWith('.') && !entry.name.endsWith('~')) {
-          files.push(fullPath);
+          const ext = path.extname(entry.name).toLowerCase();
+          if (SUPPORTED_EXTENSIONS.includes(ext)) {
+            files.push(fullPath);
+          } else {
+            console.warn(`⚠️ Skipping unsupported file type: ${fullPath}`);
+          }
         }
       }
     }
