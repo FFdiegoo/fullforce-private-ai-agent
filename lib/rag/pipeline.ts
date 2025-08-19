@@ -44,7 +44,10 @@ export class RAGPipeline {
       console.log('✅ Document processing complete');
       await this.updateDocumentStatus(metadata.id, true);
     } catch (error) {
-      console.error('❌ Error in RAG pipeline:', error);
+      console.error(
+        `❌ Error in RAG pipeline for document ${metadata.filename}:`,
+        error
+      );
       await this.updateDocumentStatus(metadata.id, false);
       throw error;
     }
