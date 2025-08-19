@@ -118,6 +118,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (document.mime_type === 'application/pdf' || document.filename.endsWith('.pdf')) {
           const pdfData = await pdfParse(Buffer.from(await fileData.arrayBuffer()));
+          if (pdfData.text.trim().length === 0) {
+            const message = 'Unsupported PDF: no extractable text';
+            console.warn(`[CRON] ⚠️ Skipping ${document.filename}: ${message}`);
+
+            await supabaseAdmin
+              .from('documents_metadata')
+              .update({
+                processed: true,
+                processed_at: new Date().toISOString(),
+                chunk_count: 0,
+                last_error: message,
+              })
+              .eq('id', document.id);
+
+            results.push({ id: document.id, filename: document.filename, success: false, error: message });
+            continue;
+          }
+
           extractedText = pdfData.text;
         } else if (
           document.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
