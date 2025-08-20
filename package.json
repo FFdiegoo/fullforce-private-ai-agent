@@ -36,7 +36,8 @@
     "bulk-upload:monitor": "node scripts/bulk-upload-monitor.js",
     "bulk-upload:verify": "node scripts/bulk-upload-verify.js",
     "mirror-folders": "node scripts/mirror-folders.js",
-    "upload-from-drive": "node scripts/bulk-upload-from-local-drive.js"
+    "upload-from-drive": "node scripts/bulk-upload-from-local-drive.js",
+    "test": "jest"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
@@ -75,6 +76,7 @@
   },
   "devDependencies": {
     "@types/formidable": "^3.4.5",
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.11.17",
     "@types/react": "^18.3.21",
     "@types/react-dom": "^18.3.7",
@@ -83,7 +85,10 @@
     "eslint": "^8.56.0",
     "eslint-config-next": "14.1.0",
     "eslint-plugin-security": "^1.7.1",
+    "jest": "^29.7.0",
+    "node-mocks-http": "^1.17.2",
     "prisma": "^6.9.0",
+    "ts-jest": "^29.4.1",
     "typescript": "^5.8.3"
   }
 }
