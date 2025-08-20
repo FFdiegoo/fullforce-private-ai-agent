@@ -25,7 +25,6 @@ checkEnvVar('RATE_LIMIT_WINDOW_MS');
 checkEnvVar('RATE_LIMIT_MAX_REQUESTS');
 checkEnvVar('TOTP_ISSUER');
 checkEnvVar('TOTP_WINDOW');
-checkEnvVar('ALLOWED_IPS');
 checkEnvVar('ENABLE_AUDIT_LOGGING');
 checkEnvVar('MAX_FILE_SIZE');
 checkEnvVar('ALLOWED_FILE_TYPES');

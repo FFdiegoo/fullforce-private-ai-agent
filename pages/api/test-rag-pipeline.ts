@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { RAGPipeline } from '../../lib/rag/pipeline';
 import { openaiApiKey, RAG_CONFIG } from '../../lib/rag/config';
-import { applyRateLimit } from '../../lib/rate-limiter';
+import { applyEnhancedRateLimit } from '../../lib/enhanced-rate-limiter';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Rate limiting
-    const rateLimitResult = await applyRateLimit(clientIP, 'admin');
+    const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'admin');
     if (!rateLimitResult.success) {
       return res.status(429).json({ error: 'Too many requests' });
     }
