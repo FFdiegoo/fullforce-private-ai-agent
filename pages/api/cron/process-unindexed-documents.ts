@@ -192,7 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           skipExisting: false,
         });
 
-        const { count: chunkCount, error: countError } = await supabase
+        const { count: chunkCount, error: countError } = await supabaseAdmin
           .from('document_chunks')
           .select('*', { count: 'exact', head: true })
           .eq('metadata->id', document.id);
