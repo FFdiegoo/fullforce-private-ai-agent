@@ -1,4 +1,4 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { DocumentProcessor } from './documentProcessor';
 import { EmbeddingGenerator } from './embeddingGenerator';
 import { VectorStore } from './vectorStore';
@@ -6,16 +6,16 @@ import { DocumentMetadata, ProcessingOptions } from './types';
 import { RAG_CONFIG } from '@/lib/rag/config';
 
 export class RAGPipeline {
-  private supabase: SupabaseClient;
+  private supabaseAdmin: SupabaseClient;
   private documentProcessor: DocumentProcessor;
   private embeddingGenerator: EmbeddingGenerator;
   private vectorStore: VectorStore;
 
-  constructor(supabaseClient: SupabaseClient, openAIKey: string) {
-    this.supabase = supabaseClient;
-    this.documentProcessor = new DocumentProcessor(supabaseClient);
+  constructor(supabaseAdmin: SupabaseClient, openAIKey: string) {
+    this.supabaseAdmin = supabaseAdmin;
+    this.documentProcessor = new DocumentProcessor(supabaseAdmin);
     this.embeddingGenerator = new EmbeddingGenerator(openAIKey);
-    this.vectorStore = new VectorStore(supabaseClient);
+    this.vectorStore = new VectorStore(supabaseAdmin);
   }
 
   async processDocument(metadata: DocumentMetadata, options: ProcessingOptions): Promise<void> {
@@ -55,7 +55,7 @@ export class RAGPipeline {
 
   private async updateDocumentStatus(documentId: string, success: boolean): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.supabaseAdmin
         .from('documents_metadata')
         .update({ 
           processed: success, 

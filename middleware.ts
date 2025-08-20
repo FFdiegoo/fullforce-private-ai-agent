@@ -68,6 +68,7 @@ export async function middleware(req: NextRequest) {
         '::1',
         '84.86.144.131',
         '213.124.97.74', // abc
+        '86.80.188.129', // stationslaan
         '185.56.55.239',
         '45.147.87.232',
         '2a02:a46e:549e:0:e4c4:26b3:e601:6782',

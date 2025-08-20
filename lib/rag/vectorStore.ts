@@ -1,11 +1,11 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { TextChunk } from './types';
 
 export class VectorStore {
-  private supabase: SupabaseClient;
+  private supabaseAdmin: SupabaseClient;
 
-  constructor(supabaseClient: SupabaseClient) {
-    this.supabase = supabaseClient;
+  constructor(supabaseAdmin: SupabaseClient) {
+    this.supabaseAdmin = supabaseAdmin;
   }
 
   async storeChunks(chunks: TextChunk[]): Promise<void> {
@@ -18,7 +18,7 @@ export class VectorStore {
       }
 
       try {
-        const { error } = await this.supabase
+        const { error } = await this.supabaseAdmin
           .from('document_chunks')
           .insert({
             content: chunk.content,
@@ -95,12 +95,12 @@ export class VectorStore {
           LIMIT :match_count
         `;
         
-        const result = await this.supabase.rpc('sql', { query, params: filterParams });
+        const result = await this.supabaseAdmin.rpc('sql', { query, params: filterParams });
         data = result.data;
         error = result.error;
       } else {
         // Use the standard match_documents function when no filters
-        const result = await this.supabase.rpc('match_documents', {
+        const result = await this.supabaseAdmin.rpc('match_documents', {
           query_embedding: queryEmbedding,
           match_threshold: threshold,
           match_count: limit
@@ -133,7 +133,7 @@ export class VectorStore {
       console.log(`🔍 Falling back to text search with limit ${limit}${filter ? ' and filters' : ''}...`);
       
       // Start building the query
-      let queryBuilder = this.supabase
+      let queryBuilder = this.supabaseAdmin
         .from('document_chunks')
         .select('*');
       
@@ -177,7 +177,7 @@ export class VectorStore {
     try {
       console.log(`🗑️ Deleting chunks for document ${documentId}...`);
       
-      const { error } = await this.supabase
+      const { error } = await this.supabaseAdmin
         .from('document_chunks')
         .delete()
         .eq('metadata->id', documentId);
