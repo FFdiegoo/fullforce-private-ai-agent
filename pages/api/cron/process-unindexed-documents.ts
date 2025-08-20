@@ -10,8 +10,19 @@ import Tesseract from 'tesseract.js';
 import JSZip from 'jszip';
 
 // ✅ Veilig opgehaalde environment variables
-const API_KEY = process.env.CRON_API_KEY || 'default-key';
-const CRON_BYPASS_KEY = process.env.CRON_BYPASS_KEY || 'fallback-key';
+const API_KEY = process.env.CRON_API_KEY;
+if (!API_KEY) {
+  const message = 'CRON_API_KEY environment variable is missing';
+  console.error(message);
+  throw new Error(message);
+}
+
+const CRON_BYPASS_KEY = process.env.CRON_BYPASS_KEY;
+if (!CRON_BYPASS_KEY) {
+  const message = 'CRON_BYPASS_KEY environment variable is missing';
+  console.error(message);
+  throw new Error(message);
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
