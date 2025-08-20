@@ -19,8 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // 🧪 Debug info
-  console.log('🔐 Loaded API_KEY:', API_KEY);
-  console.log('🔐 Loaded CRON_BYPASS_KEY:', CRON_BYPASS_KEY);
+  console.log('🔐 API key loaded');
+  console.log('🔐 CRON bypass key loaded');
   console.log('🔎 Request headers:', req.headers);
 
   const apiKey = req.headers['x-api-key'] || req.query.key;
