@@ -8,32 +8,51 @@ export default function AdminButton() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // Initial check when component mounts
     checkAdminStatus();
+
+    // Re-check whenever auth state changes (login, logout, token refresh)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      checkAdminStatus();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function checkAdminStatus() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
 
       console.log('Checking admin status for user:', user.email);
 
-      // First check if user has admin role in app_metadata
-      if (user.app_metadata?.role === 'admin') {
+      // First check if user has admin role in metadata
+      if (
+        user.app_metadata?.role === 'admin' ||
+        (user.user_metadata as any)?.role === 'admin'
+      ) {
         console.log('User has admin role in auth metadata');
         setIsAdmin(true);
         return;
       }
 
-      // Then check profiles table by email
+      // Then check profiles table by user id
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
-        .eq('email', user.email)
+        .eq('id', user.id)
         .single();
 
       if (error) {
         console.error('Error checking admin status:', error);
+        setIsAdmin(false);
         return;
       }
 
@@ -42,6 +61,7 @@ export default function AdminButton() {
       setIsAdmin(isAdminRole);
     } catch (error) {
       console.error('Error in checkAdminStatus:', error);
+      setIsAdmin(false);
     }
   }
 
