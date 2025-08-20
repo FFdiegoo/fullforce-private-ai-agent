@@ -1,11 +1,11 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { DocumentMetadata, TextChunk, ProcessingOptions } from './types';
 
 export class DocumentProcessor {
-  private supabase: SupabaseClient;
-  
-  constructor(supabaseClient: SupabaseClient) {
-    this.supabase = supabaseClient;
+  private supabaseAdmin: SupabaseClient;
+
+  constructor(supabaseAdmin: SupabaseClient) {
+    this.supabaseAdmin = supabaseAdmin;
   }
 
   async processDocument(metadata: DocumentMetadata, options: ProcessingOptions): Promise<TextChunk[]> {
@@ -22,7 +22,7 @@ export class DocumentProcessor {
       } else {
         // Fall back to downloading and extracting text (legacy method)
         console.log(`📥 Downloading document from ${metadata.storage_path}...`);
-        const { data, error } = await this.supabase
+        const { data, error } = await this.supabaseAdmin
           .storage
           .from('company-docs')
           .download(metadata.storage_path);

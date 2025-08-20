@@ -185,7 +185,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         document.extractedText = extractedText;
 
-        const pipeline = new RAGPipeline(supabase, openaiApiKey);
+        const pipeline = new RAGPipeline(supabaseAdmin, openaiApiKey);
         await pipeline.processDocument(document, {
           chunkSize: RAG_CONFIG.chunkSize,
           chunkOverlap: RAG_CONFIG.chunkOverlap,

@@ -47,6 +47,7 @@ export async function middleware(request: NextRequest) {
         '::1',
         '2a02:a46e:549e:0:e4c4:26b3:e601:6782',
         '84.86.144.131',
+        '86.80.188.129', // stationslaan
         '185.56.55.239',
         '45.147.87.232',
         // Add more from env

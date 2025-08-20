@@ -174,8 +174,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`📊 Extracted ${extractedText.length} characters of text`);
 
-    // Create RAG pipeline
-    const pipeline = new RAGPipeline(supabase, openaiApiKey);
+    // Create RAG pipeline with admin client for service-level operations
+    const pipeline = new RAGPipeline(supabaseAdmin, openaiApiKey);
 
     // Process document with extracted text and track chunk count
     console.log('🧠 Starting RAG pipeline processing...');
