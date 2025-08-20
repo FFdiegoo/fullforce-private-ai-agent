@@ -20,7 +20,6 @@
     "env:check": "node scripts/check-env.js",
     "db:setup": "node scripts/setup-database.js",
     "db:verify": "node scripts/verify-database.js",
-    "db:sync": "node scripts/prisma-sync-check.js",
     "test:security": "node scripts/test-security.js",
     "deps:audit": "node scripts/dependency-audit.js",
     "rag:create-test-docs": "node scripts/rag-create-test-docs.js",
@@ -40,7 +39,6 @@
     "test": "jest"
   },
   "dependencies": {
-    "@prisma/client": "^6.9.0",
     "@supabase/auth-helpers-nextjs": "^0.9.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.50.2",
@@ -87,7 +85,6 @@
     "eslint-plugin-security": "^1.7.1",
     "jest": "^29.7.0",
     "node-mocks-http": "^1.17.2",
-    "prisma": "^6.9.0",
     "ts-jest": "^29.4.1",
     "typescript": "^5.8.3"
   }

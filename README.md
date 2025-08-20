@@ -43,8 +43,8 @@ Inhouse AI chatbot omgeving voor CS Rental, schaalbaar voor meerdere klanten.
 - `npm run mirror-folders` – spiegel lokale mappen naar Supabase.
 - `npm run upload-from-drive` – upload bestanden vanaf een lokale schijf.
 
-## Supabase en Prisma
-Supabase levert de Postgres‑database, authenticatie en opslag. Prisma is een optionele ORM bovenop de Supabase‑database. Het schema staat in `Prisma/schema.prisma` en de SQL‑migraties in `supabase/migrations`.
+## Supabase
+Supabase levert de Postgres‑database, authenticatie en opslag. De SQL‑migraties staan in `supabase/migrations`.
 
 ### Migratiestappen
 1. Voer Supabase‑migraties uit met:
@@ -55,18 +55,9 @@ Supabase levert de Postgres‑database, authenticatie en opslag. Prisma is een o
    ```bash
    npm run db:verify
    ```
-3. Houd Prisma en Supabase in sync:
-   ```bash
-   npm run db:sync
-   ```
-4. Valideer schema‑compliance:
+3. Valideer schema‑compliance:
    ```bash
    npm run schema:verify
-   ```
-5. Na wijzigingen in Prisma:
-   ```bash
-   npx prisma generate
-   npx prisma migrate dev   # of npx prisma db push
    ```
 
 ## Testen
