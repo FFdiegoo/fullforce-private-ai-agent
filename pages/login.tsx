@@ -130,7 +130,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white/90 backdrop-blur-sm border border-gray-100 rounded-2xl shadow-xl p-8">
         <div className="mb-8">
           <div className="flex flex-col items-center mb-6">
