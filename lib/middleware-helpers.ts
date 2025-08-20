@@ -44,10 +44,6 @@ export async function middleware(request: NextRequest) {
     // --- IP Whitelisting (only in production) ---
     if (!isDevelopment) {
       const ip = getClientIP(request);
-      if (!ip) {
-        return forbiddenResponse('Unable to verify your IP address');
-      }
-
       const allowedIPs = getAllowedIPs();
 
       if (!isIPAllowed(ip, allowedIPs)) {
@@ -108,7 +104,7 @@ export async function middleware(request: NextRequest) {
 
 // --- Helper functions ---
 
-function getClientIP(req: NextRequest): string | null {
+function getClientIP(req: NextRequest): string {
   return (
     req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||

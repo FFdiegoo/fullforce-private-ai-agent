@@ -130,22 +130,23 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f8f9] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-md w-full max-w-[420px] p-8">
-        <div className="mb-6">
-          <div className="flex justify-center mb-6">
-            <Image 
-              src="https://csrental.nl/wp-content/uploads/2023/03/CS-Rental-logo-1.png" 
-              alt="CS Rental Logo" 
-              width={100} 
-              height={40} 
-              className="h-10 w-auto"
+    <div className="min-h-screen bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white/90 backdrop-blur-sm border border-gray-100 rounded-2xl shadow-xl p-8">
+        <div className="mb-8">
+          <div className="flex flex-col items-center mb-6">
+            <Image
+              src="https://csrental.nl/wp-content/uploads/2023/03/CS-Rental-logo-1.png"
+              alt="CS Rental logo"
+              width={120}
+              height={48}
+              className="h-12 w-auto"
             />
+            <p className="mt-2 text-sm text-gray-500">CS Rental • Chaam</p>
           </div>
-          <h1 className="text-[22px] font-semibold text-[#111827] text-center">
+          <h1 className="text-2xl font-semibold text-gray-900 text-center">
             Welkom terug
           </h1>
-          <p className="mt-1 text-[15px] text-[#6b7280] text-center">
+          <p className="mt-1 text-sm text-gray-600 text-center">
             Log in met je interne account
           </p>
         </div>
@@ -167,7 +168,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full px-3 py-2 rounded-md border border-[#d1d5db] focus:outline-none focus:ring-1 focus:ring-[#2563eb] focus:border-[#2563eb] transition-all duration-200"
+              className="w-full px-4 py-2 rounded-md border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder-gray-400 transition"
               placeholder="naam@csrental.nl"
               required
             />
@@ -183,7 +184,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full px-3 py-2 rounded-md border border-[#d1d5db] focus:outline-none focus:ring-1 focus:ring-[#2563eb] focus:border-[#2563eb] transition-all duration-200"
+              className="w-full px-4 py-2 rounded-md border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder-gray-400 transition"
               placeholder="Voer je wachtwoord in"
               required
             />
@@ -192,10 +193,10 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading || !email || !password}
-            className={`w-full py-3 px-4 rounded-md font-medium transition-all duration-200 ${
+            className={`w-full py-3 px-4 rounded-md font-medium transition ${
               loading || !email || !password
                 ? 'bg-gray-300 cursor-not-allowed text-gray-500'
-                : 'bg-[#2563eb] text-white hover:bg-[#1d4ed8]'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
           >
             {loading ? 'Bezig met inloggen...' : 'Log in'}
@@ -211,7 +212,7 @@ export default function Login() {
         <div className="mt-6 text-center space-y-2">
           <button
             onClick={() => router.push('/forgot-password')}
-            className="text-sm text-[#2563eb] hover:text-[#1d4ed8] transition-colors block"
+            className="text-sm text-blue-600 hover:text-blue-700 transition-colors block"
           >
             Wachtwoord vergeten?
           </button>
@@ -223,7 +224,7 @@ export default function Login() {
           </button>
         </div>
 
-        <div className="mt-6 text-center text-xs text-[#9ca3af]">
+        <div className="mt-6 text-center text-xs text-gray-400">
           Secure login via Supabase
         </div>
       </div>

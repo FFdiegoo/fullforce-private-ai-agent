@@ -13,7 +13,7 @@ const nextConfig = {
   
   // Image optimization (if needed)
   images: {
-    domains: ['xcrsfcwdjxsbmmrqnose.supabase.co'],
+    domains: ['xcrsfcwdjxsbmmrqnose.supabase.co', 'csrental.nl'],
     formats: ['image/webp', 'image/avif'],
   },
 
