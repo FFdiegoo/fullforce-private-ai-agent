@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { EnhancedSessionManager } from './enhanced-session-manager';
+import { getAllowedIPs } from './ip/allowedIPs';
+import {
+  applyEnhancedRateLimit,
+  getEnhancedRateLimitHeaders,
+  createEnhancedRateLimitError
+} from './enhanced-rate-limiter';
 
 const PUBLIC_PATHS = [
   '/',
@@ -42,17 +48,7 @@ export async function middleware(request: NextRequest) {
         return forbiddenResponse('Unable to verify your IP address');
       }
 
-      const allowedIPs = [
-        '127.0.0.1',
-        '::1',
-        '2a02:a46e:549e:0:e4c4:26b3:e601:6782',
-        '84.86.144.131',
-        '86.80.188.129', // stationslaan
-        '185.56.55.239',
-        '45.147.87.232',
-        // Add more from env
-        ...(process.env.ALLOWED_IPS?.split(',').map(ip => ip.trim()) || [])
-      ];
+      const allowedIPs = getAllowedIPs();
 
       if (!isIPAllowed(ip, allowedIPs)) {
         return forbiddenResponse(`Your IP (${ip}) is not authorized to access this resource`);
@@ -63,10 +59,10 @@ export async function middleware(request: NextRequest) {
     try {
       const ip = getClientIP(request);
       const rateLimitType = getRateLimitType(pathname);
-      const rateLimitResult = await applyRateLimit(ip, rateLimitType);
+      const rateLimitResult = await applyEnhancedRateLimit(ip, rateLimitType);
 
       if (!rateLimitResult.success) {
-        return rateLimitExceededResponse(rateLimitResult);
+        return rateLimitExceededResponse(rateLimitResult, rateLimitType);
       }
     } catch (rateLimitError) {
       console.error('Rate limiting error:', rateLimitError);
@@ -153,34 +149,14 @@ function getRateLimitType(pathname: string): 'auth' | 'upload' | 'chat' | 'admin
   return 'general';
 }
 
-async function applyRateLimit(ip: string | null, type: string) {
-  // TODO: Replace with your real rate limiting logic
-  // For now, simple in-memory or always allow
-  return {
-    success: true,
-    remaining: 100,
-    resetTime: Date.now() + 900000,
-    totalHits: 1
-  };
-}
-
-function rateLimitExceededResponse(result: any) {
-  const resetDate = new Date(result.resetTime);
-  return new NextResponse(JSON.stringify({
-    error: 'Too Many Requests',
-    message: `Rate limit exceeded. Try again after ${resetDate.toISOString()}`,
-    retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
-    limit: 100,
-    remaining: result.remaining,
-    resetTime: result.resetTime
-  }), {
+function rateLimitExceededResponse(result: any, limiterType: string) {
+  const errorBody = createEnhancedRateLimitError(result, limiterType as any);
+  const headers = getEnhancedRateLimitHeaders(result, limiterType as any);
+  return new NextResponse(JSON.stringify(errorBody), {
     status: 429,
     headers: {
       'Content-Type': 'application/json',
-      'X-RateLimit-Limit': '100',
-      'X-RateLimit-Remaining': result.remaining.toString(),
-      'X-RateLimit-Reset': Math.ceil(result.resetTime / 1000).toString(),
-      'X-RateLimit-Used': result.totalHits.toString()
+      ...headers
     }
   });
 }

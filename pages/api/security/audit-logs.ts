@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabaseClient';
 import { auditLogger } from '../../../lib/enhanced-audit-logger';
-import { applyRateLimit } from '../../../lib/rate-limiter';
+import { applyEnhancedRateLimit } from '../../../lib/enhanced-rate-limiter';
 import { ErrorHandler } from '../../../lib/error-handler';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -9,7 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Rate limiting
-    const rateLimitResult = await applyRateLimit(clientIP, 'admin');
+    const rateLimitResult = await applyEnhancedRateLimit(clientIP, 'admin');
     if (!rateLimitResult.success) {
       return res.status(429).json({ error: 'Too many requests' });
     }

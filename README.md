@@ -93,3 +93,16 @@ Voor het cron-endpoint moeten de volgende variabelen ingesteld zijn:
 - `CRON_BYPASS_KEY`
 
 Als een van deze ontbreekt, wordt er een fout gelogd en stopt de server of geeft het endpoint een 500-fout terug.
+
+## IP-configuratie
+
+De middleware controleert inkomende requests op een IP-whitelist. Deze lijst staat in `config/ip.json` en kan worden aangepast zonder codewijzigingen. Het bestand bevat een array met toegestane IP-adressen:
+
+```json
+[
+  "127.0.0.1",
+  "::1"
+]
+```
+
+Als het configuratiebestand ontbreekt of niet geldig is, wordt er bij het opstarten een waarschuwing gelogd.

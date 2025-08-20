@@ -3,6 +3,12 @@ import type { NextRequest } from 'next/server';
 import { EnhancedSessionManager } from './lib/enhanced-session-manager';
 import { githubActionsCIDRs } from './lib/ip/githubActionsIPs';
 import CidrMatcher from 'cidr-matcher';
+import { getAllowedIPs } from './lib/ip/allowedIPs';
+import {
+  applyEnhancedRateLimit,
+  getEnhancedRateLimitHeaders,
+  createEnhancedRateLimitError
+} from './lib/enhanced-rate-limiter';
 
 type IPAddress = string;
 
@@ -63,21 +69,7 @@ export async function middleware(req: NextRequest) {
 
     // IP Whitelisting (only in production)
     if (!isDevelopment) {
-      const primaryIPs = [
-        '127.0.0.1',
-        '::1',
-        '84.86.144.131',
-        '213.124.97.74', // abc
-        '86.80.188.129', // stationslaan
-        '185.56.55.239',
-        '45.147.87.232',
-        '2a02:a46e:549e:0:e4c4:26b3:e601:6782',
-      ];
-      
-      // Add more from env to primary list
-      if (process.env.ALLOWED_IPS) {
-        primaryIPs.push(...process.env.ALLOWED_IPS.split(',').map(ip => ip.trim()));
-      }
+      const primaryIPs = getAllowedIPs();
 
       // First check against primary IPs (fast check)
       const isPrimaryAllowed = isIPAllowed(ip, primaryIPs);
@@ -109,13 +101,14 @@ export async function middleware(req: NextRequest) {
 
     // Rate Limiting with error handling
     try {
-      const rateLimitResult = await applyRateLimit(ip, getRateLimitType(pathname));
+      const limiterType = getRateLimitType(pathname);
+      const rateLimitResult = await applyEnhancedRateLimit(ip, limiterType);
 
       if (!rateLimitResult.success) {
         console.warn(`⚠️ Rate limit exceeded for IP: ${ip}, path: ${pathname}`);
-        
-        const errorResponse = createRateLimitError(rateLimitResult);
-        const headers = getRateLimitHeaders(rateLimitResult);
+
+        const errorResponse = createEnhancedRateLimitError(rateLimitResult, limiterType);
+        const headers = getEnhancedRateLimitHeaders(rateLimitResult, limiterType);
 
         return new NextResponse(JSON.stringify(errorResponse), {
           status: 429,
@@ -128,7 +121,7 @@ export async function middleware(req: NextRequest) {
 
       // Add rate limit headers to successful responses
       const response = NextResponse.next();
-      const headers = getRateLimitHeaders(rateLimitResult);
+      const headers = getEnhancedRateLimitHeaders(rateLimitResult, limiterType);
       
       Object.entries(headers).forEach(([key, value]) => {
         response.headers.set(key, value);
@@ -207,36 +200,4 @@ function addSecurityHeaders(response: NextResponse): void {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-}
-
-// Simplified rate limiting functions (fallback if imports fail)
-async function applyRateLimit(ip: string, type: string): Promise<{ success: boolean; remaining: number; resetTime: number; totalHits: number }> {
-  // Simple in-memory rate limiting as fallback
-  return {
-    success: true,
-    remaining: 100,
-    resetTime: Date.now() + 900000,
-    totalHits: 1
-  };
-}
-
-function getRateLimitHeaders(result: any) {
-  return {
-    'X-RateLimit-Limit': '100',
-    'X-RateLimit-Remaining': result.remaining.toString(),
-    'X-RateLimit-Reset': Math.ceil(result.resetTime / 1000).toString(),
-    'X-RateLimit-Used': result.totalHits.toString()
-  };
-}
-
-function createRateLimitError(result: any) {
-  const resetDate = new Date(result.resetTime);
-  return {
-    error: 'Too Many Requests',
-    message: `Rate limit exceeded. Try again after ${resetDate.toISOString()}`,
-    retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
-    limit: 100,
-    remaining: result.remaining,
-    resetTime: result.resetTime
-  };
 }
