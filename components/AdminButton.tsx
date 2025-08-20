@@ -1,9 +1,8 @@
-import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
 export default function AdminButton() {
-  const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -47,13 +46,13 @@ export default function AdminButton() {
   if (!isAdmin) return null;
 
   return (
-    <button
-      onClick={() => router.push('/admin')}
+    <Link
+      href="/admin"
       className="fixed bottom-4 right-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-200 z-50"
       title="Admin Dashboard"
     >
       <span className="sr-only">Open Admin Dashboard</span>
       ⚙️
-    </button>
+    </Link>
   );
 }
