@@ -1,5 +1,4 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../lib/supabaseClient';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { RAGPipeline } from '../../../lib/rag/pipeline';
 import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
@@ -51,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const limit = parseInt(req.query.limit as string) || 10;
 
-    const { data: documents, error: fetchError } = await supabase
+    const { data: documents, error: fetchError } = await supabaseAdmin
       .from('documents_metadata')
       .select('*')
       .eq('ready_for_indexing', true)
@@ -120,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           continue;
         }
 
-        const { data: fileData, error: downloadError } = await supabase
+        const { data: fileData, error: downloadError } = await supabaseAdmin
           .storage
           .from('company-docs')
           .download(document.storage_path);
