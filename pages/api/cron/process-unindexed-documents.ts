@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabaseClient';
-import { background } from '@vercel/functions';
+import { waitUntil } from '@vercel/functions';
 
 // ✅ Veilig opgehaalde environment variables
 const API_KEY = process.env.CRON_API_KEY;
@@ -65,18 +65,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
     for (const doc of documents) {
-      background(async () => {
-        try {
-          await fetch(`${siteUrl}/api/process-document`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: doc.id }),
-          });
-          console.log(`🕒 Queued document ${doc.id}`);
-        } catch (err) {
-          console.error(`⚠️ Failed to queue document ${doc.id}:`, err);
-        }
-      });
+      waitUntil(
+        fetch(`${siteUrl}/api/process-document`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: doc.id }),
+        })
+          .then(() => console.log(`🕒 Queued document ${doc.id}`))
+          .catch(err =>
+            console.error(`⚠️ Failed to queue document ${doc.id}:`, err)
+          )
+      );
     }
 
     return res.status(200).json({
