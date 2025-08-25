@@ -11,6 +11,6 @@ jobs:
     steps:
       - name: Call RAG CRON endpoint
         run: |
-          curl -X GET "https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents?key=${{ secrets.CRON_API_KEY }}" \
+          curl -X GET "https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents?limit=2&key=${{ secrets.CRON_API_KEY }}" \
                -H "x-cron-key: ${{ secrets.CRON_BYPASS_KEY }}" \
                -H "x-api-key: ${{ secrets.CRON_API_KEY }}"
