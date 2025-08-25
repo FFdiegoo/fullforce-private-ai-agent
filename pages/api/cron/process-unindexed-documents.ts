@@ -49,7 +49,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     console.log('🔄 CRON job started: processing unindexed documents');
 
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit =
+      parseInt(req.query.limit as string) ||
+      parseInt(process.env.CRON_DOCUMENT_LIMIT || '2');
 
     const { data: documents, error: fetchError } = await supabase
       .from('documents_metadata')
