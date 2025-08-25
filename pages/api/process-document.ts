@@ -207,7 +207,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       last_error: null // Clear any previous errors
     };
     
-    await supabase
+    await supabaseAdmin
       .from('documents_metadata')
       .update(updateData)
       .eq('id', id);
