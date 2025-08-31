@@ -14,6 +14,7 @@ interface ChatSession {
   mode: 'technical' | 'procurement';
   created_at: string;
   updated_at: string;
+  archived?: boolean;
 }
 
 export function useChatSession(mode: 'technical' | 'procurement') {
@@ -21,10 +22,22 @@ export function useChatSession(mode: 'technical' | 'procurement') {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Generate a title from the first user message
-  const generateTitle = (firstMessage: string): string => {
-    const words = firstMessage.split(' ').slice(0, 6);
-    return words.join(' ') + (firstMessage.split(' ').length > 6 ? '...' : '');
+  // Generate a title using the API (fallback to first words)
+  const generateTitle = async (firstMessage: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/generate-title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: firstMessage })
+      });
+      if (!response.ok) throw new Error('Failed to generate title');
+      const data = await response.json();
+      return data.title as string;
+    } catch (error) {
+      console.error('Title generation failed:', error);
+      const words = firstMessage.split(' ').slice(0, 6);
+      return words.join(' ') + (firstMessage.split(' ').length > 6 ? '...' : '');
+    }
   };
 
   // Get user profile ID by email
@@ -57,7 +70,7 @@ export function useChatSession(mode: 'technical' | 'procurement') {
       const userId = await getUserProfileId();
       if (!userId) return null;
 
-      const title = generateTitle(firstMessage);
+      const title = await generateTitle(firstMessage);
 
       const { data, error } = await supabase
         .from('chat_sessions')
@@ -106,6 +119,11 @@ export function useChatSession(mode: 'technical' | 'procurement') {
         return null;
       } else {
         console.log('Message saved successfully with ID:', data.id);
+        // Update session's updated_at for realtime sidebar refresh
+        await supabase
+          .from('chat_sessions')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', currentSessionId);
         return data.id;
       }
     } catch (error) {

@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
 
     // --- Rate Limiting ---
     try {
-      const ip = getClientIP(request);
+      const ip = getClientIP(request) ?? '127.0.0.1';
       const rateLimitType = getRateLimitType(pathname);
       const rateLimitResult = await applyEnhancedRateLimit(ip, rateLimitType);
 

@@ -8,6 +8,7 @@ interface ChatSession {
   mode: 'technical' | 'procurement';
   created_at: string;
   updated_at: string;
+  archived: boolean;
 }
 
 interface ChatSidebarProps {
@@ -97,6 +98,46 @@ export default function ChatSidebar({
     }
   }
 
+  async function archiveSession(sessionId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+
+    try {
+      const { error } = await supabase
+        .from('chat_sessions')
+        .update({ archived: true })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, archived: true } : s));
+
+      if (sessionId === currentSessionId) {
+        onNewChat();
+      }
+    } catch (error) {
+      console.error('Error archiving session:', error);
+      alert('Failed to archive chat session');
+    }
+  }
+
+  async function unarchiveSession(sessionId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+
+    try {
+      const { error } = await supabase
+        .from('chat_sessions')
+        .update({ archived: false })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, archived: false } : s));
+    } catch (error) {
+      console.error('Error unarchiving session:', error);
+      alert('Failed to unarchive chat session');
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -133,12 +174,14 @@ export default function ChatSidebar({
       supabase.removeChannel(channel);
     };
   }, [mode]);
+  const activeSessions = sessions.filter(s => !s.archived);
+  const archivedSessions = sessions.filter(s => s.archived);
 
   return (
     <>
       {/* Overlay for mobile */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={onToggle}
         />
@@ -184,40 +227,91 @@ export default function ChatSidebar({
               No chat history yet
             </div>
           ) : (
-            <div className="p-2">
-              {sessions.map((session) => (
-                <div
-                  key={session.id}
-                  onClick={() => onSessionSelect(session.id)}
-                  className={`
-                    group relative p-3 rounded-lg cursor-pointer transition-colors mb-1
-                    ${currentSessionId === session.id 
-                      ? 'bg-gray-700 dark:bg-gray-800 text-white' 
-                      : 'hover:bg-gray-800 dark:hover:bg-gray-900 text-gray-300'
-                    }
-                  `}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">
-                        {session.title}
+            <>
+              <div className="p-2">
+                {activeSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    onClick={() => onSessionSelect(session.id)}
+                    className={`
+                      group relative p-3 rounded-lg cursor-pointer transition-colors mb-1
+                      ${currentSessionId === session.id
+                        ? 'bg-gray-700 dark:bg-gray-800 text-white'
+                        : 'hover:bg-gray-800 dark:hover:bg-gray-900 text-gray-300'
+                      }
+                    `}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {session.title}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {formatDate(session.updated_at)}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {formatDate(session.updated_at)}
+
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={(e) => archiveSession(session.id, e)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-yellow-400 transition-all p-1"
+                          title="Archive chat"
+                        >
+                          🗃️
+                        </button>
+                        <button
+                          onClick={(e) => deleteSession(session.id, e)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all p-1"
+                          title="Delete chat"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </div>
-                    
-                    <button
-                      onClick={(e) => deleteSession(session.id, e)}
-                      className="opacity-0 group-hover:opacity-100 ml-2 text-gray-400 hover:text-red-400 transition-all p-1"
-                      title="Delete chat"
-                    >
-                      🗑️
-                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {archivedSessions.length > 0 && (
+                <>
+                  <div className="px-3 pt-4 text-xs text-gray-500 uppercase">Archived</div>
+                  <div className="p-2">
+                    {archivedSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        onClick={() => onSessionSelect(session.id)}
+                        className={`
+                          group relative p-3 rounded-lg cursor-pointer transition-colors mb-1
+                          ${currentSessionId === session.id
+                            ? 'bg-gray-700 dark:bg-gray-800 text-white'
+                            : 'hover:bg-gray-800 dark:hover:bg-gray-900 text-gray-300'
+                          }
+                        `}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {session.title}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              {formatDate(session.updated_at)}
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={(e) => unarchiveSession(session.id, e)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-400 transition-all p-1"
+                            title="Unarchive chat"
+                          >
+                            📦
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
 
