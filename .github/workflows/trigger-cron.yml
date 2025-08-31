@@ -1,0 +1,48 @@
+name: trigger-cron
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *' # elke 30 minuten
+
+concurrency:
+  group: trigger-cron
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    # Heel belangrijk: gebruik de ENVIRONMENT secrets "Production"
+    environment: Production
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout (alleen voor guard-check)
+        uses: actions/checkout@v4
+
+      - name: Guard – blokkeer elke workflow die ?key= gebruikt
+        run: |
+          set -euo pipefail
+          if grep -R --include="*.yml" -nE '\?key=|\-X GET .*process-unindexed-documents\?key=' .github/workflows/ | grep -v 'trigger-cron.yml'; then
+            echo "❌ Er staat nog ergens een workflow die ?key= gebruikt. Verwijder/patch die eerst (header gebruiken)."
+            exit 1
+          fi
+          echo "✅ Geen query-keys gevonden in workflows."
+
+      - name: Sanity check secret (CRON_BYPASS_KEY)
+        run: |
+          if [ -z "${{ secrets.CRON_BYPASS_KEY }}" ]; then
+            echo "❌ CRON_BYPASS_KEY ontbreekt (Environment secret 'Production' of Repo secret)."
+            exit 1
+          fi
+          echo "✅ CRON_BYPASS_KEY aanwezig."
+
+      - name: Trigger cron via header (fail-fast + retries)
+        run: |
+          set -euo pipefail
+          curl -sS -f --retry 3 --retry-connrefused --max-time 30 \
+            "https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents?limit=1" \
+            -H "X-Cron-Key: ${{ secrets.CRON_BYPASS_KEY }}"
+          echo "✅ Cron call OK"
