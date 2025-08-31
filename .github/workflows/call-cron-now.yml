@@ -1,0 +1,23 @@
+name: call-cron-now
+on:
+  workflow_dispatch:
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - name: Sanity secrets
+        run: |
+          if [ -z "${{ secrets.CRON_BYPASS_KEY }}" ]; then
+            echo "❌ CRON_BYPASS_KEY missing"; exit 1;
+          fi
+          echo "✅ bypass present"
+      - name: Call cron and print JSON
+        run: |
+          set -euo pipefail
+          STATUS=$(curl -sS -w "%{http_code}" -o /tmp/body.json \
+            "https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents?limit=1" \
+            -H "X-Cron-Key: ${{ secrets.CRON_BYPASS_KEY }}")
+          echo "HTTP $STATUS"
+          cat /tmp/body.json
+          test "$STATUS" -eq 200
