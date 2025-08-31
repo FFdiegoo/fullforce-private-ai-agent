@@ -1,0 +1,28 @@
+name: trigger-cron
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'  # elke 30 min
+
+jobs:
+  trigger:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    # haal environment-secrets op? uncomment de volgende regel:
+    # environment: Production
+
+    steps:
+      - name: Sanity check secrets
+        run: |
+          if [ -z "${{ secrets.CRON_BYPASS_KEY }}" ]; then
+            echo "❌ CRON_BYPASS_KEY missing (repo or environment secret)"; exit 1;
+          fi
+          echo "✅ CRON_BYPASS_KEY present"
+
+      - name: Call cron (header only, fail-fast)
+        run: |
+          set -euo pipefail
+          curl -sS -f "https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents?limit=1" \
+            -H "X-Cron-Key: ${{ secrets.CRON_BYPASS_KEY }}"
+          echo "✅ cron call ok"
