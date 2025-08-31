@@ -1,0 +1,30 @@
+name: trigger-cron
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *' # elke 30 min, pas naar wens aan
+
+jobs:
+  trigger-cron:
+    runs-on: ubuntu-latest
+    # Indien je Vercel Environment Secrets (per environment) gebruikt:
+    # environment: Production
+
+    steps:
+      - name: Header (bypass key, aanbevolen)
+        run: |
+          set -euo pipefail
+          url_base="https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents"
+          url="$url_base?limit=1"
+          curl -sS -f "$url" -H "X-Cron-Key: ${{ secrets.CRON_BYPASS_KEY }}"
+          echo "✅ header bypass ok"
+
+      - name: Query (optioneel, API key)
+        if: ${{ secrets.CRON_API_KEY != '' }}
+        run: |
+          set -euo pipefail
+          url_base="https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents"
+          url="$url_base?limit=1&key=${{ secrets.CRON_API_KEY }}"
+          curl -sS -f "$url"
+          echo "✅ query key ok"
