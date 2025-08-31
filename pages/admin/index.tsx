@@ -47,8 +47,10 @@ export default function AdminDashboard() {
 
   async function checkAuth() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const user = session?.user;
+
+      if (sessionError || !user) {
         console.log('No user found, redirecting to login');
         router.push('/login');
         return;
@@ -65,11 +67,11 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Then check profiles table by email
+      // Then check profiles table by user ID
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('email', user.email)
+        .eq('id', user.id)
         .single();
 
       if (profileError) {
