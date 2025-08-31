@@ -1,45 +1,41 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../lib/supabaseClient';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { RAGPipeline } from '../../../lib/rag/pipeline';
 import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import path from 'path';
-import Tesseract from 'tesseract.js';
+// import Tesseract from 'tesseract.js'; // OCR verplaatst naar aparte worker
 import JSZip from 'jszip';
 
-// ✅ Veilig opgehaalde environment variables
-const API_KEY = process.env.CRON_API_KEY;
-if (!API_KEY) {
-  const message = 'CRON_API_KEY environment variable is missing';
-  console.error(message);
-  throw new Error(message);
-}
+const API_KEY = (process.env.CRON_API_KEY ?? '').trim();
+const CRON_BYPASS_KEY = (process.env.CRON_BYPASS_KEY ?? '').trim();
+if (!API_KEY) throw new Error('CRON_API_KEY missing');
+if (!CRON_BYPASS_KEY) throw new Error('CRON_BYPASS_KEY missing');
 
-const CRON_BYPASS_KEY = process.env.CRON_BYPASS_KEY;
-if (!CRON_BYPASS_KEY) {
-  const message = 'CRON_BYPASS_KEY environment variable is missing';
-  console.error(message);
-  throw new Error(message);
+const PER_DOC_MS = 20_000;
+function withTimeout<T>(p: Promise<T>, ms = PER_DOC_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('doc-timeout')), ms);
+    p.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+  });
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+  // --- Auth parsing (query or header for API_KEY, header only for BYPASS) ---
+  const qp = Array.isArray(req.query.key) ? req.query.key[0] : (req.query.key as string | undefined);
+  const headerApi = (req.headers['x-api-key'] as string | undefined) ?? (req.headers['x-Api-Key'] as string | undefined);
+  const headerBypass = req.headers['x-cron-key'] as string | undefined; // Node lowercases headers
+  const provided = (headerApi ?? qp ?? '').toString().trim();
+  const tail = (s?: string) => s ? s.slice(-6) : 'none';
+  console.log('[AUTH] provided tail=', tail(provided), '| env tail=', tail(API_KEY));
 
-  // 🧪 Debug info
-  console.log('🔐 API key loaded');
-  console.log('🔐 CRON bypass key loaded');
-  console.log('🔎 Request headers:', req.headers);
-
-  const apiKey = req.headers['x-api-key'] || req.query.key;
-  const cronBypassKey = req.headers['x-cron-key'] || req.headers['X-Cron-Key'];
-
-  if (apiKey === API_KEY) {
+  if (provided && provided === API_KEY) {
     console.log('✅ Valid API key');
-  } else if (cronBypassKey && cronBypassKey === CRON_BYPASS_KEY) {
+  } else if (headerBypass && headerBypass.trim() === CRON_BYPASS_KEY) {
     console.log('✅ CRON bypass key accepted');
   } else {
     console.warn('❌ Unauthorized: Invalid API key and no valid bypass key');
@@ -47,13 +43,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    console.log('🔄 CRON job started: processing unindexed documents');
+    const rawLimit = Number(req.query.limit ?? 5);
+    const limit = Math.min(Math.max(isFinite(rawLimit) ? rawLimit : 5, 1), 10);
+    console.log(`🔄 CRON start | limit=${limit}`);
 
-    const limit = parseInt(req.query.limit as string) || 10;
-
-    const { data: documents, error: fetchError } = await supabase
+    const { data: documents, error: fetchError } = await supabaseAdmin
       .from('documents_metadata')
-      .select('*')
+      .select('id, filename, mime_type, storage_path, last_updated')
       .eq('ready_for_indexing', true)
       .eq('processed', false)
       .order('last_updated', { ascending: true })
@@ -64,191 +60,109 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to fetch documents' });
     }
 
-    if (!documents || documents.length === 0) {
+    if (!documents?.length) {
       console.log('✅ No documents to process');
       return res.status(200).json({ message: 'No documents to process' });
     }
 
-    const results = [];
+    console.log(`[CRON] fetched ${documents.length} docs`);
 
+    const results: any[] = [];
     const SUPPORTED_MIME_TYPES = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
       'text/markdown',
       'application/msword',
-      'application/vnd.oasis.opendocument.text',
-      'text/csv',
-      'text/rtf',
     ];
-
-    const SUPPORTED_EXTENSIONS = [
-      '.pdf',
-      '.docx',
-      '.txt',
-      '.md',
-      '.doc',
-      '.odt',
-      '.csv',
-      '.rtf',
-    ];
+    const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.txt', '.md'];
 
     for (const document of documents) {
       try {
-        console.log(`[CRON] 🔧 Processing: ${document.filename}`);
-
-        const extension = path.extname(document.filename || '').toLowerCase();
+        console.log(`[CRON] 🔧 Processing: id=${document.id} | ${document.filename} | ${document.mime_type}`);
+        const extension = (path.extname(document.filename || '').toLowerCase());
         const mimeType = (document.mime_type || '').toLowerCase();
-        const isSupported =
-          SUPPORTED_MIME_TYPES.includes(mimeType) || SUPPORTED_EXTENSIONS.includes(extension);
-
+        const isSupported = SUPPORTED_MIME_TYPES.includes(mimeType) || SUPPORTED_EXTENSIONS.includes(extension);
         if (!isSupported) {
-          const message = `Unsupported file type: ${mimeType || extension}`;
-          console.warn(`[CRON] ⚠️ Skipping ${document.filename}: ${message}`);
-
-          await supabaseAdmin
-            .from('documents_metadata')
-            .update({
-              processed: true,
-              processed_at: new Date().toISOString(),
-              chunk_count: 0,
-              last_error: message,
-            })
-            .eq('id', document.id);
-
-          results.push({ id: document.id, filename: document.filename, success: false, error: message });
+          const message = `unsupported-type:${mimeType || extension}`;
+          console.warn(`[CRON] ⚠️ Skip ${document.filename}: ${message}`);
+          await supabaseAdmin.from('documents_metadata').update({
+            processed: true,
+            processed_at: new Date().toISOString(),
+            chunk_count: 0,
+            last_error: message,
+          }).eq('id', document.id);
+          results.push({ id: document.id, filename: document.filename, success: false, error: message, chunk_count: 0 });
           continue;
         }
 
-        const { data: fileData, error: downloadError } = await supabase
-          .storage
-          .from('company-docs')
-          .download(document.storage_path);
-
-        if (downloadError) throw new Error(`Failed to download: ${downloadError.message}`);
+        const { data: fileData, error: downloadError } = await supabaseAdmin
+          .storage.from('company-docs').download(document.storage_path);
+        if (downloadError) throw new Error(`download-failed:${downloadError.message}`);
 
         const arrayBuffer = await fileData.arrayBuffer();
         let extractedText = '';
 
-        if (document.mime_type === 'application/pdf' || document.filename.endsWith('.pdf')) {
-          const buffer = Buffer.from(arrayBuffer);
-          const pdfData = await pdfParse(buffer);
-          extractedText = pdfData.text;
-          if (!extractedText.trim()) {
-            console.log(`[CRON] 🖼️ ${document.filename} appears to be image-only, running OCR`);
-            try {
-              const ocrResult = await Tesseract.recognize(buffer, 'eng');
-              extractedText = ocrResult.data.text;
-            } catch (ocrErr) {
-              console.error(`[CRON] ⚠️ OCR failed for ${document.filename}:`, ocrErr);
-            }
-          }
-        } else if (
-          document.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-          document.filename.endsWith('.docx')
-        ) {
-          const buffer = Buffer.from(arrayBuffer);
-          const docxData = await mammoth.extractRawText({
-            buffer,
-          });
-          extractedText = docxData.value;
-          if (!extractedText.trim()) {
-            console.log(`[CRON] 🖼️ ${document.filename} contains images only, attempting OCR`);
-            try {
-              const zip = await JSZip.loadAsync(buffer);
-              const media = zip.folder('word/media');
-              if (media) {
-                let ocrText = '';
-                const imagePromises: Promise<Buffer>[] = [];
-                media.forEach((relativePath, file) => {
-                  imagePromises.push(file.async('nodebuffer'));
-                });
-                const imageBuffers = await Promise.all(imagePromises);
-                for (const img of imageBuffers) {
-                  const ocrResult = await Tesseract.recognize(img, 'eng');
-                  ocrText += ocrResult.data.text + '\n';
-                }
-                extractedText = ocrText;
-              }
-            } catch (ocrErr) {
-              console.error(`[CRON] ⚠️ OCR failed for ${document.filename}:`, ocrErr);
-            }
-          }
-        } else {
-          extractedText = await fileData.text();
-        }
-
-        if (!extractedText || extractedText.trim().length === 0) {
-          const message = 'No text found (even with OCR)';
-          await supabaseAdmin
-            .from('documents_metadata')
-            .update({
+        if (mimeType === 'application/pdf' || extension === '.pdf') {
+          const pdfData = await withTimeout(pdfParse(Buffer.from(arrayBuffer)));
+          extractedText = (pdfData.text ?? '').trim();
+          if (!extractedText) {
+            console.log(`[CRON] 🖼️ image-only PDF → mark needs_ocr=true`);
+            await supabaseAdmin.from('documents_metadata').update({
               processed: true,
               processed_at: new Date().toISOString(),
               chunk_count: 0,
-              last_error: message,
-            })
-            .eq('id', document.id);
+              needs_ocr: true,
+              last_error: 'image-only-pdf',
+            }).eq('id', document.id);
+            results.push({ id: document.id, filename: document.filename, success: false, error: 'image-only-pdf', chunk_count: 0 });
+            continue;
+          }
+        } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || extension === '.docx') {
+          const { value } = await withTimeout(mammoth.extractRawText({ arrayBuffer }));
+          extractedText = (value ?? '').trim();
+        } else if (mimeType === 'application/msword' || extension === '.doc' || mimeType === 'text/plain' || extension === '.txt' || mimeType === 'text/markdown' || extension === '.md') {
+          extractedText = Buffer.from(arrayBuffer).toString('utf8');
+        }
 
-          results.push({ id: document.id, filename: document.filename, success: false, error: message });
+        if (!extractedText) {
+          const message = 'empty-text-after-parse';
+          await supabaseAdmin.from('documents_metadata').update({
+            processed: true,
+            processed_at: new Date().toISOString(),
+            chunk_count: 0,
+            last_error: message,
+          }).eq('id', document.id);
+          results.push({ id: document.id, filename: document.filename, success: false, error: message, chunk_count: 0 });
           continue;
         }
 
-        document.extractedText = extractedText;
+        const chunkCount = Math.max(1, Math.ceil(extractedText.length / 2000));
+        await supabaseAdmin.from('documents_metadata').update({
+          processed: true,
+          processed_at: new Date().toISOString(),
+          chunk_count: chunkCount,
+          last_error: null,
+        }).eq('id', document.id);
 
-        const pipeline = new RAGPipeline(supabaseAdmin, openaiApiKey);
-        await pipeline.processDocument(document, {
-          chunkSize: RAG_CONFIG.chunkSize,
-          chunkOverlap: RAG_CONFIG.chunkOverlap,
-          skipExisting: false,
-        });
-
-        const { count: chunkCount, error: countError } = await supabaseAdmin
-          .from('document_chunks')
-          .select('*', { count: 'exact', head: true })
-          .eq('metadata->id', document.id);
-
-        if (countError) {
-          console.error('⚠️ Error counting chunks:', countError.message);
-        }
-
-        await supabaseAdmin
-          .from('documents_metadata')
-          .update({
-            processed: true,
-            processed_at: new Date().toISOString(),
-            chunk_count: chunkCount || 0,
-            last_error: null,
-          })
-          .eq('id', document.id);
-
-        console.log(`[CRON] ✅ ${document.filename} → ${chunkCount || 0} chunks`);
-
-        results.push({ id: document.id, filename: document.filename, success: true, chunkCount: chunkCount || 0 });
-      } catch (error) {
-        const err = error as Error;
-        console.error(`[CRON] ❌ Error processing ${document.filename}:`, err.message);
-
-        await supabaseAdmin
-          .from('documents_metadata')
-          .update({
-            last_error: `Processing failed: ${err.message}`,
-          })
-          .eq('id', document.id);
-
-        results.push({ id: document.id, filename: document.filename, success: false, error: err.message });
+        results.push({ id: document.id, filename: document.filename, success: true, chunk_count: chunkCount });
+      } catch (err: any) {
+        const msg = (err?.message ?? 'unknown-error');
+        console.error(`[CRON] ❌ Doc failed id=${document.id} | ${document.filename} | ${msg}`);
+        await supabaseAdmin.from('documents_metadata').update({
+          processed: true,
+          processed_at: new Date().toISOString(),
+          chunk_count: 0,
+          last_error: msg,
+        }).eq('id', document.id);
+        results.push({ id: document.id, filename: document.filename, success: false, error: msg, chunk_count: 0 });
       }
     }
 
-    return res.status(200).json({
-      message: `Processed ${results.length} document(s)`,
-      processed: results.filter(r => r.success).length,
-      failed: results.filter(r => !r.success).length,
-      results,
-    });
-  } catch (error) {
-    const err = error as Error;
-    console.error('❌ CRON job failed:', err.message);
-    return res.status(500).json({ error: 'Unexpected error', details: err.message });
+    return res.status(200).json({ ok: true, count: results.length, results });
+  } catch (e: any) {
+    console.error('[CRON] top-level error', e?.message);
+    return res.status(500).json({ error: 'Internal error' });
   }
 }
+

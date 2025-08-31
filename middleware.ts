@@ -13,7 +13,7 @@ import {
 type IPAddress = string;
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron/.*).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
   runtime: 'experimental-edge'
 };
 
@@ -32,6 +32,9 @@ function isIPAllowed(ip: string, allowedList: string[]): boolean {
 export async function middleware(req: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const { pathname } = req.nextUrl;
+  if (pathname.startsWith('/api/cron/')) {
+    return NextResponse.next();
+  }
 
   try {
     console.log('🧪 Headers received:');
@@ -43,10 +46,10 @@ export async function middleware(req: NextRequest) {
 
     // Check for CRON bypass key
     const cronBypassKey = req.headers.get('x-cron-key') || req.headers.get('X-Cron-Key');
-    
+
     console.log('🔒 x-cron-key header:', cronBypassKey);
     console.log('🔑 Loaded env key:', process.env.CRON_BYPASS_KEY);
-    
+
     if (cronBypassKey && cronBypassKey === process.env.CRON_BYPASS_KEY) {
       console.log('✅ CRON bypass key accepted — skipping IP check');
       return NextResponse.next(); // Skip IP check
@@ -54,14 +57,14 @@ export async function middleware(req: NextRequest) {
 
     // Get client IP with better error handling
     const ip: IPAddress = getClientIP(req);
-    
+
     if (!ip) {
       console.warn('❌ Could not determine client IP');
-      return new NextResponse(JSON.stringify({ 
+      return new NextResponse(JSON.stringify({
         error: 'Access denied',
         message: 'Unable to verify your IP address',
         timestamp: new Date().toISOString()
-      }), { 
+      }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -73,10 +76,10 @@ export async function middleware(req: NextRequest) {
 
       // First check against primary IPs (fast check)
       const isPrimaryAllowed = isIPAllowed(ip, primaryIPs);
-      
+
       // Only check against GitHub IPs if not in primary list (using CidrMatcher)
       let isAllowed = isPrimaryAllowed;
-      
+
       if (!isPrimaryAllowed) {
         console.log('🔍 Checking against GitHub Actions CIDR ranges...');
         // Initialize matcher only when needed (performance optimization)
@@ -88,11 +91,11 @@ export async function middleware(req: NextRequest) {
 
       if (!isAllowed) {
         console.log('🚫 IP not allowed:', ip);
-        return new NextResponse(JSON.stringify({ 
+        return new NextResponse(JSON.stringify({
           error: 'Access denied',
           message: `Your IP (${ip}) is not authorized to access this resource`,
           timestamp: new Date().toISOString()
-        }), { 
+        }), {
           status: 403,
           headers: { 'Content-Type': 'application/json' }
         });
@@ -122,7 +125,7 @@ export async function middleware(req: NextRequest) {
       // Add rate limit headers to successful responses
       const response = NextResponse.next();
       const headers = getEnhancedRateLimitHeaders(rateLimitResult, limiterType);
-      
+
       Object.entries(headers).forEach(([key, value]) => {
         response.headers.set(key, value);
       });
@@ -142,7 +145,7 @@ export async function middleware(req: NextRequest) {
 
   } catch (error) {
     console.error('❌ Middleware error:', error);
-    
+
     // Return a safe response instead of crashing
     return new NextResponse(JSON.stringify({
       error: 'Internal server error',
@@ -159,7 +162,7 @@ export async function middleware(req: NextRequest) {
 function getClientIP(req: NextRequest): string {
   return (
     req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
     req.headers.get('cf-connecting-ip') ||
     '127.0.0.1' // Fallback IP
