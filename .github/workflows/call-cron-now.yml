@@ -1,3 +1,4 @@
+# Manually invoke cron endpoint and print response
 name: call-cron-now
 on:
   workflow_dispatch:
