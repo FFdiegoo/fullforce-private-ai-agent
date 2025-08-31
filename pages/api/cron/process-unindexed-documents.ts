@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabaseClient';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { RAGPipeline } from '../../../lib/rag/pipeline';
-import { openaiApiKey } from '../../../lib/rag/config';
+import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import path from 'path';
@@ -175,14 +175,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.time(`[CRON] doc ${document.id}`);
         let chunkCountFromPipeline: number | undefined;
         try {
-          const result = await withTimeout(
-            pipeline.processDocument({
-              id: document.id,
-              filename: document.filename,
-              mimeType: (document.mime_type || '').toLowerCase(),
-              storagePath: document.storage_path,
-              text: extractedText,
-            })
+          const metadata = { ...document, extractedText } as any;
+          const result: any = await withTimeout(
+            pipeline.processDocument(
+              metadata,
+              {
+                chunkSize: RAG_CONFIG.chunkSize,
+                chunkOverlap: RAG_CONFIG.chunkOverlap,
+                skipExisting: false,
+              }
+            )
           );
           if (typeof result === 'number') chunkCountFromPipeline = result;
           else if (result?.chunkCount != null) chunkCountFromPipeline = result.chunkCount;
