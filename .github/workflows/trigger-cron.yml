@@ -6,6 +6,10 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
+concurrency:
+  group: trigger-cron
+  cancel-in-progress: false
+
 jobs:
   trigger:
     runs-on: ubuntu-latest
@@ -18,8 +22,10 @@ jobs:
             echo "❌ Found deprecated ?key= usage in workflows"; exit 1;
           fi
           echo "✅ No query-key usage found"
-      - name: Trigger cron endpoint
+      - name: Trigger cron endpoint (header auth, limit=1)
         run: |
+          set -euo pipefail
           curl -sS -f --retry 3 --retry-delay 5 \
             -H "X-Cron-Key: ${{ secrets.CRON_BYPASS_KEY }}" \
-            "https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents"
+            "https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents?limit=1"
+
