@@ -18,10 +18,13 @@ export class RAGPipeline {
     this.vectorStore = new VectorStore(supabaseAdmin);
   }
 
-  async processDocument(metadata: DocumentMetadata, options: ProcessingOptions): Promise<void> {
+  async processDocument(
+    metadata: DocumentMetadata,
+    options: ProcessingOptions
+  ): Promise<number> {
     try {
       console.log(`🔄 Starting RAG pipeline for document: ${metadata.filename}`);
-      
+
       // Step 1: Process document and create chunks
       console.log('📄 Processing document and creating chunks...');
       const rawChunks = await this.documentProcessor.processDocument(metadata, options);
@@ -42,24 +45,31 @@ export class RAGPipeline {
 
       // Step 4: Mark as processed
       console.log('✅ Document processing complete');
-      await this.updateDocumentStatus(metadata.id, true);
+      await this.updateDocumentStatus(metadata.id, true, embeddedChunks.length);
+
+      return embeddedChunks.length;
     } catch (error) {
       console.error(
         `❌ Error in RAG pipeline for document ${metadata.filename}:`,
         error
       );
-      await this.updateDocumentStatus(metadata.id, false);
+      await this.updateDocumentStatus(metadata.id, false, 0);
       throw error;
     }
   }
 
-  private async updateDocumentStatus(documentId: string, success: boolean): Promise<void> {
+  private async updateDocumentStatus(
+    documentId: string,
+    success: boolean,
+    chunkCount: number
+  ): Promise<void> {
     try {
       const { error } = await this.supabaseAdmin
         .from('documents_metadata')
-        .update({ 
-          processed: success, 
+        .update({
+          processed: success,
           processed_at: new Date().toISOString(),
+          chunk_count: chunkCount,
         })
         .eq('id', documentId);
 
