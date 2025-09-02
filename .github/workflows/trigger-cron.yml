@@ -22,10 +22,20 @@ jobs:
             echo "❌ Found deprecated ?key= usage in workflows"; exit 1;
           fi
           echo "✅ No query-key usage found"
+      - name: Check required secrets
+        run: |
+          set -euo pipefail
+          [ -n "${{ secrets.OPENAI_API_KEY }}" ] || (echo "❌ OPENAI_API_KEY missing"; exit 1)
+          [ -n "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ] || (echo "❌ SUPABASE_SERVICE_ROLE_KEY missing"; exit 1)
+          [ -n "${{ secrets.CRON_API_KEY }}" ] || (echo "❌ CRON_API_KEY missing"; exit 1)
+          echo "✅ Secrets present"
       - name: Trigger cron endpoint (header auth, limit=1)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -euo pipefail
           curl -sS -f --retry 3 --retry-delay 5 \
-            -H "X-Cron-Key: ${{ secrets.CRON_BYPASS_KEY }}" \
+            -H "x-api-key: ${{ secrets.CRON_API_KEY }}" \
             "https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents?limit=1"
 
