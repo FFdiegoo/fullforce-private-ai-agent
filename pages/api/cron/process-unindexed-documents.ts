@@ -6,6 +6,7 @@ import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import path from 'path';
+import OpenAI from 'openai';
 
 // ✅ Veilig opgehaalde environment variables
 const API_KEY = process.env.CRON_API_KEY;
@@ -105,7 +106,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     for (const document of documents) {
       try {
-        console.log(`[CRON] 🔧 Processing: ${document.filename}`);
+        console.log(
+          `[CRON] 🔧 Processing: ${document.filename} (id=${document.id}, retry=${document.retry_count || 0})`
+        );
 
         const extension = path.extname(document.filename || '').toLowerCase();
         const mimeType = (document.mime_type || '').toLowerCase();
@@ -173,58 +176,71 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         console.time(`[CRON] doc ${document.id}`);
-        let chunkCountFromPipeline: number | undefined;
+        let chunkCountFromPipeline = 0;
         try {
           const metadata = { ...document, extractedText } as any;
-          const result: any = await withTimeout(
-            pipeline.processDocument(
-              metadata,
-              {
-                chunkSize: RAG_CONFIG.chunkSize,
-                chunkOverlap: RAG_CONFIG.chunkOverlap,
-                skipExisting: false,
-              }
-            )
+          chunkCountFromPipeline = await withTimeout(
+            pipeline.processDocument(metadata, {
+              chunkSize: RAG_CONFIG.chunkSize,
+              chunkOverlap: RAG_CONFIG.chunkOverlap,
+              skipExisting: false,
+            })
           );
-          if (typeof result === 'number') chunkCountFromPipeline = result;
-          else if (result?.chunkCount != null) chunkCountFromPipeline = result.chunkCount;
-          else if (Array.isArray(result?.chunks)) chunkCountFromPipeline = result.chunks.length;
         } finally {
           console.timeEnd(`[CRON] doc ${document.id}`);
         }
-        const finalChunkCount =
-          chunkCountFromPipeline ?? Math.max(1, Math.ceil(extractedText.length / 2000));
 
         await supabaseAdmin
           .from('documents_metadata')
           .update({
             processed: true,
             processed_at: new Date().toISOString(),
-            chunk_count: finalChunkCount,
+            chunk_count: chunkCountFromPipeline,
             last_error: null,
           })
           .eq('id', document.id);
 
-        console.log(`[CRON] ✅ ${document.filename} → ${finalChunkCount} chunks`);
+        console.log(
+          `[CRON] ✅ ${document.filename} → ${chunkCountFromPipeline} chunks`
+        );
 
         results.push({
           id: document.id,
           filename: document.filename,
           success: true,
-          chunk_count: finalChunkCount,
+          chunk_count: chunkCountFromPipeline,
         });
       } catch (error) {
         const err = error as Error;
-        console.error(`[CRON] ❌ Error processing ${document.filename}:`, err.message);
+        console.error(
+          `[CRON] ❌ Error processing ${document.filename}:`,
+          err.message
+        );
+
+        const isOpenAIError = err instanceof OpenAI.APIError;
+
+        const updateData: any = {
+          last_error: `Processing failed: ${err.message}`,
+        };
+
+        if (isOpenAIError) {
+          updateData.retry_count = (document.retry_count || 0) + 1;
+        } else {
+          updateData.processed = true;
+          updateData.processed_at = new Date().toISOString();
+        }
 
         await supabaseAdmin
           .from('documents_metadata')
-          .update({
-            last_error: `Processing failed: ${err.message}`,
-          })
+          .update(updateData)
           .eq('id', document.id);
 
-        results.push({ id: document.id, filename: document.filename, success: false, error: err.message });
+        results.push({
+          id: document.id,
+          filename: document.filename,
+          success: false,
+          error: err.message,
+        });
       }
     }
 
