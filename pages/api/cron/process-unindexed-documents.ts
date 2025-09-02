@@ -1,11 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../lib/supabaseClient';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { RAGPipeline } from '../../../lib/rag/pipeline';
 import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import path from 'path';
+import OpenAI from 'openai';
 
 // ✅ Veilig opgehaalde environment variables
 const API_KEY = process.env.CRON_API_KEY;
@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const limit = parseInt(req.query.limit as string) || 10;
 
-    const { data: documents, error: fetchError } = await supabase
+    const { data: documents, error: fetchError } = await supabaseAdmin
       .from('documents_metadata')
       .select('*')
       .eq('ready_for_indexing', true)
@@ -105,7 +105,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     for (const document of documents) {
       try {
-        console.log(`[CRON] 🔧 Processing: ${document.filename}`);
+        console.log(
+          `[CRON] 🔧 Processing: ${document.filename} (id=${document.id}, retry=${document.retry_count || 0})`
+        );
 
         const extension = path.extname(document.filename || '').toLowerCase();
         const mimeType = (document.mime_type || '').toLowerCase();
@@ -130,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           continue;
         }
 
-        const { data: fileData, error: downloadError } = await supabase
+        const { data: fileData, error: downloadError } = await supabaseAdmin
           .storage
           .from('company-docs')
           .download(document.storage_path);
@@ -155,76 +157,88 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           extractedText = await fileData.text();
         }
 
-        if (!extractedText || extractedText.trim().length === 0) {
-          const message = 'No text found - needs OCR';
+        const textLen = (extractedText || '').trim().length;
+        console.log(`[CRON] text_len=${textLen} | mime=${mimeType} | ext=${extension}`);
+        if (!extractedText || textLen === 0) {
+          const message = 'needs-ocr';
           await supabaseAdmin
             .from('documents_metadata')
             .update({
-              processed: true,
-              processed_at: new Date().toISOString(),
+              processed: false,
+              processed_at: null,
               chunk_count: 0,
               last_error: message,
               needs_ocr: true,
             })
             .eq('id', document.id);
-
           results.push({ id: document.id, filename: document.filename, success: false, error: message });
           continue;
         }
 
         console.time(`[CRON] doc ${document.id}`);
-        let chunkCountFromPipeline: number | undefined;
+        let chunkCount = 0;
         try {
           const metadata = { ...document, extractedText } as any;
-          const result: any = await withTimeout(
-            pipeline.processDocument(
-              metadata,
-              {
-                chunkSize: RAG_CONFIG.chunkSize,
-                chunkOverlap: RAG_CONFIG.chunkOverlap,
-                skipExisting: false,
-              }
-            )
+          chunkCount = await withTimeout(
+            pipeline.processDocument(metadata, {
+              chunkSize: RAG_CONFIG.chunkSize,
+              chunkOverlap: RAG_CONFIG.chunkOverlap,
+              skipExisting: false,
+            })
           );
-          if (typeof result === 'number') chunkCountFromPipeline = result;
-          else if (result?.chunkCount != null) chunkCountFromPipeline = result.chunkCount;
-          else if (Array.isArray(result?.chunks)) chunkCountFromPipeline = result.chunks.length;
         } finally {
           console.timeEnd(`[CRON] doc ${document.id}`);
         }
-        const finalChunkCount =
-          chunkCountFromPipeline ?? Math.max(1, Math.ceil(extractedText.length / 2000));
 
         await supabaseAdmin
           .from('documents_metadata')
           .update({
             processed: true,
             processed_at: new Date().toISOString(),
-            chunk_count: finalChunkCount,
+            chunk_count: chunkCount,
             last_error: null,
           })
           .eq('id', document.id);
 
-        console.log(`[CRON] ✅ ${document.filename} → ${finalChunkCount} chunks`);
+        console.log(`[CRON] ✅ ${document.filename} → ${chunkCount} chunks`);
 
         results.push({
           id: document.id,
           filename: document.filename,
           success: true,
-          chunk_count: finalChunkCount,
+          chunk_count: chunkCount,
         });
       } catch (error) {
         const err = error as Error;
-        console.error(`[CRON] ❌ Error processing ${document.filename}:`, err.message);
+        console.error(
+          `[CRON] ❌ Error processing ${document.filename}:`,
+          err.message
+        );
+
+        const isOpenAIError = err instanceof OpenAI.APIError;
+
+        const updateData: any = {
+          last_error: `Processing failed: ${err.message}`,
+        };
+
+        if (isOpenAIError) {
+          updateData.retry_count = (document.retry_count || 0) + 1;
+        } else {
+          updateData.processed = true;
+          updateData.processed_at = new Date().toISOString();
+        }
 
         await supabaseAdmin
           .from('documents_metadata')
-          .update({
-            last_error: `Processing failed: ${err.message}`,
-          })
+          .update(updateData)
           .eq('id', document.id);
 
-        results.push({ id: document.id, filename: document.filename, success: false, error: err.message });
+        results.push({
+          id: document.id,
+          filename: document.filename,
+          success: false,
+          error: err.message,
+        });
       }
     }
 

@@ -16,7 +16,10 @@ require('dotenv').config({ path: '.env.local' });
 const CONFIG = {
   SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  TARGET_FOLDER: '120 Handleidingen'
+  TARGET_FOLDER: '120 Handleidingen',
+  CRON_URL:
+    process.env.CRON_URL ||
+    'https://fullforce-private-ai-agent.vercel.app/api/cron/process-unindexed-documents?limit=1',
 };
 
 // Validate configuration
@@ -28,6 +31,27 @@ if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY) {
 // Initialize Supabase client
 const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
+// Run the cron endpoint to process at least one document
+async function runCron() {
+  const headers = {};
+  if (process.env.CRON_API_KEY) {
+    headers['x-api-key'] = process.env.CRON_API_KEY;
+  } else if (process.env.CRON_BYPASS_KEY) {
+    headers['x-cron-key'] = process.env.CRON_BYPASS_KEY;
+  } else {
+    console.warn('⚠️ No CRON_API_KEY or CRON_BYPASS_KEY configured; skipping cron run');
+    return;
+  }
+
+  console.log(`🚀 Triggering CRON endpoint: ${CONFIG.CRON_URL}`);
+  const res = await fetch(CONFIG.CRON_URL, { headers });
+  const body = await res.text();
+  console.log('📨 CRON response:', body);
+  if (!res.ok) {
+    throw new Error(`Cron request failed with status ${res.status}`);
+  }
+}
+
 // Main function
 async function main() {
   console.log('🔍 Checking RAG System Status');
@@ -36,6 +60,35 @@ async function main() {
   console.log('');
 
   try {
+    // Run cron job first to ensure at least one document is processed
+    await runCron();
+
+    // Verify that at least one document has chunks and corresponding records
+    console.log('📄 Verifying processed documents...');
+    const { data: docData, error: docError } = await supabase
+      .from('documents_metadata')
+      .select('id, chunk_count')
+      .gt('chunk_count', 0)
+      .limit(1);
+    if (docError) {
+      throw new Error(`Failed to fetch documents: ${docError.message}`);
+    }
+    if (!docData || docData.length === 0) {
+      throw new Error('No documents with chunk_count > 0 found');
+    }
+    const docId = docData[0].id;
+    const { count: chunkCount, error: chunkErr } = await supabase
+      .from('document_chunks')
+      .select('*', { count: 'exact', head: true })
+      .eq('metadata->>id', docId);
+    if (chunkErr) {
+      throw new Error(`Failed to verify chunks: ${chunkErr.message}`);
+    }
+    if (!chunkCount || chunkCount === 0) {
+      throw new Error('No chunks found for processed document');
+    }
+    console.log(`✅ Document ${docId} has ${chunkCount} chunks`);
+
     // Check document processing status
     console.log('📊 Document Processing Status:');
     
