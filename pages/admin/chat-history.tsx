@@ -20,19 +20,29 @@ interface ChatSession {
   messages: ChatMessage[];
 }
 
+interface AdminSessionOverview {
+  id: string;
+  title: string;
+  mode: 'technical' | 'procurement';
+  updated_at: string;
+  user_email: string;
+  archived: boolean;
+  last_thumbs_down?: { message_id: string; created_at: string } | null;
+}
+
 export default function ChatHistoryPage() {
   const router = useRouter();
   const { session: sessionId, message: messageId } = router.query;
   const [chatSession, setChatSession] = useState<ChatSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<AdminSessionOverview[]>([]);
 
   useEffect(() => {
     if (sessionId) {
       fetchChatSession(sessionId as string);
       if (messageId) {
         setHighlightedMessageId(messageId as string);
-        // Scroll to message after a short delay
         setTimeout(() => {
           const element = document.getElementById(`message-${messageId}`);
           if (element) {
@@ -40,8 +50,30 @@ export default function ChatHistoryPage() {
           }
         }, 500);
       }
+    } else {
+      fetchSessions();
     }
   }, [sessionId, messageId]);
+
+  async function fetchSessions() {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      const res = await fetch('/api/admin/chat-sessions', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data);
+      }
+    } catch (error) {
+      console.error('Error fetching chat sessions:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function fetchChatSession(sessionId: string) {
     try {
@@ -96,6 +128,52 @@ export default function ChatHistoryPage() {
   const getModeLabel = (mode: string) => {
     return mode === 'technical' ? 'CeeS (Technical)' : 'ChriS (Procurement)';
   };
+
+  if (!sessionId && loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading chat sessions...</div>
+      </div>
+    );
+  }
+
+  if (!sessionId) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <h1 className="text-2xl font-bold mb-6">Chat Sessions</h1>
+          {sessions.length === 0 ? (
+            <div className="text-gray-600">No chat sessions found</div>
+          ) : (
+            <div className="space-y-4">
+              {sessions.map((s) => (
+                <div
+                  key={s.id}
+                  onClick={() => router.push(`/admin/chat-history?session=${s.id}${s.last_thumbs_down ? `&message=${s.last_thumbs_down.message_id}` : ''}`)}
+                  className="p-4 bg-white rounded shadow cursor-pointer hover:bg-gray-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{s.title}</div>
+                      <div className="text-sm text-gray-600">{s.user_email}</div>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {format(new Date(s.updated_at), 'dd-MM-yyyy HH:mm')}
+                    </div>
+                  </div>
+                  {s.last_thumbs_down && (
+                    <div className="mt-2 text-xs text-red-600">
+                      Last thumbs-down: {format(new Date(s.last_thumbs_down.created_at), 'dd-MM-yyyy HH:mm')}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
