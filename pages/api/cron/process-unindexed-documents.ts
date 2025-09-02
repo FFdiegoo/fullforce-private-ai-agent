@@ -1,5 +1,4 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../lib/supabaseClient';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { RAGPipeline } from '../../../lib/rag/pipeline';
 import { openaiApiKey, RAG_CONFIG } from '../../../lib/rag/config';
@@ -52,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const limit = parseInt(req.query.limit as string) || 10;
 
-    const { data: documents, error: fetchError } = await supabase
+    const { data: documents, error: fetchError } = await supabaseAdmin
       .from('documents_metadata')
       .select('*')
       .eq('ready_for_indexing', true)
@@ -107,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const document of documents) {
       try {
         console.log(
-          `[CRON] 🔧 Processing: ${document.filename} (id=${document.id}, retry=${document.retry_count || 0})`
+          `[CRON] 🔧 Processing: ${document.filename} (id=${document.id}, retry=${(document as any).retry_count || 0})`
         );
 
         const extension = path.extname(document.filename || '').toLowerCase();
@@ -133,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           continue;
         }
 
-        const { data: fileData, error: downloadError } = await supabase
+        const { data: fileData, error: downloadError } = await supabaseAdmin
           .storage
           .from('company-docs')
           .download(document.storage_path);
@@ -158,28 +157,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           extractedText = await fileData.text();
         }
 
-        if (!extractedText || extractedText.trim().length === 0) {
-          const message = 'No text found - needs OCR';
+        const textLen = (extractedText || '').trim().length;
+        console.log(`[CRON] text_len=${textLen} | mime=${mimeType} | ext=${extension}`);
+        if (!extractedText || textLen === 0) {
+          const message = 'needs-ocr';
           await supabaseAdmin
             .from('documents_metadata')
             .update({
-              processed: true,
-              processed_at: new Date().toISOString(),
+              processed: false,
+              processed_at: null,
               chunk_count: 0,
               last_error: message,
               needs_ocr: true,
             })
             .eq('id', document.id);
-
           results.push({ id: document.id, filename: document.filename, success: false, error: message });
           continue;
         }
 
         console.time(`[CRON] doc ${document.id}`);
-        let chunkCountFromPipeline = 0;
+        let chunkCount = 0;
         try {
           const metadata = { ...document, extractedText } as any;
-          chunkCountFromPipeline = await withTimeout(
+          chunkCount = await withTimeout(
             pipeline.processDocument(metadata, {
               chunkSize: RAG_CONFIG.chunkSize,
               chunkOverlap: RAG_CONFIG.chunkOverlap,
@@ -195,20 +195,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .update({
             processed: true,
             processed_at: new Date().toISOString(),
-            chunk_count: chunkCountFromPipeline,
+            chunk_count: chunkCount,
             last_error: null,
           })
           .eq('id', document.id);
 
-        console.log(
-          `[CRON] ✅ ${document.filename} → ${chunkCountFromPipeline} chunks`
-        );
+        console.log(`[CRON] ✅ ${document.filename} → ${chunkCount} chunks`);
 
         results.push({
           id: document.id,
           filename: document.filename,
           success: true,
-          chunk_count: chunkCountFromPipeline,
+          chunk_count: chunkCount,
         });
       } catch (error) {
         const err = error as Error;
@@ -224,7 +222,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         };
 
         if (isOpenAIError) {
-          updateData.retry_count = (document.retry_count || 0) + 1;
+          updateData.retry_count = ((document as any).retry_count || 0) + 1;
         } else {
           updateData.processed = true;
           updateData.processed_at = new Date().toISOString();
@@ -252,3 +250,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: 'Unexpected error', details: err.message });
   }
 }
+
