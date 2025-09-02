@@ -50,8 +50,12 @@ describe('RAGPipeline', () => {
     storeChunksMock.mockResolvedValue(undefined);
 
     const pipeline = new RAGPipeline(supabase, 'key');
-    await pipeline.processDocument({ id: 'doc1', filename: 'f' } as any, {} as any);
+    const count = await pipeline.processDocument(
+      { id: 'doc1', filename: 'f' } as any,
+      {} as any
+    );
 
+    expect(count).toBe(1);
     expect(processDocumentMock).toHaveBeenCalled();
     expect(generateEmbeddingsMock).toHaveBeenCalled();
     expect(storeChunksMock).toHaveBeenCalled();
