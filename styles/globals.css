@@ -17,6 +17,16 @@
   animation: fadeIn 0.3s ease-out forwards;
 }
 
-body {
-  @apply antialiased;
+@layer base {
+  body {
+    @apply antialiased bg-primary/5 text-gray-900 font-sans;
+  }
+
+  a {
+    @apply text-primary hover:text-secondary;
+  }
+
+  button {
+    @apply bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors;
+  }
 }
