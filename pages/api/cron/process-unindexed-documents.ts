@@ -106,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const document of documents) {
       try {
         console.log(
-          `[CRON] 🔧 Processing: ${document.filename} (id=${document.id}, retry=${document.retry_count || 0})`
+          `[CRON] 🔧 Processing: ${document.filename} (id=${document.id}, retry=${(document as any).retry_count || 0})`
         );
 
         const extension = path.extname(document.filename || '').toLowerCase();
@@ -222,7 +222,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         };
 
         if (isOpenAIError) {
-          updateData.retry_count = (document.retry_count || 0) + 1;
+          updateData.retry_count = ((document as any).retry_count || 0) + 1;
         } else {
           updateData.processed = true;
           updateData.processed_at = new Date().toISOString();
@@ -250,3 +250,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: 'Unexpected error', details: err.message });
   }
 }
+
