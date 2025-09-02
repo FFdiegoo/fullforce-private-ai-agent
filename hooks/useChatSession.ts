@@ -89,8 +89,8 @@ export function useChatSession(mode: 'technical' | 'procurement') {
         .select()
         .single();
 
-      if (error) {
-        console.error('Error creating chat session:', error);
+      if (error || !data) {
+        console.error('Error creating chat session:', error || 'No data returned');
         return null;
       }
 
@@ -121,13 +121,13 @@ export function useChatSession(mode: 'technical' | 'procurement') {
         .select('id')
         .single();
 
-      if (error) {
-        console.error('Error saving message:', error);
+      if (error || !data) {
+        console.error('Error saving message:', error || 'No data returned');
         return null;
-      } else {
-        console.log('Message saved successfully with ID:', data.id);
-        return data.id;
       }
+
+      console.log('Message saved successfully with ID:', data.id);
+      return data.id;
     } catch (error) {
       console.error('Error saving message:', error);
       return null;
