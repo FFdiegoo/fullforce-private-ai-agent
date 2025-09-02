@@ -21,30 +21,50 @@ export function useChatSession(mode: 'technical' | 'procurement') {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Generate a title from the first user message
-  const generateTitle = (firstMessage: string): string => {
+  // Generate a title using API endpoint with fallback to first message snippet
+  const generateTitle = async (firstMessage: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/generate-title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: firstMessage })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.title) return data.title as string;
+      }
+    } catch (error) {
+      console.error('Error generating title:', error);
+    }
     const words = firstMessage.split(' ').slice(0, 6);
     return words.join(' ') + (firstMessage.split(' ').length > 6 ? '...' : '');
   };
 
-  // Get user profile ID by email
+  // Get user profile ID using auth user id, fallback to email lookup
   const getUserProfileId = async (): Promise<string | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data: profile, error } = await supabase
+      // First try by user.id
+      const { data: profileById } = await supabase
         .from('profiles')
         .select('id')
-        .eq('email', user.email) // Changed from id to email
+        .eq('id', user.id)
         .single();
+      if (profileById) return user.id;
 
-      if (error) {
-        console.error('Error getting user profile:', error.message);
-        return null;
+      // Fallback to email if profile with id not found
+      if (user.email) {
+        const { data: profileByEmail } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', user.email)
+          .single();
+        if (profileByEmail) return profileByEmail.id;
       }
 
-      return profile?.id || null;
+      return null;
     } catch (error) {
       console.error('Error in getUserProfileId:', error);
       return null;
@@ -57,7 +77,7 @@ export function useChatSession(mode: 'technical' | 'procurement') {
       const userId = await getUserProfileId();
       if (!userId) return null;
 
-      const title = generateTitle(firstMessage);
+      const title = await generateTitle(firstMessage);
 
       const { data, error } = await supabase
         .from('chat_sessions')

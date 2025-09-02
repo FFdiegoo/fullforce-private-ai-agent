@@ -19,81 +19,105 @@ interface ChatSidebarProps {
   mode: 'technical' | 'procurement';
 }
 
-export default function ChatSidebar({ 
-  isOpen, 
-  onToggle, 
-  currentSessionId, 
-  onSessionSelect, 
+export default function ChatSidebar({
+  isOpen,
+  onToggle,
+  currentSessionId,
+  onSessionSelect,
   onNewChat,
-  mode 
+  mode
 }: ChatSidebarProps) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     fetchChatSessions();
-  }, [mode]);
+  }, [mode, showArchived]);
 
   async function fetchChatSessions() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get user profile to get the correct user_id by email
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', user.email)
-        .single();
-
-      if (profileError || !profile) {
-        console.error('Error fetching profile:', profileError);
-        return;
-      }
-
-      const { data, error } = await supabase
+      let userId = user.id;
+      let { data, error } = await supabase
         .from('chat_sessions')
         .select('*')
-        .eq('user_id', profile.id)
+        .eq('user_id', userId)
         .eq('mode', mode)
+        .eq('archived', showArchived)
         .order('updated_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching chat sessions:', error);
-        return;
+      if (error || !data) {
+        // Fallback: try to find profile by email
+        if (user.email) {
+          const { data: profileByEmail } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', user.email)
+            .single();
+          if (profileByEmail) {
+            userId = profileByEmail.id;
+            const res = await supabase
+              .from('chat_sessions')
+              .select('*')
+              .eq('user_id', userId)
+              .eq('mode', mode)
+              .eq('archived', showArchived)
+              .order('updated_at', { ascending: false });
+            data = res.data;
+          }
+        }
       }
 
       setSessions(data || []);
-      console.log('Fetched', data?.length || 0, 'chat sessions for mode:', mode);
+      console.log('Fetched', data?.length || 0, 'chat sessions for mode:', mode, 'archived:', showArchived);
     } catch (error) {
       console.error('Error in fetchChatSessions:', error);
     } finally {
       setLoading(false);
     }
   }
-
-  async function deleteSession(sessionId: string, e: React.MouseEvent) {
+  async function archiveSession(sessionId: string, e: React.MouseEvent) {
     e.stopPropagation();
-    
-    if (!confirm('Are you sure you want to delete this chat?')) return;
+
+    if (!confirm('Are you sure you want to archive this chat?')) return;
 
     try {
       const { error } = await supabase
         .from('chat_sessions')
-        .delete()
+        .update({ archived: true })
         .eq('id', sessionId);
 
       if (error) throw error;
 
       setSessions(prev => prev.filter(s => s.id !== sessionId));
-      
-      // If we deleted the current session, start a new chat
+
       if (sessionId === currentSessionId) {
         onNewChat();
       }
     } catch (error) {
-      console.error('Error deleting session:', error);
-      alert('Failed to delete chat session');
+      console.error('Error archiving session:', error);
+      alert('Failed to archive chat session');
+    }
+  }
+
+  async function restoreSession(sessionId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+
+    try {
+      const { error } = await supabase
+        .from('chat_sessions')
+        .update({ archived: false })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+    } catch (error) {
+      console.error('Error restoring session:', error);
+      alert('Failed to restore chat session');
     }
   }
 
@@ -163,13 +187,20 @@ export default function ChatSidebar({
               ✕
             </button>
           </div>
-          
+
           <button
             onClick={onNewChat}
             className="w-full bg-gray-800 dark:bg-gray-900 hover:bg-gray-700 dark:hover:bg-gray-800 text-white rounded-lg py-2 px-3 text-sm font-medium transition-colors flex items-center justify-center"
           >
             <span className="mr-2">+</span>
             New Chat
+          </button>
+
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className="w-full mt-2 bg-gray-800 dark:bg-gray-900 hover:bg-gray-700 dark:hover:bg-gray-800 text-white rounded-lg py-2 px-3 text-sm font-medium transition-colors"
+          >
+            {showArchived ? 'Show Active' : 'Show Archived'}
           </button>
         </div>
 
@@ -181,7 +212,7 @@ export default function ChatSidebar({
             </div>
           ) : sessions.length === 0 ? (
             <div className="p-4 text-center text-gray-400">
-              No chat history yet
+              {showArchived ? 'No archived chats' : 'No chat history yet'}
             </div>
           ) : (
             <div className="p-2">
@@ -208,11 +239,17 @@ export default function ChatSidebar({
                     </div>
                     
                     <button
-                      onClick={(e) => deleteSession(session.id, e)}
-                      className="opacity-0 group-hover:opacity-100 ml-2 text-gray-400 hover:text-red-400 transition-all p-1"
-                      title="Delete chat"
+                      onClick={(e) =>
+                        showArchived
+                          ? restoreSession(session.id, e)
+                          : archiveSession(session.id, e)
+                      }
+                      className={`opacity-0 group-hover:opacity-100 ml-2 text-gray-400 transition-all p-1 ${
+                        showArchived ? 'hover:text-green-400' : 'hover:text-red-400'
+                      }`}
+                      title={showArchived ? 'Restore chat' : 'Archive chat'}
                     >
-                      🗑️
+                      {showArchived ? '↩️' : '🗑️'}
                     </button>
                   </div>
                 </div>
