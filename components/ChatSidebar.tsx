@@ -190,7 +190,7 @@ export default function ChatSidebar({
 
           <button
             onClick={onNewChat}
-            className="w-full bg-secondary hover:bg-secondary/90 text-white rounded-lg py-2 px-3 text-sm font-medium transition-colors flex items-center justify-center shadow"
+            className="w-full bg-secondary hover:bg-secondary/90 text-gray-900 rounded-lg py-2 px-3 text-sm font-medium transition-colors flex items-center justify-center shadow"
           >
             <span className="mr-2">+</span>
             New Chat
@@ -223,7 +223,7 @@ export default function ChatSidebar({
                   className={`
                     group relative p-3 rounded-lg cursor-pointer transition-colors mb-1 shadow-sm
                     ${currentSessionId === session.id
-                      ? 'bg-secondary text-white'
+                      ? 'bg-secondary text-gray-900'
                       : 'hover:bg-primary/60 text-white/90'
                     }
                   `}

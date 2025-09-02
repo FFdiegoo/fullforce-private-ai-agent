@@ -76,7 +76,7 @@ export default function ChatPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              <Image src="/csrental-logo.svg" alt="CSRental logo" width={32} height={32} className="mr-2" />
+              <Image src="/csrental-logo.svg" alt="CSRental logo" width={96} height={96} className="mr-2" />
               <div>
                 <h1 className="text-2xl font-bold">{validMode === 'technical' ? 'CeeS' : 'ChriS'}</h1>
                 <p className="text-white/80 text-sm mt-1">
@@ -90,7 +90,7 @@ export default function ChatPage() {
               <ThemeToggle />
               <button
                 onClick={() => router.push('/select-assistant')}
-                className="px-4 py-2 rounded-lg bg-secondary text-white hover:bg-secondary/90 transition-colors duration-200"
+                className="px-4 py-2 rounded-lg bg-secondary text-gray-900 hover:bg-secondary/90 transition-colors duration-200"
               >
                 Switch Assistant
               </button>

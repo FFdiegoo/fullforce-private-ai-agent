@@ -158,7 +158,7 @@ CSrental AI Team`;
                   <div className="bg-white p-3 rounded border">
                     <p><strong>Email:</strong> {result.loginCredentials.email}</p>
                     <p><strong>Temporary Password:</strong> <code className="bg-gray-100 px-1 rounded">{result.loginCredentials.password}</code></p>
-                    <p className="text-xs text-orange-600 mt-1">⚠️ {result.loginCredentials.note}</p>
+                    <p className="text-xs text-primary mt-1">⚠️ {result.loginCredentials.note}</p>
                   </div>
                   <div className="flex space-x-2 mt-2">
                     <button

@@ -213,7 +213,7 @@ export default function AdminDashboard() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center">
-            <Image src="/csrental-logo.svg" alt="CSRental logo" width={32} height={32} className="mr-3" />
+            <Image src="/csrental-logo.svg" alt="CSRental logo" width={96} height={96} className="mr-3" />
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
               <p className="text-gray-600 mt-1">Beheer gebruikers en documenten</p>

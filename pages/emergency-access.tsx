@@ -45,7 +45,7 @@ export default function EmergencyAccess() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-red-500 via-secondary to-yellow-500 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
           <div className="text-6xl mb-4">✅</div>
           <h1 className="text-2xl font-bold text-green-600 mb-4">
@@ -81,7 +81,7 @@ export default function EmergencyAccess() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-red-500 via-secondary to-yellow-500 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full">
         <div className="text-center mb-8">
           <div className="text-6xl mb-4">🚨</div>

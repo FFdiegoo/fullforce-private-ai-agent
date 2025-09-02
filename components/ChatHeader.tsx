@@ -20,8 +20,8 @@ export default function ChatHeader({ mode }: ChatHeaderProps) {
           <Image
             src="/csrental-logo.svg"
             alt="CSRental logo"
-            width={32}
-            height={32}
+            width={96}
+            height={96}
             className="mr-3"
           />
           <div>
@@ -31,7 +31,7 @@ export default function ChatHeader({ mode }: ChatHeaderProps) {
         </div>
         <button
           onClick={() => router.push('/select-assistant')}
-          className="px-4 py-2 rounded-lg bg-secondary text-white hover:bg-secondary/90 transition-colors duration-200"
+          className="px-4 py-2 rounded-lg bg-secondary text-gray-900 hover:bg-secondary/90 transition-colors duration-200"
         >
           Switch Assistant
         </button>
