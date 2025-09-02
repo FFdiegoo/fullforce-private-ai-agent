@@ -34,8 +34,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = req.headers['x-api-key'];
-  const cronBypassKey = req.headers['x-cron-key'];
+  const apiKey = req.headers['x-api-key'] as string | undefined;
+  const cronBypassKey = req.headers['x-cron-key'] as string | undefined;
 
   if (apiKey === API_KEY) {
     console.log('✅ Valid API key');
@@ -57,8 +57,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('ready_for_indexing', true)
       .eq('processed', false)
       .order('last_updated', { ascending: true })
-      .limit(limit);
-
-    if (fetchError) {
-      console.error('❌ Error fetching documents:', fetchError);
-      return res.status(500).json({ error: 'Failed
+      .
