@@ -27,6 +27,6 @@
   }
 
   button {
-    @apply bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors;
+    @apply bg-secondary text-gray-900 rounded-lg hover:bg-secondary/90 transition-colors;
   }
 }
