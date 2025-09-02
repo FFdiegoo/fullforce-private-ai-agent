@@ -35,6 +35,10 @@ export default function ChatSidebar({
     fetchChatSessions();
   }, [mode, showArchived]);
 
+  useEffect(() => {
+    fetchChatSessions();
+  }, [currentSessionId]);
+
   async function fetchChatSessions() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -189,7 +193,10 @@ export default function ChatSidebar({
           </div>
 
           <button
-            onClick={onNewChat}
+            onClick={() => {
+              onNewChat();
+              fetchChatSessions();
+            }}
             className="w-full bg-secondary hover:bg-secondary/90 text-gray-900 rounded-lg py-2 px-3 text-sm font-medium transition-colors flex items-center justify-center shadow"
           >
             <span className="mr-2">+</span>
