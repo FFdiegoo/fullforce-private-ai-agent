@@ -170,19 +170,19 @@ export default function ChatSidebar({
 
       {/* Sidebar */}
       <div className={`
-        fixed left-0 top-0 h-full bg-gray-900 dark:bg-gray-950 text-white z-50 transition-transform duration-300 ease-in-out
+        fixed left-0 top-0 h-full bg-primary text-white z-50 transition-transform duration-300 ease-in-out shadow-lg
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         w-80 lg:w-64
       `}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-700 dark:border-gray-800">
+        <div className="p-4 border-b border-primary/30">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">
               {mode === 'technical' ? 'CeeS Chats' : 'ChriS Chats'}
             </h2>
             <button
               onClick={onToggle}
-              className="text-gray-400 hover:text-white transition-colors lg:hidden"
+              className="text-white/70 hover:text-white transition-colors lg:hidden"
             >
               ✕
             </button>
@@ -190,7 +190,7 @@ export default function ChatSidebar({
 
           <button
             onClick={onNewChat}
-            className="w-full bg-gray-800 dark:bg-gray-900 hover:bg-gray-700 dark:hover:bg-gray-800 text-white rounded-lg py-2 px-3 text-sm font-medium transition-colors flex items-center justify-center"
+            className="w-full bg-secondary hover:bg-secondary/90 text-white rounded-lg py-2 px-3 text-sm font-medium transition-colors flex items-center justify-center shadow"
           >
             <span className="mr-2">+</span>
             New Chat
@@ -198,7 +198,7 @@ export default function ChatSidebar({
 
           <button
             onClick={() => setShowArchived(!showArchived)}
-            className="w-full mt-2 bg-gray-800 dark:bg-gray-900 hover:bg-gray-700 dark:hover:bg-gray-800 text-white rounded-lg py-2 px-3 text-sm font-medium transition-colors"
+            className="w-full mt-2 bg-primary/70 hover:bg-primary/60 text-white rounded-lg py-2 px-3 text-sm font-medium transition-colors shadow"
           >
             {showArchived ? 'Show Active' : 'Show Archived'}
           </button>
@@ -207,11 +207,11 @@ export default function ChatSidebar({
         {/* Chat Sessions List */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="p-4 text-center text-gray-400">
+            <div className="p-4 text-center text-white/70">
               Loading chats...
             </div>
           ) : sessions.length === 0 ? (
-            <div className="p-4 text-center text-gray-400">
+            <div className="p-4 text-center text-white/70">
               {showArchived ? 'No archived chats' : 'No chat history yet'}
             </div>
           ) : (
@@ -221,10 +221,10 @@ export default function ChatSidebar({
                   key={session.id}
                   onClick={() => onSessionSelect(session.id)}
                   className={`
-                    group relative p-3 rounded-lg cursor-pointer transition-colors mb-1
-                    ${currentSessionId === session.id 
-                      ? 'bg-gray-700 dark:bg-gray-800 text-white' 
-                      : 'hover:bg-gray-800 dark:hover:bg-gray-900 text-gray-300'
+                    group relative p-3 rounded-lg cursor-pointer transition-colors mb-1 shadow-sm
+                    ${currentSessionId === session.id
+                      ? 'bg-secondary text-white'
+                      : 'hover:bg-primary/60 text-white/90'
                     }
                   `}
                 >
@@ -233,23 +233,21 @@ export default function ChatSidebar({
                       <div className="text-sm font-medium truncate">
                         {session.title}
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">
+                      <div className="text-xs text-white/70 mt-1">
                         {formatDate(session.updated_at)}
                       </div>
                     </div>
-                    
+
                     <button
                       onClick={(e) =>
                         showArchived
                           ? restoreSession(session.id, e)
                           : archiveSession(session.id, e)
                       }
-                      className={`opacity-0 group-hover:opacity-100 ml-2 text-gray-400 transition-all p-1 ${
-                        showArchived ? 'hover:text-green-400' : 'hover:text-red-400'
-                      }`}
+                      className={`opacity-0 group-hover:opacity-100 ml-2 text-white/70 transition-all p-1 hover:text-secondary`}
                       title={showArchived ? 'Restore chat' : 'Archive chat'}
                     >
-                      {showArchived ? '↩️' : '🗑️'}
+                      {showArchived ? '↩️' : '📦'}
                     </button>
                   </div>
                 </div>
@@ -259,8 +257,8 @@ export default function ChatSidebar({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-700 dark:border-gray-800">
-          <div className="text-xs text-gray-400 text-center">
+        <div className="p-4 border-t border-primary/30">
+          <div className="text-xs text-white/70 text-center">
             {sessions.length} chat{sessions.length !== 1 ? 's' : ''}
           </div>
         </div>

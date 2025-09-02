@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router';
 import { useState, useEffect, useRef } from 'react';
-import ChatHeader from '../components/ChatHeader';
+import Image from 'next/image';
 import ChatBubble from '../components/ChatBubble';
 import ChatInputWithSelector from '../components/ChatInputWithSelector';
 import ChatSidebar from '../components/ChatSidebar';
@@ -50,7 +50,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="flex h-screen bg-primary/5">
       {/* Chat Sidebar */}
       <ChatSidebar
         isOpen={sidebarOpen}
@@ -64,24 +64,23 @@ export default function ChatPage() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Header with sidebar toggle */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg border-b border-gray-200 dark:border-gray-700">
+        <div className="bg-primary text-white shadow-lg">
           <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="mr-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="mr-4 p-2 rounded-lg hover:bg-primary/80 transition-colors"
                 title="Toggle chat history"
               >
-                <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
+              <Image src="/csrental-logo.svg" alt="CSRental logo" width={32} height={32} className="mr-2" />
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  {validMode === 'technical' ? 'CeeS' : 'ChriS'}
-                </h1>
-                <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
-                  {validMode === 'technical' 
+                <h1 className="text-2xl font-bold">{validMode === 'technical' ? 'CeeS' : 'ChriS'}</h1>
+                <p className="text-white/80 text-sm mt-1">
+                  {validMode === 'technical'
                     ? 'Your expert for technical questions and documentation'
                     : 'Your specialist for procurement and supplier information'}
                 </p>
@@ -91,7 +90,7 @@ export default function ChatPage() {
               <ThemeToggle />
               <button
                 onClick={() => router.push('/select-assistant')}
-                className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200"
+                className="px-4 py-2 rounded-lg bg-secondary text-white hover:bg-secondary/90 transition-colors duration-200"
               >
                 Switch Assistant
               </button>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { supabase } from '../../lib/supabaseClient';
 import { format } from 'date-fns';
 import UserChatModal from '../../components/UserChatModal';
@@ -211,12 +212,15 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600 mt-1">Beheer gebruikers en documenten</p>
-            {currentUser && (
-              <p className="text-sm text-gray-500 mt-1">Ingelogd als: {currentUser.email}</p>
-            )}
+          <div className="flex items-center">
+            <Image src="/csrental-logo.svg" alt="CSRental logo" width={32} height={32} className="mr-3" />
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+              <p className="text-gray-600 mt-1">Beheer gebruikers en documenten</p>
+              {currentUser && (
+                <p className="text-sm text-gray-500 mt-1">Ingelogd als: {currentUser.email}</p>
+              )}
+            </div>
           </div>
           <div className="flex space-x-3">
             <button
