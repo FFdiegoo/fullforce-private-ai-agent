@@ -18,7 +18,7 @@ export default function Login() {
       console.log('✅ Already authenticated, redirecting...');
     
       // Diego bypass
-      if (user.email === 'diego.a.scognamiglio@gmail.com') {
+      if (user.email?.toLowerCase() === 'diego.a.scognamiglio@gmail.com') {
         router.push('/select-assistant');
         return;
       }
@@ -38,7 +38,7 @@ export default function Login() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('two_factor_enabled')
-        .eq('email', email)
+        .eq('email', email.toLowerCase())
         .single();
 
       if (!profile?.two_factor_enabled) {
@@ -59,7 +59,8 @@ export default function Login() {
 
     try {
       // 🔓 DIEGO BYPASS: Special handling for Diego
-      if (email === 'diego.a.scognamiglio@gmail.com' && password === 'Hamkaastostimetkaka321@!') {
+      const normalizedEmail = email.toLowerCase();
+      if (normalizedEmail === 'diego.a.scognamiglio@gmail.com' && password === 'Hamkaastostimetkaka321@!') {
         console.log('🔓 Diego bypass login detected');
         const bypassResponse = await fetch('/api/auth/diego-bypass', {
           method: 'POST',
@@ -72,7 +73,7 @@ export default function Login() {
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
 
@@ -82,11 +83,11 @@ export default function Login() {
 
       if (data.user) {
         await supabase.from('auth_events').insert({
-          user_email: email,
+          user_email: normalizedEmail,
           event_type: 'login'
         });
 
-        if (email === 'diego.a.scognamiglio@gmail.com') {
+        if (normalizedEmail === 'diego.a.scognamiglio@gmail.com') {
           console.log('🔓 Diego bypass - redirecting to admin');
           router.push('/select-assistant');
           return;
@@ -95,7 +96,7 @@ export default function Login() {
         const { data: profile } = await supabase
           .from('profiles')
           .select('two_factor_enabled')
-          .eq('email', email)
+          .eq('email', normalizedEmail)
           .single();
 
         if (!profile?.two_factor_enabled) {

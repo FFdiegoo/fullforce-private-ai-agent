@@ -65,7 +65,7 @@ export function useSession() {
     loading,
     logout,
     isAuthenticated: !!session,
-    hasRole: (role: string) => session?.role === role,
-    hasPermission: (permission: string) => session?.permissions.includes(permission) || session?.role === 'admin'
+    hasRole: (role: string) => session?.role?.toLowerCase() === role.toLowerCase(),
+    hasPermission: (permission: string) => session?.permissions.includes(permission) || session?.role?.toLowerCase() === 'admin'
   };
 }

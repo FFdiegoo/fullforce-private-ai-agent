@@ -9,9 +9,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const { email, password } = req.body;
+    const normalizedEmail = email?.toLowerCase();
 
     // Only allow Diego's specific email
-    if (email !== 'diego.a.scognamiglio@gmail.com') {
+    if (normalizedEmail !== 'diego.a.scognamiglio@gmail.com') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -28,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let authenticatedUser;
     try {
       const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password
       });
 
@@ -70,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: existingProfile, error: checkError } = await supabaseAdmin
       .from('profiles')
       .select('*')
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .single();
 
     if (checkError && checkError.code !== 'PGRST116') {
@@ -118,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           backup_codes: ['BYPASS_CODE_' + Date.now()],
           updated_at: new Date().toISOString()
         })
-        .eq('email', email)
+        .eq('email', normalizedEmail)
         .select()
         .single();
 
@@ -133,7 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Log the bypass access
     await auditLogger.logAuth('DIEGO_BYPASS_ACCESS', authenticatedUser.id, {
-      email,
+      email: normalizedEmail,
       method: 'bypass_login',
       profileId: profile.id,
       authUserId: authenticatedUser.id

@@ -32,10 +32,11 @@ export default function Home() {
         return;
       }
 
-      console.log('✅ Session found for:', session.user.email);
+      const email = session.user.email?.toLowerCase();
+      console.log('✅ Session found for:', email);
 
       // 🔓 DIEGO BYPASS: Check if this is Diego's account
-      if (session.user.email === 'diego.a.scognamiglio@gmail.com') {
+      if (email === 'diego.a.scognamiglio@gmail.com') {
         console.log('🔓 Diego detected, bypassing 2FA checks');
         router.push('/select-assistant');
         return;
@@ -46,7 +47,7 @@ export default function Home() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('two_factor_enabled, role')
-        .eq('email', session.user.email)
+        .eq('email', email)
         .single();
 
       if (profileError) {

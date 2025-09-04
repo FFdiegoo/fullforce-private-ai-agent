@@ -61,7 +61,7 @@ export default function Setup2FAPage() {
       }
 
       // Diego bypass
-      if (authUser.email === 'diego.a.scognamiglio@gmail.com') {
+      if (authUser.email?.toLowerCase() === 'diego.a.scognamiglio@gmail.com') {
         console.log('🔓 Diego detected, redirecting to select-assistant');
         router.push('/select-assistant');
         return;
