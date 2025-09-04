@@ -189,12 +189,11 @@ export default function NegativeFeedbackPanel({ onFeedbackViewed }: NegativeFeed
                     <strong>Sessie:</strong> {feedback.session_title}
                   </div>
                   
-                  <div className="text-sm text-gray-800 bg-white p-3 rounded border-l-4 border-red-400 mb-2">
-                    <strong>AI Antwoord:</strong><br />
-                    {feedback.message_content.length > 150 
-                      ? feedback.message_content.substring(0, 150) + '...'
-                      : feedback.message_content
-                    }
+                  <div className="text-sm text-gray-800 bg-white p-3 rounded border-l-4 border-red-400 mb-2 max-h-40 overflow-y-auto">
+                    <strong>AI Antwoord:</strong>
+                    <div className="whitespace-pre-wrap mt-1">
+                      {feedback.message_content}
+                    </div>
                   </div>
                   
                   <div className="text-xs text-gray-500">
