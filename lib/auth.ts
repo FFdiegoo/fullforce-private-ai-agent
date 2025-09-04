@@ -14,11 +14,16 @@ export async function getUserAndRole(ctx: GetServerSidePropsContext) {
   const user = session?.user || null;
 
   if (!user) return { user: null, role: null };
+  const email = user.email?.toLowerCase();
+  if (!email) {
+    console.error('Email not found for user');
+    return { user, role: null };
+  }
 
   const { data, error } = await supabase
     .from('profiles')
     .select('role')
-    .eq('email', user.email.toLowerCase()) // Changed from id to email
+    .eq('email', email) // Changed from id to email
     .single();
 
   if (error) {
