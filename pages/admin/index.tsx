@@ -69,10 +69,11 @@ export default function AdminDashboard() {
       }
 
       setCurrentUser(user);
-      console.log('Current user:', user.email);
+      const email = user.email?.toLowerCase();
+      console.log('Current user:', email);
 
       // Check if user has admin role in app_metadata first
-      if (user.app_metadata?.role === 'admin') {
+      if (user.app_metadata?.role?.toLowerCase() === 'admin') {
         console.log('User has admin role in auth metadata');
         setIsAdmin(true);
         await fetchData();
@@ -83,7 +84,7 @@ export default function AdminDashboard() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('email', user.email)
+        .eq('email', email)
         .single();
 
       if (profileError) {
@@ -93,7 +94,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      if (!profile || profile.role !== 'admin') {
+      if (!profile || profile.role?.toLowerCase() !== 'admin') {
         console.log('User is not admin, redirecting');
         router.push('/select-assistant');
         return;
@@ -382,8 +383,8 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className={`px-2 py-1 text-xs rounded-full ${
-                      user.role === 'admin' 
-                        ? 'bg-red-100 text-red-800' 
+                      user.role?.toLowerCase() === 'admin'
+                        ? 'bg-red-100 text-red-800'
                         : 'bg-blue-100 text-blue-800'
                     }`}>
                       {user.role}

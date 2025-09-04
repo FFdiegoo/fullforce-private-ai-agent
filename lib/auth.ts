@@ -18,7 +18,7 @@ export async function getUserAndRole(ctx: GetServerSidePropsContext) {
   const { data, error } = await supabase
     .from('profiles')
     .select('role')
-    .eq('email', user.email) // Changed from id to email
+    .eq('email', user.email.toLowerCase()) // Changed from id to email
     .single();
 
   if (error) {
@@ -26,5 +26,5 @@ export async function getUserAndRole(ctx: GetServerSidePropsContext) {
     return { user, role: null };
   }
 
-  return { user, role: data?.role || null };
+  return { user, role: data?.role?.toLowerCase() || null };
 }
