@@ -41,14 +41,27 @@ export default function AdminDashboard() {
   const [showChatModal, setShowChatModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (!authChecked) {
+      checkAuth();
+    }
+  }, [authChecked]);
 
   async function checkAuth() {
+    if (authChecked) return;
+    setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error('Error retrieving user:', userError.message);
+        setError('Authenticatie mislukt. Probeer opnieuw.');
+        router.push('/login');
+        return;
+      }
+
       if (!user) {
         console.log('No user found, redirecting to login');
         router.push('/login');
@@ -74,7 +87,8 @@ export default function AdminDashboard() {
         .single();
 
       if (profileError) {
-        console.error('Error fetching profile:', profileError);
+        console.error('Error fetching profile:', profileError.message);
+        setError('Profiel kon niet worden opgehaald.');
         router.push('/select-assistant');
         return;
       }
@@ -88,9 +102,13 @@ export default function AdminDashboard() {
       console.log('User is admin, loading dashboard');
       setIsAdmin(true);
       await fetchData();
-    } catch (error) {
-      console.error('Auth check error:', error);
-      router.push('/login');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('Auth check error:', message);
+      setError('Onverwachte authenticatiefout.');
+    } finally {
+      setAuthChecked(true);
+      setLoading(false);
     }
   }
 
@@ -189,6 +207,14 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-gray-600">Loading admin dashboard...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-red-600">{error}</div>
       </div>
     );
   }
