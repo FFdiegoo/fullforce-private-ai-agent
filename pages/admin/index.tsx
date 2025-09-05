@@ -44,6 +44,13 @@ export default function AdminDashboard() {
   const [authChecked, setAuthChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Invite form state
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<boolean | null>(null);
+
   useEffect(() => {
     if (!authChecked) {
       checkAuth();
@@ -144,6 +151,51 @@ export default function AdminDashboard() {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSendInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail) {
+      setInviteMessage('Email is vereist');
+      setInviteSuccess(false);
+      return;
+    }
+    try {
+      setInviteLoading(true);
+      setInviteMessage(null);
+      const {
+        data: { session }
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setInviteMessage('Geen sessie gevonden');
+        setInviteSuccess(false);
+        return;
+      }
+      const response = await fetch('/api/admin/create-invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ email: inviteEmail, name: inviteName })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setInviteSuccess(true);
+        setInviteMessage('Invite succesvol verzonden!');
+        setInviteEmail('');
+        setInviteName('');
+      } else {
+        setInviteSuccess(false);
+        setInviteMessage(data.error || 'Verzenden mislukt');
+      }
+    } catch (error) {
+      console.error('Invite error:', error);
+      setInviteSuccess(false);
+      setInviteMessage('Verzenden mislukt');
+    } finally {
+      setInviteLoading(false);
     }
   }
 
@@ -351,6 +403,47 @@ export default function AdminDashboard() {
 
           {/* Feedback Stats Card */}
           <FeedbackStats />
+        </div>
+
+        {/* Invite Form */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">Nodig gebruiker uit</h2>
+          <form onSubmit={handleSendInvite} className="flex flex-col sm:flex-row gap-4">
+            <input
+              type="email"
+              required
+              value={inviteEmail}
+              onChange={e => setInviteEmail(e.target.value)}
+              placeholder="Email"
+              className="flex-1 p-2 border rounded-md"
+            />
+            <input
+              type="text"
+              value={inviteName}
+              onChange={e => setInviteName(e.target.value)}
+              placeholder="Naam (optioneel)"
+              className="flex-1 p-2 border rounded-md"
+            />
+            <button
+              type="submit"
+              disabled={inviteLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {inviteLoading ? 'Versturen...' : 'Verstuur invite'}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/admin/user-management')}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Beheer invites
+            </button>
+          </form>
+          {inviteMessage && (
+            <p className={`mt-4 text-sm ${inviteSuccess ? 'text-green-600' : 'text-red-600'}`}>
+              {inviteMessage}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
