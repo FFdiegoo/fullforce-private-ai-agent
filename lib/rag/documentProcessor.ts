@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { DocumentMetadata, TextChunk, ProcessingOptions } from './types';
+import { DocumentMetadata, TextChunk, ProcessingOptions } from './types.ts';
 
 export class DocumentProcessor {
   private supabaseAdmin: SupabaseClient;
