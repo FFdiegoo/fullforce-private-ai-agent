@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 
-// fetch polyfill (Node < 18)
+// ---- fetch polyfill (voor Node < 18; onschadelijk op >=18) ----
 let _undici;
-try {
-  _undici = require('undici');
-} catch {}
+try { _undici = require('undici'); } catch {}
 if (_undici) {
   const { fetch, Headers, Request, Response } = _undici;
   Object.assign(global, { fetch, Headers, Request, Response });
@@ -15,16 +13,21 @@ if (_undici) {
   } catch {}
 }
 
-require('ts-node/register');
+// ---- ts-node CJS hook + env laden ----
+require('ts-node').register({ transpileOnly: true, compilerOptions: { module: 'commonjs' } });
 require('dotenv').config({ path: '.env.local' });
 
+// ---- imports ----
 const { createClient } = require('@supabase/supabase-js');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const path = require('path');
-const { RAGPipeline } = require('../lib/rag/pipeline');
-const { RAG_CONFIG, openaiApiKey } = require('../lib/rag/config');
 
+// ✅ Let op de .ts extensies hieronder (je roept aan vanuit een .js script)
+const { RAGPipeline } = require('../lib/rag/pipeline.ts');
+const { RAG_CONFIG, openaiApiKey } = require('../lib/rag/config.ts');
+
+// ---- config ----
 const CONFIG = {
   SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -61,13 +64,7 @@ async function withTimeout(promise, ms = 60_000) {
   ]);
 }
 
-const summary = {
-  total: 0,
-  processed_ok: 0,
-  needs_ocr: 0,
-  retried: 0,
-  failed: 0,
-};
+const summary = { total: 0, processed_ok: 0, needs_ocr: 0, retried: 0, failed: 0 };
 
 async function main() {
   try {
@@ -93,14 +90,12 @@ async function main() {
       const batch = batches[i];
       console.log(`\n🔄 Processing batch ${i + 1}/${batches.length} (${batch.length} docs)`);
       await processBatch(batch, CONFIG.CONCURRENCY);
-      if (i < batches.length - 1) {
-        await delay(CONFIG.DELAY_MS);
-      }
+      if (i < batches.length - 1) await delay(CONFIG.DELAY_MS);
     }
 
     console.log(JSON.stringify({ ok: true, ...summary }));
   } catch (err) {
-    console.error('❌ Fatal error:', err.message);
+    console.error('❌ Fatal error:', err && err.message ? err.message : err);
     process.exit(1);
   }
 }
@@ -119,12 +114,11 @@ async function processBatch(docs, concurrency) {
   const executing = [];
   for (const doc of docs) {
     const p = processDocument(doc).finally(() => {
-      executing.splice(executing.indexOf(p), 1);
+      const idx = executing.indexOf(p);
+      if (idx > -1) executing.splice(idx, 1);
     });
     executing.push(p);
-    if (executing.length >= concurrency) {
-      await Promise.race(executing);
-    }
+    if (executing.length >= concurrency) await Promise.race(executing);
   }
   await Promise.all(executing);
 }
@@ -137,13 +131,7 @@ async function processDocument(document) {
   if (!isSupported) {
     await supabaseAdmin
       .from('documents_metadata')
-      .update({
-        processed: false,
-        processed_at: null,
-        needs_ocr: true,
-        chunk_count: 0,
-        last_error: 'needs-ocr',
-      })
+      .update({ processed: false, processed_at: null, needs_ocr: true, chunk_count: 0, last_error: 'needs-ocr' })
       .eq('id', document.id);
     summary.needs_ocr++;
     console.log(`[${document.id}] ${document.filename} | ${mime || ext} | result=needs-ocr`);
@@ -151,8 +139,8 @@ async function processDocument(document) {
   }
 
   try {
-    const { data: fileData, error: downloadError } = await supabaseAdmin.storage
-      .from('company-docs')
+    const { data: fileData, error: downloadError } = await supabaseAdmin
+      .from('company-docs') // bucket
       .download(document.storage_path);
     if (downloadError) throw new Error(`Failed to download: ${downloadError.message}`);
 
@@ -178,13 +166,7 @@ async function processDocument(document) {
     if (!textLen) {
       await supabaseAdmin
         .from('documents_metadata')
-        .update({
-          processed: false,
-          processed_at: null,
-          needs_ocr: true,
-          chunk_count: 0,
-          last_error: 'needs-ocr',
-        })
+        .update({ processed: false, processed_at: null, needs_ocr: true, chunk_count: 0, last_error: 'needs-ocr' })
         .eq('id', document.id);
       summary.needs_ocr++;
       console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=0 | result=needs-ocr`);
@@ -204,26 +186,18 @@ async function processDocument(document) {
 
       await supabaseAdmin
         .from('documents_metadata')
-        .update({
-          processed: true,
-          processed_at: new Date().toISOString(),
-          chunk_count: chunkCount,
-          last_error: null,
-        })
+        .update({ processed: true, processed_at: new Date().toISOString(), chunk_count: chunkCount, last_error: null })
         .eq('id', document.id);
 
       summary.processed_ok++;
       console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=${textLen} | chunks=${chunkCount}`);
     } catch (err) {
-      const isOpenAIError = err?.name?.includes('OpenAI') || err?.status === 429;
+      const msg = err && err.message ? err.message : String(err);
+      const isOpenAIError = (err && err.name && String(err.name).includes('OpenAI')) || err?.status === 429;
+
       const update = isOpenAIError
-        ? { last_error: `Processing failed: ${err.message}`, retry_count: (document.retry_count || 0) + 1 }
-        : {
-            processed: true,
-            processed_at: new Date().toISOString(),
-            last_error: `Processing failed: ${err.message}`,
-            chunk_count: 0,
-          };
+        ? { last_error: `Processing failed: ${msg}`, retry_count: (document.retry_count || 0) + 1 }
+        : { processed: true, processed_at: new Date().toISOString(), last_error: `Processing failed: ${msg}`, chunk_count: 0 };
 
       await supabaseAdmin.from('documents_metadata').update(update).eq('id', document.id);
 
@@ -236,10 +210,10 @@ async function processDocument(document) {
       }
     }
   } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
     summary.failed++;
-    console.log(`[${document.id}] ${document.filename} | ${mime || ext} | result=fatal-${err.message}`);
+    console.log(`[${document.id}] ${document.filename} | ${mime || ext} | result=fatal-${msg}`);
   }
 }
 
 main();
-

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { TextChunk } from './types';
+import { TextChunk } from './types.ts';
 
 export class VectorStore {
   private supabaseAdmin: SupabaseClient;

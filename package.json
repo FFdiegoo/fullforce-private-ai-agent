@@ -58,6 +58,7 @@
     "mammoth": "^1.6.0",
     "mime-types": "^2.1.35",
     "next": "^15.3.5",
+    "node-fetch": "^2.7.0",
     "openai": "^4.104.0",
     "pdf-parse": "^1.1.1",
     "postcss": "^8.4.35",
@@ -68,6 +69,7 @@
     "speakeasy": "^2.0.0",
     "tailwindcss": "^3.4.1",
     "tesseract.js": "^6.0.1",
+    "ts-node": "^10.9.2",
     "undici": "^5.28.4",
     "uuid": "^9.0.1",
     "zod": "^3.25.67"
