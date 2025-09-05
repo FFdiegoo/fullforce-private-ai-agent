@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 
 interface FeedbackStatsProps {
@@ -18,6 +19,7 @@ export default function FeedbackStats({ className = '' }: FeedbackStatsProps) {
     unviewed_thumbs_down: 0
   });
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     fetchStats();
@@ -78,7 +80,10 @@ export default function FeedbackStats({ className = '' }: FeedbackStatsProps) {
   }
 
   return (
-    <div className={`bg-white rounded-xl shadow-lg p-4 ${className}`}>
+    <div
+      className={`bg-white rounded-xl shadow-lg p-4 cursor-pointer ${className}`}
+      onClick={() => router.push('/admin/feedback-analytics')}
+    >
       <h3 className="text-sm font-medium text-gray-600 mb-3">AI Feedback</h3>
       
       <div className="grid grid-cols-2 gap-4">
