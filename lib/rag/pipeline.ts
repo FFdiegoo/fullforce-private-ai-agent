@@ -43,41 +43,15 @@ export class RAGPipeline {
       await this.vectorStore.storeChunks(embeddedChunks);
       console.log(`✅ Stored ${embeddedChunks.length} chunks in vector store`);
 
-      // Step 4: Mark as processed
+      // Step 4: Done
       console.log('✅ Document processing complete');
-      await this.updateDocumentStatus(metadata.id, true, embeddedChunks.length);
-
       return embeddedChunks.length;
     } catch (error) {
       console.error(
         `❌ Error in RAG pipeline for document ${metadata.filename}:`,
         error
       );
-      await this.updateDocumentStatus(metadata.id, false, 0);
       throw error;
-    }
-  }
-
-  private async updateDocumentStatus(
-    documentId: string,
-    success: boolean,
-    chunkCount: number
-  ): Promise<void> {
-    try {
-      const { error } = await this.supabaseAdmin
-        .from('documents_metadata')
-        .update({
-          processed: success,
-          processed_at: new Date().toISOString(),
-          chunk_count: chunkCount,
-        })
-        .eq('id', documentId);
-
-      if (error) {
-        console.error('❌ Error updating document status:', error);
-      }
-    } catch (error) {
-      console.error('❌ Error in updateDocumentStatus:', error);
     }
   }
 

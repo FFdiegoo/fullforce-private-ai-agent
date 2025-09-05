@@ -1,208 +1,245 @@
 #!/usr/bin/env node
 
-/**
- * Process All Pending Documents
- * 
- * This script finds all documents that are ready for indexing but not yet processed,
- * and triggers the RAG processing pipeline for each one.
- */
+// fetch polyfill (Node < 18)
+let _undici;
+try {
+  _undici = require('undici');
+} catch {}
+if (_undici) {
+  const { fetch, Headers, Request, Response } = _undici;
+  Object.assign(global, { fetch, Headers, Request, Response });
+} else {
+  try {
+    const fetch = require('node-fetch');
+    global.fetch = fetch;
+  } catch {}
+}
 
-const { createClient } = require('@supabase/supabase-js');
-const fetch = require('node-fetch');
+require('ts-node/register');
 require('dotenv').config({ path: '.env.local' });
 
-// Configuration
+const { createClient } = require('@supabase/supabase-js');
+const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
+const path = require('path');
+const { RAGPipeline } = require('../lib/rag/pipeline');
+const { RAG_CONFIG, openaiApiKey } = require('../lib/rag/config');
+
 const CONFIG = {
   SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
   BATCH_SIZE: 10,
-  DELAY_MS: 2000, // Delay between batches to avoid rate limits
+  CONCURRENCY: 3,
+  DELAY_MS: 2000,
 };
 
-// Validate configuration
 if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY) {
   console.error('❌ Missing Supabase credentials. Please check your .env.local file.');
   process.exit(1);
 }
 
-// Initialize Supabase client
-const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+const supabaseAdmin = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+const pipeline = new RAGPipeline(supabaseAdmin, openaiApiKey);
 
-// Statistics tracking
-const stats = {
-  totalDocuments: 0,
-  processedDocuments: 0,
-  failedDocuments: 0,
-  startTime: Date.now(),
-  errors: []
+const SUPPORTED_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'text/markdown',
+  'application/msword',
+  'application/vnd.oasis.opendocument.text',
+  'text/csv',
+  'text/rtf',
+];
+
+const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.doc', '.odt', '.csv', '.rtf'];
+
+async function withTimeout(promise, ms = 60_000) {
+  return await Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms)),
+  ]);
+}
+
+const summary = {
+  total: 0,
+  processed_ok: 0,
+  needs_ocr: 0,
+  retried: 0,
+  failed: 0,
 };
 
-// Main function
 async function main() {
-  console.log('🚀 Starting Batch Processing of Pending Documents');
-  console.log(`🔗 Supabase URL: ${CONFIG.SUPABASE_URL}`);
-  console.log(`🌐 Site URL: ${CONFIG.SITE_URL}`);
-  console.log('');
-
   try {
-    // Find all documents that are ready for indexing but not processed
-    console.log('🔍 Finding pending documents...');
-    const { data: documents, error: docsError } = await supabase
+    const { data: documents, error } = await supabaseAdmin
       .from('documents_metadata')
-      .select('id, filename, storage_path')
+      .select('*')
       .eq('ready_for_indexing', true)
       .eq('processed', false)
       .order('last_updated', { ascending: true });
 
-    if (docsError) {
-      throw new Error(`Failed to fetch documents: ${docsError.message}`);
-    }
+    if (error) throw new Error(`Failed to fetch documents: ${error.message}`);
 
     if (!documents || documents.length === 0) {
-      console.log('✅ No pending documents found. All documents are processed.');
+      console.log('✅ No documents to process');
+      console.log(JSON.stringify({ ok: true, total: 0, processed_ok: 0, needs_ocr: 0, retried: 0, failed: 0 }));
       return;
     }
 
-    stats.totalDocuments = documents.length;
-    console.log(`📊 Found ${documents.length} pending documents`);
-    
-    // Process documents in batches
+    summary.total = documents.length;
     const batches = chunkArray(documents, CONFIG.BATCH_SIZE);
-    console.log(`📦 Created ${batches.length} batches for processing`);
-    
+
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      console.log(`\n🔄 Processing batch ${i + 1}/${batches.length} (${batch.length} documents)`);
-      
-      // Process each document in the batch
-      const batchPromises = batch.map(document => processDocument(document));
-      await Promise.all(batchPromises);
-      
-      // Show progress
-      const progress = ((stats.processedDocuments + stats.failedDocuments) / stats.totalDocuments * 100).toFixed(2);
-      const elapsedSeconds = Math.floor((Date.now() - stats.startTime) / 1000);
-      const processRate = elapsedSeconds > 0 ? stats.processedDocuments / elapsedSeconds : 0;
-      
-      console.log(`Progress: ${progress}% | Speed: ${processRate.toFixed(2)} docs/sec | Processed: ${stats.processedDocuments} | Failed: ${stats.failedDocuments}`);
-      
-      // Delay between batches to avoid rate limits
+      console.log(`\n🔄 Processing batch ${i + 1}/${batches.length} (${batch.length} docs)`);
+      await processBatch(batch, CONFIG.CONCURRENCY);
       if (i < batches.length - 1) {
-        console.log(`⏱️ Waiting ${CONFIG.DELAY_MS}ms before next batch...`);
-        await new Promise(resolve => setTimeout(resolve, CONFIG.DELAY_MS));
+        await delay(CONFIG.DELAY_MS);
       }
     }
 
-    // Generate final report
-    generateReport();
-
-  } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
+    console.log(JSON.stringify({ ok: true, ...summary }));
+  } catch (err) {
+    console.error('❌ Fatal error:', err.message);
     process.exit(1);
   }
 }
 
-// Process a single document
-async function processDocument(document) {
-  try {
-    console.log(`🔄 Processing: ${document.filename} (ID: ${document.id})`);
-    
-    // Call the process-document API
-    const response = await fetch(`${CONFIG.SITE_URL}/api/process-document`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: document.id })
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error || `API returned status ${response.status}`);
-    }
-    
-    stats.processedDocuments++;
-    console.log(`✅ Successfully processed: ${document.filename}`);
-    return true;
-    
-  } catch (error) {
-    stats.failedDocuments++;
-    stats.errors.push({
-      document: document.filename,
-      id: document.id,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-    
-    console.error(`❌ Failed to process ${document.filename}: ${error.message}`);
-    return false;
-  }
-}
-
-// Helper function to split array into chunks
-function chunkArray(array, chunkSize) {
+function chunkArray(arr, size) {
   const chunks = [];
-  for (let i = 0; i < array.length; i += chunkSize) {
-    chunks.push(array.slice(i, i + chunkSize));
-  }
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
   return chunks;
 }
 
-// Helper function to format time in HH:MM:SS
-function formatTime(seconds) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  
-  return [
-    hours.toString().padStart(2, '0'),
-    minutes.toString().padStart(2, '0'),
-    secs.toString().padStart(2, '0')
-  ].join(':');
+async function delay(ms) {
+  return new Promise((res) => setTimeout(res, ms));
 }
 
-// Generate a detailed report
-function generateReport() {
-  const endTime = Date.now();
-  const elapsedSeconds = Math.floor((endTime - stats.startTime) / 1000);
-  const elapsedFormatted = formatTime(elapsedSeconds);
-  
-  console.log('\n📋 Document Processing Report');
-  console.log('==========================');
-  console.log(`⏱️ Duration: ${elapsedFormatted}`);
-  console.log('');
-  console.log('📊 Overall Statistics:');
-  console.log(`   Total documents: ${stats.totalDocuments}`);
-  console.log(`   Successfully processed: ${stats.processedDocuments}`);
-  console.log(`   Failed: ${stats.failedDocuments}`);
-  
-  if (stats.totalDocuments > 0) {
-    const successRate = ((stats.processedDocuments / stats.totalDocuments) * 100).toFixed(2);
-    console.log(`   Success rate: ${successRate}%`);
-  }
-  
-  if (stats.processedDocuments > 0 && elapsedSeconds > 0) {
-    const processRate = stats.processedDocuments / elapsedSeconds;
-    console.log(`   Processing rate: ${processRate.toFixed(2)} documents/second`);
-  }
-  
-  if (stats.errors.length > 0) {
-    console.log('\n❌ Errors:');
-    stats.errors.slice(0, 10).forEach((error, index) => {
-      console.log(`   ${index + 1}. ${error.document} (ID: ${error.id}): ${error.error}`);
+async function processBatch(docs, concurrency) {
+  const executing = [];
+  for (const doc of docs) {
+    const p = processDocument(doc).finally(() => {
+      executing.splice(executing.indexOf(p), 1);
     });
-    
-    if (stats.errors.length > 10) {
-      console.log(`   ... and ${stats.errors.length - 10} more errors`);
+    executing.push(p);
+    if (executing.length >= concurrency) {
+      await Promise.race(executing);
     }
   }
-  
-  console.log('\n🚀 Next Steps:');
-  console.log('   - Check the admin dashboard to verify document processing');
-  console.log('   - Test the RAG system with queries in the chat interface');
-  console.log('   - Run the monitor-rag-status.js script to see real-time processing status');
-  
-  console.log('\n✅ Processing completed!');
+  await Promise.all(executing);
 }
 
-// Start the script
-main().catch(console.error);
+async function processDocument(document) {
+  const ext = path.extname(document.filename || '').toLowerCase();
+  const mime = (document.mime_type || '').toLowerCase();
+  const isSupported = SUPPORTED_MIME_TYPES.includes(mime) || SUPPORTED_EXTENSIONS.includes(ext);
+
+  if (!isSupported) {
+    await supabaseAdmin
+      .from('documents_metadata')
+      .update({
+        processed: false,
+        processed_at: null,
+        needs_ocr: true,
+        chunk_count: 0,
+        last_error: 'needs-ocr',
+      })
+      .eq('id', document.id);
+    summary.needs_ocr++;
+    console.log(`[${document.id}] ${document.filename} | ${mime || ext} | result=needs-ocr`);
+    return;
+  }
+
+  try {
+    const { data: fileData, error: downloadError } = await supabaseAdmin.storage
+      .from('company-docs')
+      .download(document.storage_path);
+    if (downloadError) throw new Error(`Failed to download: ${downloadError.message}`);
+
+    const arrayBuffer = await fileData.arrayBuffer();
+    let extractedText = '';
+
+    if (mime === 'application/pdf' || ext === '.pdf') {
+      const buffer = Buffer.from(arrayBuffer);
+      const pdfData = await pdfParse(buffer);
+      extractedText = pdfData.text || '';
+    } else if (
+      mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      ext === '.docx'
+    ) {
+      const buffer = Buffer.from(arrayBuffer);
+      const docxData = await mammoth.extractRawText({ buffer });
+      extractedText = docxData.value || '';
+    } else {
+      extractedText = await fileData.text();
+    }
+
+    const textLen = (extractedText || '').trim().length;
+    if (!textLen) {
+      await supabaseAdmin
+        .from('documents_metadata')
+        .update({
+          processed: false,
+          processed_at: null,
+          needs_ocr: true,
+          chunk_count: 0,
+          last_error: 'needs-ocr',
+        })
+        .eq('id', document.id);
+      summary.needs_ocr++;
+      console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=0 | result=needs-ocr`);
+      return;
+    }
+
+    let chunkCount = 0;
+    try {
+      const metadata = { ...document, extractedText };
+      chunkCount = await withTimeout(
+        pipeline.processDocument(metadata, {
+          chunkSize: RAG_CONFIG.chunkSize,
+          chunkOverlap: RAG_CONFIG.chunkOverlap,
+          skipExisting: false,
+        })
+      );
+
+      await supabaseAdmin
+        .from('documents_metadata')
+        .update({
+          processed: true,
+          processed_at: new Date().toISOString(),
+          chunk_count: chunkCount,
+          last_error: null,
+        })
+        .eq('id', document.id);
+
+      summary.processed_ok++;
+      console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=${textLen} | chunks=${chunkCount}`);
+    } catch (err) {
+      const isOpenAIError = err?.name?.includes('OpenAI') || err?.status === 429;
+      const update = isOpenAIError
+        ? { last_error: `Processing failed: ${err.message}`, retry_count: (document.retry_count || 0) + 1 }
+        : {
+            processed: true,
+            processed_at: new Date().toISOString(),
+            last_error: `Processing failed: ${err.message}`,
+            chunk_count: 0,
+          };
+
+      await supabaseAdmin.from('documents_metadata').update(update).eq('id', document.id);
+
+      if (isOpenAIError) {
+        summary.retried++;
+        console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=${textLen} | result=retry`);
+      } else {
+        summary.failed++;
+        console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=${textLen} | result=fail`);
+      }
+    }
+  } catch (err) {
+    summary.failed++;
+    console.log(`[${document.id}] ${document.filename} | ${mime || ext} | result=fatal-${err.message}`);
+  }
+}
+
+main();
+
