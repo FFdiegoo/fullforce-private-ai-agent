@@ -2,8 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { DocumentProcessor } from './documentProcessor';
 import { EmbeddingGenerator } from './embeddingGenerator';
 import { VectorStore } from './vectorStore';
-import { DocumentMetadata, ProcessingOptions } from './types';
-import { RAG_CONFIG } from '@/lib/rag/config';
+import type { DocumentMetadata, ProcessingOptions } from './types';
+import { RAG_CONFIG } from './config';
 
 export class RAGPipeline {
   private supabaseAdmin: SupabaseClient;
