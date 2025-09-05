@@ -97,3 +97,8 @@ De middleware controleert inkomende requests op een IP-whitelist. Deze lijst sta
 ```
 
 Als het configuratiebestand ontbreekt of niet geldig is, wordt er bij het opstarten een waarschuwing gelogd.
+
+## Feedbackanalyse
+
+Het AI‑feedbacksysteem houdt permanent bij hoeveel positieve en negatieve beoordelingen zijn gegeven.
+Deze teller is **cumulatief** en wordt nooit gereset; elke nieuwe feedback telt op bij het totaal.
