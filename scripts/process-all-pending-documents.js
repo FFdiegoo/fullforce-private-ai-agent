@@ -19,13 +19,11 @@ require('dotenv').config({ path: '.env.local' });
 
 // ---- imports ----
 const { createClient } = require('@supabase/supabase-js');
-const pdfParse = require('pdf-parse');
-const mammoth = require('mammoth');
-const path = require('path');
 
 // ✅ Let op de .ts extensies hieronder (je roept aan vanuit een .js script)
 const { RAGPipeline } = require('../lib/rag/pipeline.ts');
 const { RAG_CONFIG, openaiApiKey } = require('../lib/rag/config.ts');
+const { extractText } = require('../lib/rag/extract-text.ts');
 
 // ---- config ----
 const CONFIG = {
@@ -43,19 +41,6 @@ if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY) {
 
 const supabaseAdmin = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 const pipeline = new RAGPipeline(supabaseAdmin, openaiApiKey);
-
-const SUPPORTED_MIME_TYPES = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain',
-  'text/markdown',
-  'application/msword',
-  'application/vnd.oasis.opendocument.text',
-  'text/csv',
-  'text/rtf',
-];
-
-const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.doc', '.odt', '.csv', '.rtf'];
 
 async function withTimeout(promise, ms = 60_000) {
   return await Promise.race([
@@ -124,55 +109,27 @@ async function processBatch(docs, concurrency) {
 }
 
 async function processDocument(document) {
-  const ext = path.extname(document.filename || '').toLowerCase();
-  const mime = (document.mime_type || '').toLowerCase();
-  const isSupported = SUPPORTED_MIME_TYPES.includes(mime) || SUPPORTED_EXTENSIONS.includes(ext);
-
-  if (!isSupported) {
-    await supabaseAdmin
-      .from('documents_metadata')
-      .update({ processed: false, processed_at: null, needs_ocr: true, chunk_count: 0, last_error: 'needs-ocr' })
-      .eq('id', document.id);
-    summary.needs_ocr++;
-    console.log(`[${document.id}] ${document.filename} | ${mime || ext} | result=needs-ocr`);
-    return;
-  }
-
   try {
     const { data: fileData, error: downloadError } = await supabaseAdmin
       .from('company-docs') // bucket
       .download(document.storage_path);
     if (downloadError) throw new Error(`Failed to download: ${downloadError.message}`);
 
-    const arrayBuffer = await fileData.arrayBuffer();
-    let extractedText = '';
-
-    if (mime === 'application/pdf' || ext === '.pdf') {
-      const buffer = Buffer.from(arrayBuffer);
-      const pdfData = await pdfParse(buffer);
-      extractedText = pdfData.text || '';
-    } else if (
-      mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-      ext === '.docx'
-    ) {
-      const buffer = Buffer.from(arrayBuffer);
-      const docxData = await mammoth.extractRawText({ buffer });
-      extractedText = docxData.value || '';
-    } else {
-      extractedText = await fileData.text();
-    }
-
-    const textLen = (extractedText || '').trim().length;
-    if (!textLen) {
+    const buffer = Buffer.from(await fileData.arrayBuffer());
+    const { kind, mime, text } = await extractText(buffer, document.filename);
+    const textLen = (text || '').trim().length;
+    if (kind === 'pdf-scan' || kind === 'unknown' || textLen === 0) {
+      const reason = kind === 'unknown' ? 'unknown-mime' : 'needs-ocr-scan';
       await supabaseAdmin
         .from('documents_metadata')
-        .update({ processed: false, processed_at: null, needs_ocr: true, chunk_count: 0, last_error: 'needs-ocr' })
+        .update({ processed: false, processed_at: null, needs_ocr: true, chunk_count: 0, last_error: reason })
         .eq('id', document.id);
       summary.needs_ocr++;
-      console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=0 | result=needs-ocr`);
+      console.log(`[${document.id}] ${document.filename} | ${mime} | kind=${kind} | text_len=${textLen} | result=${reason}`);
       return;
     }
 
+    const extractedText = text;
     let chunkCount = 0;
     try {
       const metadata = { ...document, extractedText };
@@ -190,7 +147,7 @@ async function processDocument(document) {
         .eq('id', document.id);
 
       summary.processed_ok++;
-      console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=${textLen} | chunks=${chunkCount}`);
+      console.log(`[${document.id}] ${document.filename} | ${mime} | kind=${kind} | text_len=${textLen} | chunks=${chunkCount}`);
     } catch (err) {
       const msg = err && err.message ? err.message : String(err);
       const isOpenAIError = (err && err.name && String(err.name).includes('OpenAI')) || err?.status === 429;
@@ -203,16 +160,16 @@ async function processDocument(document) {
 
       if (isOpenAIError) {
         summary.retried++;
-        console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=${textLen} | result=retry`);
+        console.log(`[${document.id}] ${document.filename} | ${mime} | kind=${kind} | text_len=${textLen} | result=retry`);
       } else {
         summary.failed++;
-        console.log(`[${document.id}] ${document.filename} | ${mime || ext} | text_len=${textLen} | result=fail`);
+        console.log(`[${document.id}] ${document.filename} | ${mime} | kind=${kind} | text_len=${textLen} | result=fail`);
       }
     }
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
     summary.failed++;
-    console.log(`[${document.id}] ${document.filename} | ${mime || ext} | result=fatal-${msg}`);
+    console.log(`[${document.id}] ${document.filename} | result=fatal-${msg}`);
   }
 }
 
