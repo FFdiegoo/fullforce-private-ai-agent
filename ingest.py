@@ -111,9 +111,11 @@ class DocumentIngestor:
         try:
             data_to_insert = []
             for chunk, embedding in zip(chunks, embeddings):
+                chunk_meta = chunk['metadata']
                 data_to_insert.append({
                     'content': chunk['content'],
-                    'metadata': chunk['metadata'],
+                    'metadata': {k: v for k, v in chunk_meta.items() if k != 'chunk_index'},
+                    'chunk_index': chunk_meta.get('chunk_index'),
                     'embedding': embedding,
                     'created_at': time.strftime('%Y-%m-%d %H:%M:%S')
                 })
