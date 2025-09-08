@@ -3,7 +3,7 @@
 /**
  * RAG Ingest Script for Handleidingen
  * 
- * This script processes documents from the "120 Handleidingen" folder in Supabase Storage,
+ * This script processes documents from Supabase Storage,
  * creates embeddings, and stores them in the document_chunks table for AI retrieval.
  */
 
@@ -21,7 +21,7 @@ const CONFIG = {
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   STORAGE_BUCKET: 'company-docs',
-  TARGET_FOLDER: '120 Handleidingen',
+  TARGET_FOLDER: process.env.TARGET_FOLDER || null,
   EMBEDDING_MODEL: 'text-embedding-3-small',
   CHUNK_SIZE: 500,
   CHUNK_OVERLAP: 50,
@@ -60,7 +60,7 @@ async function main() {
   console.log('🚀 Starting RAG Ingest for Handleidingen');
   console.log(`🔗 Supabase URL: ${CONFIG.SUPABASE_URL}`);
   console.log(`🪣 Storage bucket: ${CONFIG.STORAGE_BUCKET}`);
-  console.log(`📁 Target folder: ${CONFIG.TARGET_FOLDER}`);
+  console.log(`📁 Target folder: ${CONFIG.TARGET_FOLDER || 'ALL'}`);
   console.log(`🧠 Embedding model: ${CONFIG.EMBEDDING_MODEL}`);
   console.log(`📏 Chunk size: ${CONFIG.CHUNK_SIZE}, overlap: ${CONFIG.CHUNK_OVERLAP}`);
   console.log('');
@@ -74,12 +74,15 @@ async function main() {
 
     // Step 1: Find documents ready for processing
     console.log('🔍 Finding documents ready for processing...');
-    const { data: documents, error: docsError } = await supabase
+    let docQuery = supabase
       .from('documents_metadata')
       .select('*')
-      .ilike('storage_path', `${CONFIG.TARGET_FOLDER}%`)
       .eq('ready_for_indexing', true)
       .eq('processed', false);
+    if (CONFIG.TARGET_FOLDER) {
+      docQuery = docQuery.ilike('storage_path', `${CONFIG.TARGET_FOLDER}%`);
+    }
+    const { data: documents, error: docsError } = await docQuery;
 
     if (docsError) {
       throw new Error(`Failed to fetch documents: ${docsError.message}`);
