@@ -8,6 +8,10 @@ from supabase import create_client, Client
 import openai
 from typing import List, Dict, Any
 import logging
+from pdfminer.high_level import extract_text as pdf_extract_text
+import mammoth
+from PIL import Image
+import pytesseract
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +35,29 @@ class DocumentIngestor:
         self.chunk_size = 1000
         self.chunk_overlap = 200
         self.batch_size = 10
+
+    def extract_text(self, file_path: Path) -> str:
+        """Extract text from various file types using type-specific parsers"""
+        ext = file_path.suffix.lower()
+        try:
+            if ext == '.pdf':
+                return pdf_extract_text(str(file_path)) or ''
+            elif ext == '.docx':
+                with open(file_path, 'rb') as f:
+                    result = mammoth.extract_raw_text(f)
+                return result.value
+            elif ext in {'.png', '.jpg', '.jpeg', '.tiff'}:
+                image = Image.open(file_path)
+                return pytesseract.image_to_string(image, lang='nld+eng')
+            elif ext in {'.txt', '.md'}:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    return f.read()
+            else:
+                logger.warning(f"Unsupported file type: {file_path.suffix}")
+                return ''
+        except Exception as e:
+            logger.error(f"Error extracting text from {file_path}: {e}")
+            return ''
 
     def create_chunks(self, text: str, metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Create overlapping chunks from text"""
@@ -103,9 +130,8 @@ class DocumentIngestor:
         try:
             logger.info(f"Processing: {file_path}")
 
-            # Read file content
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
+            # Extract text using type-specific parser
+            content = self.extract_text(file_path)
 
             if not content.strip():
                 logger.warning(f"Empty file: {file_path}")
@@ -154,7 +180,7 @@ class DocumentIngestor:
             return
 
         # Find all supported files
-        supported_extensions = {'.txt', '.md', '.pdf', '.doc', '.docx'}
+        supported_extensions = {'.txt', '.md', '.pdf', '.docx', '.png', '.jpg', '.jpeg', '.tiff'}
         files = []
 
         for ext in supported_extensions:
