@@ -3,7 +3,7 @@
 /**
  * Mark Documents for Indexing
  * 
- * This script marks documents in the "120 Handleidingen" folder as ready for indexing.
+ * This script marks documents in Supabase Storage as ready for indexing.
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -13,7 +13,7 @@ require('dotenv').config({ path: '.env.local' });
 const CONFIG = {
   SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  TARGET_FOLDER: '120 Handleidingen'
+  TARGET_FOLDER: process.env.TARGET_FOLDER || null
 };
 
 // Validate configuration
@@ -64,7 +64,7 @@ async function testConnectivity() {
 async function main() {
   console.log('🚀 Marking documents for indexing');
   console.log(`🔗 Supabase URL: ${CONFIG.SUPABASE_URL}`);
-  console.log(`📁 Target folder: ${CONFIG.TARGET_FOLDER}`);
+  console.log(`📁 Target folder: ${CONFIG.TARGET_FOLDER || 'ALL'}`);
   console.log('');
 
   try {
@@ -94,11 +94,14 @@ async function main() {
 
     // Find documents that need to be marked for indexing
     console.log('🔍 Finding documents to mark...');
-    const { data: documents, error: docsError } = await supabase
+    let docQuery = supabase
       .from('documents_metadata')
       .select('id, filename')
-      .ilike('storage_path', `${CONFIG.TARGET_FOLDER}%`)
       .eq('ready_for_indexing', false);
+    if (CONFIG.TARGET_FOLDER) {
+      docQuery = docQuery.ilike('storage_path', `${CONFIG.TARGET_FOLDER}%`);
+    }
+    const { data: documents, error: docsError } = await docQuery;
 
     if (docsError) {
       console.error('❌ Error fetching documents:', {
@@ -118,11 +121,14 @@ async function main() {
     
     // Mark documents as ready for indexing
     console.log('🔄 Marking documents as ready for indexing...');
-    const { error: updateError } = await supabase
+    let updateQuery = supabase
       .from('documents_metadata')
       .update({ ready_for_indexing: true })
-      .ilike('storage_path', `${CONFIG.TARGET_FOLDER}%`)
       .eq('ready_for_indexing', false);
+    if (CONFIG.TARGET_FOLDER) {
+      updateQuery = updateQuery.ilike('storage_path', `${CONFIG.TARGET_FOLDER}%`);
+    }
+    const { error: updateError } = await updateQuery;
 
     if (updateError) {
       console.error('❌ Error updating documents:', {
