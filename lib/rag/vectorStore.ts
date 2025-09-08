@@ -42,6 +42,7 @@ export class VectorStore {
 
   async searchSimilarDocuments(
     queryEmbedding: number[],
+    originalQuery: string,
     threshold: number = 0.7,
     limit: number = 5,
     filter?: { afdeling?: string, categorie?: string, klant_id?: string }
@@ -120,7 +121,7 @@ export class VectorStore {
       console.error('❌ Error in similarity search:', error instanceof Error ? error.message : error);
       
       // Fallback to text search if vector search fails
-      return await this.fallbackTextSearch('', limit, filter);
+      return await this.fallbackTextSearch(originalQuery, limit, filter);
     }
   }
 
