@@ -22,7 +22,7 @@ const CONFIG = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   STORAGE_BUCKET: 'company-docs',
   TARGET_FOLDER: '120 Handleidingen',
-  EMBEDDING_MODEL: 'text-embedding-ada-002',
+  EMBEDDING_MODEL: 'text-embedding-3-small',
   CHUNK_SIZE: 500,
   CHUNK_OVERLAP: 50,
   BATCH_SIZE: 10,

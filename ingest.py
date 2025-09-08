@@ -98,7 +98,7 @@ class DocumentIngestor:
         """Generate embeddings for a list of texts"""
         try:
             response = openai.Embedding.create(
-                model="text-embedding-ada-002",
+                model="text-embedding-3-small",
                 input=texts
             )
             return [item['embedding'] for item in response['data']]
