@@ -1,4 +1,4 @@
-import { DocumentProcessor } from '../lib/document-processor';
+import { DocumentProcessor } from '../lib/rag/documentProcessor';
 import * as fs from 'fs';
 import * as path from 'path';
 
