@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { TextChunk } from './types.ts';
 
+const BATCH_SIZE = 50;
+
 export class VectorStore {
   private supabaseAdmin: SupabaseClient;
 
@@ -9,35 +11,48 @@ export class VectorStore {
   }
 
   async storeChunks(chunks: TextChunk[]): Promise<void> {
-    console.log(`🔄 Storing ${chunks.length} chunks in vector store...`);
-    
-    for (const chunk of chunks) {
+    const validChunks = chunks.filter(chunk => {
       if (!chunk.embedding) {
         console.warn(`⚠️ Chunk ${chunk.chunk_index} skipped: no embedding`);
-        continue;
+        return false;
       }
+      return true;
+    });
+
+    console.log(`🔄 Storing ${validChunks.length} chunks in vector store...`);
+
+    const failedBatches: number[] = [];
+
+    for (let i = 0; i < validChunks.length; i += BATCH_SIZE) {
+      const batch = validChunks
+        .slice(i, i + BATCH_SIZE)
+        .map(({ content, embedding, metadata, chunk_index }) => ({
+          content,
+          embedding,
+          metadata,
+          chunk_index,
+        }));
 
       try {
         const { error } = await this.supabaseAdmin
           .from('document_chunks')
-          .insert({
-            content: chunk.content,
-            embedding: chunk.embedding,
-            metadata: chunk.metadata,
-            chunk_index: chunk.chunk_index,
-          });
+          .insert(batch);
 
         if (error) {
-          console.error(`❌ Error storing chunk ${chunk.chunk_index}:`, error);
           throw error;
         }
       } catch (error) {
-        console.error(`❌ Error in storeChunks for chunk ${chunk.chunk_index}:`, error);
-        throw error;
+        console.error(`❌ Error storing batch starting at index ${i}:`, error);
+        failedBatches.push(i);
+        continue;
       }
     }
-    
-    console.log(`✅ Successfully stored ${chunks.length} chunks`);
+
+    if (failedBatches.length) {
+      console.warn(`⚠️ Failed to store ${failedBatches.length} batch(es).`);
+    } else {
+      console.log(`✅ Successfully stored ${validChunks.length} chunks`);
+    }
   }
 
   async searchSimilarDocuments(
