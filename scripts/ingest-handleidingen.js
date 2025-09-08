@@ -21,7 +21,6 @@ const CONFIG = {
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   STORAGE_BUCKET: 'company-docs',
-  TARGET_FOLDER: process.env.TARGET_FOLDER || null,
   EMBEDDING_MODEL: 'text-embedding-3-small',
   CHUNK_SIZE: 500,
   CHUNK_OVERLAP: 50,
@@ -60,7 +59,6 @@ async function main() {
   console.log('🚀 Starting RAG Ingest for Handleidingen');
   console.log(`🔗 Supabase URL: ${CONFIG.SUPABASE_URL}`);
   console.log(`🪣 Storage bucket: ${CONFIG.STORAGE_BUCKET}`);
-  console.log(`📁 Target folder: ${CONFIG.TARGET_FOLDER || 'ALL'}`);
   console.log(`🧠 Embedding model: ${CONFIG.EMBEDDING_MODEL}`);
   console.log(`📏 Chunk size: ${CONFIG.CHUNK_SIZE}, overlap: ${CONFIG.CHUNK_OVERLAP}`);
   console.log('');
@@ -74,15 +72,10 @@ async function main() {
 
     // Step 1: Find documents ready for processing
     console.log('🔍 Finding documents ready for processing...');
-    let docQuery = supabase
+    const { data: documents, error: docsError } = await supabase
       .from('documents_metadata')
       .select('*')
-      .eq('ready_for_indexing', true)
-      .eq('processed', false);
-    if (CONFIG.TARGET_FOLDER) {
-      docQuery = docQuery.ilike('storage_path', `${CONFIG.TARGET_FOLDER}%`);
-    }
-    const { data: documents, error: docsError } = await docQuery;
+      .eq('ready_for_indexing', true);
 
     if (docsError) {
       throw new Error(`Failed to fetch documents: ${docsError.message}`);
@@ -397,7 +390,6 @@ function generateReport() {
   const report = {
     timestamp: new Date().toISOString(),
     configuration: {
-      targetFolder: CONFIG.TARGET_FOLDER,
       embeddingModel: CONFIG.EMBEDDING_MODEL,
       chunkSize: CONFIG.CHUNK_SIZE,
       chunkOverlap: CONFIG.CHUNK_OVERLAP
