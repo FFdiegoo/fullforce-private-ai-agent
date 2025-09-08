@@ -155,7 +155,7 @@ export default function FileUploadDropzone({ onUploadSuccess, onUploadError }: F
           versie: '1.0',
           uploaded_by: profile.email,
           last_updated: new Date().toISOString(),
-          ready_for_indexing: false, // Needs admin approval first
+          ready_for_indexing: true,
           processed: false
         });
 

@@ -12,8 +12,7 @@ require('dotenv').config({ path: '.env.local' });
 // Configuration
 const CONFIG = {
   SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  TARGET_FOLDER: process.env.TARGET_FOLDER || null
+  SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY
 };
 
 // Validate configuration
@@ -64,7 +63,7 @@ async function testConnectivity() {
 async function main() {
   console.log('🚀 Marking documents for indexing');
   console.log(`🔗 Supabase URL: ${CONFIG.SUPABASE_URL}`);
-  console.log(`📁 Target folder: ${CONFIG.TARGET_FOLDER || 'ALL'}`);
+  console.log('📁 Target: all documents');
   console.log('');
 
   try {
@@ -94,14 +93,10 @@ async function main() {
 
     // Find documents that need to be marked for indexing
     console.log('🔍 Finding documents to mark...');
-    let docQuery = supabase
+    const { data: documents, error: docsError } = await supabase
       .from('documents_metadata')
       .select('id, filename')
       .eq('ready_for_indexing', false);
-    if (CONFIG.TARGET_FOLDER) {
-      docQuery = docQuery.ilike('storage_path', `${CONFIG.TARGET_FOLDER}%`);
-    }
-    const { data: documents, error: docsError } = await docQuery;
 
     if (docsError) {
       console.error('❌ Error fetching documents:', {
@@ -121,14 +116,10 @@ async function main() {
     
     // Mark documents as ready for indexing
     console.log('🔄 Marking documents as ready for indexing...');
-    let updateQuery = supabase
+    const { error: updateError } = await supabase
       .from('documents_metadata')
       .update({ ready_for_indexing: true })
       .eq('ready_for_indexing', false);
-    if (CONFIG.TARGET_FOLDER) {
-      updateQuery = updateQuery.ilike('storage_path', `${CONFIG.TARGET_FOLDER}%`);
-    }
-    const { error: updateError } = await updateQuery;
 
     if (updateError) {
       console.error('❌ Error updating documents:', {
