@@ -36,6 +36,7 @@
     "bulk-upload:verify": "node scripts/bulk-upload-verify.js",
     "mirror-folders": "node scripts/mirror-folders.js",
     "upload-from-drive": "node scripts/bulk-upload-from-local-drive.js",
+    "upload:all-docs": "ts-node scripts/upload-all-docs.ts",
     "test": "jest"
   },
   "dependencies": {
