@@ -49,6 +49,9 @@ if (!CONFIG.OPENAI_API_KEY) {
 const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 const openai = new OpenAI({ apiKey: CONFIG.OPENAI_API_KEY });
 
+// Number of chunks to insert per database request
+const BATCH_SIZE = 100;
+
 // Main function
 async function main() {
   console.log(`🚀 Processing document with ID: ${documentId}`);
@@ -106,7 +109,6 @@ async function main() {
     // Step 6: Store chunks in database
     console.log('💾 Storing chunks in database...');
     await storeChunks(embeddedChunks);
-    console.log(`✅ Stored ${embeddedChunks.length} chunks in database`);
 
     // Step 7: Mark document as processed
     console.log('✅ Marking document as processed...');
@@ -208,27 +210,38 @@ async function generateEmbeddings(chunks, document) {
   return embeddedChunks;
 }
 
-// Store chunks in database
+// Store chunks in database in batches
 async function storeChunks(chunks) {
-  for (const chunk of chunks) {
+  let success = 0;
+  let failure = 0;
+
+  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+    const batch = chunks.slice(i, i + BATCH_SIZE);
+    const payload = batch.map(chunk => ({
+      content: chunk.content,
+      embedding: chunk.embedding,
+      metadata: chunk.metadata,
+      chunk_index: chunk.chunk_index
+    }));
+
     try {
       const { error } = await supabase
         .from('document_chunks')
-        .insert({
-          content: chunk.content,
-          embedding: chunk.embedding,
-          metadata: chunk.metadata,
-          chunk_index: chunk.chunk_index
-        });
+        .insert(payload);
 
       if (error) {
         throw error;
       }
+
+      success += batch.length;
     } catch (error) {
-      console.error(`⚠️ Error storing chunk: ${error.message}`);
-      // Continue with other chunks
+      failure += batch.length;
+      console.error(`⚠️ Error storing batch: ${error.message}`);
+      console.error('Failed batch:', payload);
     }
   }
+
+  console.log(`📊 Chunks stored: ${success} succeeded, ${failure} failed`);
 }
 
 // Start the script
