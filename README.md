@@ -42,6 +42,14 @@ Inhouse AI chatbot omgeving voor CS Rental, schaalbaar voor meerdere klanten.
 - `npm run bulk-upload:verify` – controleer of uploads correct zijn verwerkt.
 - `npm run mirror-folders` – spiegel lokale mappen naar Supabase.
 - `npm run upload-from-drive` – upload bestanden vanaf een lokale schijf.
+- `npm run upload:all-docs -- <pad>` – upload alle documenten uit een lokale map naar Supabase Storage.
+
+### Automatisch uploaden
+Je kunt deze script handmatig draaien of automatiseren met een cron-job om nieuwe bestanden te uploaden. Voorbeeld (elk uur):
+
+```bash
+0 * * * * cd /pad/naar/project && npm run upload:all-docs -- /pad/naar/documenten >> upload.log 2>&1
+```
 
 ## Supabase
 Supabase levert de Postgres‑database, authenticatie en opslag. De SQL‑migraties staan in `supabase/migrations`.
