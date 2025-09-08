@@ -23,7 +23,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // RAG configuration
 export const RAG_CONFIG = {
-  embeddingModel: 'text-embedding-ada-002',
+  embeddingModel: 'text-embedding-3-small',
   chunkSize: 1000,
   chunkOverlap: 200,
   similarityThreshold: 0.7,

@@ -95,7 +95,7 @@ export class DocumentProcessor {
   private static async generateEmbeddings(texts: string[]): Promise<number[][]> {
     try {
       const response = await openai.embeddings.create({
-        model: 'text-embedding-ada-002',
+        model: 'text-embedding-3-small',
         input: texts,
       });
 

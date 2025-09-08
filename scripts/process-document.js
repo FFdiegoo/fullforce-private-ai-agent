@@ -21,7 +21,7 @@ const CONFIG = {
   SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   STORAGE_BUCKET: 'company-docs',
-  EMBEDDING_MODEL: 'text-embedding-ada-002',
+  EMBEDDING_MODEL: 'text-embedding-3-small',
   CHUNK_SIZE: 500,
   CHUNK_OVERLAP: 50
 };

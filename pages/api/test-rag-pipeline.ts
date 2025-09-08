@@ -144,7 +144,7 @@ async function testVectorSearch(query: string, res: NextApiResponse) {
     const openai = new OpenAI({ apiKey: openaiApiKey });
 
     const embeddingResponse = await openai.embeddings.create({
-      model: 'text-embedding-ada-002',
+      model: 'text-embedding-3-small',
       input: query,
     });
 
@@ -208,7 +208,7 @@ async function testEmbeddingsGeneration(res: NextApiResponse) {
     const openai = new OpenAI({ apiKey: openaiApiKey });
 
     const embeddingResponse = await openai.embeddings.create({
-      model: 'text-embedding-ada-002',
+      model: 'text-embedding-3-small',
       input: testText,
     });
 
@@ -221,7 +221,7 @@ async function testEmbeddingsGeneration(res: NextApiResponse) {
         input: testText,
         embeddingDimensions: embedding.length,
         embeddingPreview: embedding.slice(0, 5),
-        model: 'text-embedding-ada-002'
+        model: 'text-embedding-3-small'
       }
     });
 
