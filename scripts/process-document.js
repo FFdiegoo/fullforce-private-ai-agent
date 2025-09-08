@@ -12,6 +12,8 @@
 const { createClient } = require('@supabase/supabase-js');
 const { OpenAI } = require('openai');
 require('dotenv').config({ path: '.env.local' });
+require('ts-node/register');
+const { extractText: extractTextFromLib } = require('../lib/rag/extract-text');
 
 // Configuration
 const CONFIG = {
@@ -83,7 +85,7 @@ async function main() {
 
     // Step 3: Extract text content
     console.log('📄 Extracting text content...');
-    const text = await extractText(fileData, document.mime_type);
+    const text = await extractText(fileData, document.filename);
     
     if (!text || text.trim().length === 0) {
       throw new Error('Failed to extract text or document is empty');
@@ -129,20 +131,12 @@ async function main() {
 }
 
 // Extract text from document
-async function extractText(fileData, mimeType) {
-  // For this simple implementation, we'll assume all files are text-based
-  // In a production environment, you would use different parsers based on mimeType
-  
+async function extractText(fileData, filename) {
   try {
-    // For text files
-    if (mimeType === 'text/plain' || mimeType === 'text/markdown') {
-      return new TextDecoder().decode(fileData);
-    }
-    
-    // For other file types, we'd need specific parsers
-    // This is a simplified implementation
-    return new TextDecoder().decode(fileData);
-    
+    const arrayBuffer = await fileData.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const result = await extractTextFromLib(buffer, filename);
+    return result.text;
   } catch (error) {
     throw new Error(`Text extraction failed: ${error.message}`);
   }
