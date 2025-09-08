@@ -110,7 +110,7 @@ async function processBatch(docs, concurrency) {
 
 async function processDocument(document) {
   try {
-    const { data: fileData, error: downloadError } = await supabaseAdmin
+    const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from('company-docs') // bucket
       .download(document.storage_path);
     if (downloadError) throw new Error(`Failed to download: ${downloadError.message}`);
