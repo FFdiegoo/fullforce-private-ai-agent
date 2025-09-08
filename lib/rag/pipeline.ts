@@ -66,6 +66,7 @@ export class RAGPipeline {
 
       const results = await this.vectorStore.searchSimilarDocuments(
         embeddingResponse[0].embedding,
+        query,
         RAG_CONFIG.similarityThreshold,
         RAG_CONFIG.maxResults
       );
