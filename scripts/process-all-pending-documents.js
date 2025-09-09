@@ -42,6 +42,12 @@ if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY) {
 const supabaseAdmin = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 const pipeline = new RAGPipeline(supabaseAdmin, openaiApiKey);
 
+// Global handler to ensure unhandled promise rejections don't go silent
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+  process.exit(1);
+});
+
 async function withTimeout(promise, ms = 60_000) {
   return await Promise.race([
     promise,
@@ -64,8 +70,10 @@ async function main() {
 
     if (!documents || documents.length === 0) {
       console.log('✅ No documents to process');
-      console.log(JSON.stringify({ ok: true, total: 0, processed_ok: 0, needs_ocr: 0, retried: 0, failed: 0 }));
-      return;
+      console.log(
+        JSON.stringify({ ok: true, total: 0, processed_ok: 0, needs_ocr: 0, retried: 0, failed: 0 })
+      );
+      process.exit(0);
     }
 
     summary.total = documents.length;
@@ -74,11 +82,19 @@ async function main() {
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
       console.log(`\n🔄 Processing batch ${i + 1}/${batches.length} (${batch.length} docs)`);
-      await processBatch(batch, CONFIG.CONCURRENCY);
+      try {
+        await processBatch(batch, CONFIG.CONCURRENCY);
+      } catch (err) {
+        console.error(
+          `❌ Batch ${i + 1} failed:`,
+          err && err.message ? err.message : err
+        );
+      }
       if (i < batches.length - 1) await delay(CONFIG.DELAY_MS);
     }
 
     console.log(JSON.stringify({ ok: true, ...summary }));
+    process.exit(0);
   } catch (err) {
     console.error('❌ Fatal error:', err && err.message ? err.message : err);
     process.exit(1);
