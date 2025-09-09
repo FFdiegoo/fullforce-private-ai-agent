@@ -17,23 +17,22 @@ export default function Home() {
       setLoading(true);
       setError('');
 
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('❌ Session error:', sessionError);
-        setError(`Session error: ${sessionError.message}`);
-        router.push('/login');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error('❌ getUser error:', userError);
+        setError('Sessie verlopen');
         return;
       }
 
-      if (!session) {
-        console.log('❌ No session, redirecting to login');
-        router.push('/login');
+      if (!user) {
+        console.log('❌ No user found, session likely expired');
+        setError('Sessie verlopen');
         return;
       }
 
-      const email = session.user.email?.toLowerCase();
-      console.log('✅ Session found for:', email);
+      const email = user.email?.toLowerCase();
+      console.log('✅ User found for:', email);
 
       // 🔓 DIEGO BYPASS: Check if this is Diego's account
       if (email === 'diego.a.scognamiglio@gmail.com') {
@@ -67,18 +66,20 @@ export default function Home() {
         return;
       }
 
-      // 2FA is enabled, redirect to main app
-      console.log('🎯 2FA enabled, redirecting to assistant selection');
+      // Check admin role before redirecting
+      if (profile.role?.toLowerCase() !== 'admin') {
+        console.log('❌ User is not admin');
+        setError('Sessie verlopen');
+        return;
+      }
+
+      // 2FA is enabled and user is admin, redirect to main app
+      console.log('🎯 2FA enabled and user is admin, redirecting to assistant selection');
       router.push('/select-assistant');
 
     } catch (error) {
       console.error('❌ Auth check error:', error);
-      setError(`Authentication error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
-      // Fallback to login after error
-      setTimeout(() => {
-        router.push('/login');
-      }, 3000);
+      setError('Sessie verlopen');
     } finally {
       setLoading(false);
     }
@@ -92,23 +93,12 @@ export default function Home() {
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
           <h1 className="text-xl font-bold text-gray-900 mb-4">Authentication Error</h1>
           <p className="text-gray-600 mb-6">{error}</p>
-          <div className="space-y-3">
-            <button
-              onClick={() => {
-                setError('');
-                checkAuthAndRedirect();
-              }}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              🔄 Retry
-            </button>
-            <button
-              onClick={() => router.push('/login')}
-              className="w-full bg-gray-600 text-white py-3 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              🔑 Go to Login
-            </button>
-          </div>
+          <button
+            onClick={() => router.push('/login')}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            🔑 Sign in
+          </button>
         </div>
       </div>
     );
