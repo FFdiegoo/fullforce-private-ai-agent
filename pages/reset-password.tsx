@@ -13,11 +13,27 @@ export default function ResetPassword() {
   const [tokensChecked, setTokensChecked] = useState(false);
 
   useEffect(() => {
-    // Haal tokens uit de URL hash
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
-    const type = hashParams.get('type');
+    // Extract tokens from URL hash or search params
+    const parseParams = () => {
+      if (typeof window === 'undefined') return new URLSearchParams();
+      if (window.location.hash) {
+        return new URLSearchParams(window.location.hash.substring(1));
+      }
+      return new URLSearchParams(window.location.search);
+    };
+
+    let params = parseParams();
+    let accessToken = params.get('access_token');
+    let refreshToken = params.get('refresh_token');
+    let type = params.get('type');
+
+    // Fallback to query parameters if hash didn't contain tokens
+    if ((!accessToken || !refreshToken) && window.location.search) {
+      params = new URLSearchParams(window.location.search);
+      accessToken = accessToken ?? params.get('access_token');
+      refreshToken = refreshToken ?? params.get('refresh_token');
+      type = type ?? params.get('type');
+    }
 
     if (type !== 'recovery' || !accessToken || !refreshToken) {
       setError('Invalid or expired reset link. Please request a new password reset.');
@@ -25,15 +41,15 @@ export default function ResetPassword() {
       return;
     }
 
-supabase.auth.setSession({
-  access_token: accessToken!,
-  refresh_token: refreshToken!,
-}).then(({ error }) => {
-  if (error) {
-    setError('Failed to validate reset link. Please request a new password reset.');
-  }
-  setTokensChecked(true);
-});
+    supabase.auth.setSession({
+      access_token: accessToken!,
+      refresh_token: refreshToken!,
+    }).then(({ error }) => {
+      if (error) {
+        setError('Failed to validate reset link. Please request a new password reset.');
+      }
+      setTokensChecked(true);
+    });
   }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
