@@ -24,6 +24,7 @@ export default function Dashboard() {
   const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false); // Nieuw
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -31,22 +32,47 @@ export default function Dashboard() {
   }, []);
 
   async function checkAuth() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/login');
-      return;
-    }
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error('Error fetching user:', error);
+        setAuthError(`Authenticatiefout: ${error.message}`);
+        return;
+      }
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+      if (!user) {
+        const hasSessionCookie = document.cookie
+          .split(';')
+          .some((c) => c.trim().startsWith('sb-'));
+        if (!hasSessionCookie) {
+          console.warn('No session cookie found, redirecting to login');
+          router.push('/login');
+          return;
+        }
+        setAuthError('Geen actieve gebruikerssessie gevonden. Probeer opnieuw in te loggen.');
+        return;
+      }
 
-    if (data?.role !== 'admin') {
-      router.push('/');
-    } else {
-      setIsAdmin(true); // Nieuw
+      const { data, error: roleError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+        setAuthError('Fout bij ophalen van gebruikersrol.');
+        return;
+      }
+
+      if (data?.role !== 'admin') {
+        router.push('/');
+      } else {
+        setIsAdmin(true); // Nieuw
+      }
+    } catch (err) {
+      console.error('Unexpected auth error:', err);
+      setAuthError('Onverwachte authenticatiefout.');
     }
   }
 
@@ -73,6 +99,22 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{authError}</p>
+          <button
+            onClick={() => router.push('/login')}
+            className="text-blue-600 underline"
+          >
+            Opnieuw inloggen
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
