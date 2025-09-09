@@ -43,6 +43,7 @@ export default function AdminDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
 
   // Invite form state
   const [inviteEmail, setInviteEmail] = useState('');
@@ -251,6 +252,45 @@ export default function AdminDashboard() {
     }
   }
 
+  function toggleDocumentSelection(id: string) {
+    setSelectedDocs(prev =>
+      prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]
+    );
+  }
+
+  function selectAllDocuments() {
+    const allPending = documents.filter(d => d.status === 'pending').map(d => d.id);
+    setSelectedDocs(allPending);
+  }
+
+  async function approveSelectedDocuments() {
+    for (const id of selectedDocs) {
+      try {
+        await supabase
+          .from('documents_metadata')
+          .update({
+            processed: true,
+            processed_at: new Date().toISOString(),
+            ready_for_indexing: true
+          })
+          .eq('id', id);
+
+        setDocuments(prev =>
+          prev.map(doc =>
+            doc.id === id ? { ...doc, status: 'approved', processed: true } : doc
+          )
+        );
+
+        await new Promise(res => setTimeout(res, 1000));
+      } catch (error) {
+        console.error('Error approving document', id, error);
+      }
+    }
+
+    alert(`${selectedDocs.length} documenten goedgekeurd. Ze worden nu langzaam verwerkt.`);
+    setSelectedDocs([]);
+  }
+
   function openChatModal(user: User) {
     setSelectedUser(user);
     setShowChatModal(true);
@@ -273,7 +313,6 @@ export default function AdminDashboard() {
   }
 
   const pendingDocuments = documents.filter(d => d.status === 'pending');
-  const approvedDocuments = documents.filter(d => d.status === 'approved');
   const usersWithout2FA = users.filter(u => !u.two_factor_enabled);
 
   return (
@@ -494,46 +533,75 @@ export default function AdminDashboard() {
 
           {/* Document Review Section */}
           <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-semibold mb-6 flex items-center">
-              <span className="mr-2">📄</span>
-              Document Review 
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center">
+                <span className="mr-2">📄</span>
+                Document Review
+                {pendingDocuments.length > 0 && (
+                  <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                    {pendingDocuments.length} nieuw
+                  </span>
+                )}
+              </h2>
               {pendingDocuments.length > 0 && (
-                <span className="ml-2 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                  {pendingDocuments.length} nieuw
-                </span>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={selectAllDocuments}
+                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                  >
+                    Selecteer alles
+                  </button>
+                  <button
+                    onClick={approveSelectedDocuments}
+                    disabled={selectedDocs.length === 0}
+                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                  >
+                    Goedkeur selectie
+                  </button>
+                </div>
               )}
-            </h2>
+            </div>
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {documents.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   Geen documenten gevonden
                 </div>
               ) : (
-                documents.slice(0, 10).map((doc) => (
+                documents.map((doc) => (
                   <div
                     key={doc.id}
                     className={`p-4 rounded-lg border-2 ${
-                      doc.status === 'pending' 
-                        ? 'border-yellow-200 bg-yellow-50' 
+                      doc.status === 'pending'
+                        ? 'border-yellow-200 bg-yellow-50'
                         : 'border-green-200 bg-green-50'
                     }`}
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900 mb-1">
-                          {doc.filename}
-                        </div>
-                        <div className="text-sm text-gray-600 mb-2">
-                          Uploader: {doc.uploaded_by}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {doc.afdeling} • {doc.categorie} • {(doc.file_size / 1024 / 1024).toFixed(2)} MB
-                        </div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {format(new Date(doc.last_updated), 'dd-MM-yyyy HH:mm')}
+                      <div className="flex items-start flex-1">
+                        {doc.status === 'pending' && (
+                          <input
+                            type="checkbox"
+                            className="mr-2 mt-1"
+                            checked={selectedDocs.includes(doc.id)}
+                            onChange={() => toggleDocumentSelection(doc.id)}
+                          />
+                        )}
+                        <div>
+                          <div className="font-medium text-gray-900 mb-1">
+                            {doc.filename}
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">
+                            Uploader: {doc.uploaded_by}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {doc.afdeling} • {doc.categorie} • {(doc.file_size / 1024 / 1024).toFixed(2)} MB
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {format(new Date(doc.last_updated), 'dd-MM-yyyy HH:mm')}
+                          </div>
                         </div>
                       </div>
-                      
+
                       {doc.status === 'pending' && (
                         <div className="flex space-x-2 ml-4">
                           <button
@@ -552,7 +620,7 @@ export default function AdminDashboard() {
                           </button>
                         </div>
                       )}
-                      
+
                       {doc.status === 'approved' && (
                         <div className="ml-4">
                           <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
