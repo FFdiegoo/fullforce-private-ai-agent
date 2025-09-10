@@ -67,9 +67,24 @@ export default function Login() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         });
-        if (bypassResponse.ok) {
-          console.log('✅ Bypass API successful');
+
+        if (!bypassResponse.ok) {
+          const bypassError = await bypassResponse.json().catch(() => ({}));
+          throw new Error(bypassError.error || 'Bypass login failed');
         }
+
+        const bypassData = await bypassResponse.json();
+        if (bypassData.session) {
+          await supabase.auth.setSession(bypassData.session);
+        }
+
+        await supabase.from('auth_events').insert({
+          user_email: normalizedEmail,
+          event_type: 'login'
+        });
+
+        await router.push('/select-assistant');
+        return; // Stop normal sign-in flow for bypass
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({

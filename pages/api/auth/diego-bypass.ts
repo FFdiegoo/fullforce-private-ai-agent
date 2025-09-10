@@ -27,15 +27,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('🔐 Authenticating user with Supabase Auth...');
     
     let authenticatedUser;
+    let session;
     try {
       const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
         email: normalizedEmail,
         password
       });
 
-      if (authError || !authData.user) {
+      if (authError || !authData.user || !authData.session) {
         console.log('❌ Authentication failed, user might not exist in auth.users');
-        
+
         // Try to create the user in auth.users if they don't exist
         console.log('🆕 Creating user in auth.users...');
         const { data: createAuthData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
@@ -53,10 +54,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(500).json({ error: 'Failed to create auth user: ' + createAuthError.message });
         }
 
-        authenticatedUser = createAuthData.user;
+        // Sign in again to obtain session for the newly created user
+        const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+          email: normalizedEmail,
+          password
+        });
+        if (signInError || !signInData.user || !signInData.session) {
+          console.error('❌ Failed to sign in after creating user:', signInError);
+          return res.status(500).json({ error: 'Failed to authenticate user' });
+        }
+
+        authenticatedUser = signInData.user;
+        session = signInData.session;
         console.log('✅ Auth user created successfully with ID:', authenticatedUser.id);
       } else {
         authenticatedUser = authData.user;
+        session = authData.session;
         console.log('✅ User authenticated successfully with ID:', authenticatedUser.id);
       }
     } catch (authException) {
@@ -140,23 +153,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       authUserId: authenticatedUser.id
     });
 
-    console.log('✅ Diego bypass access granted successfully');
+      console.log('✅ Diego bypass access granted successfully');
 
-    return res.status(200).json({
-      success: true,
-      user: {
-        id: profile.id,
-        email: profile.email,
-        name: profile.name,
-        role: profile.role,
-        two_factor_enabled: true // Shows as enabled to bypass checks
-      },
-      authUser: {
-        id: authenticatedUser.id,
-        email: authenticatedUser.email
-      },
-      message: 'Diego bypass access granted - profile updated with correct user ID'
-    });
+      return res.status(200).json({
+        success: true,
+        session,
+        user: {
+          id: profile.id,
+          email: profile.email,
+          name: profile.name,
+          role: profile.role,
+          two_factor_enabled: true // Shows as enabled to bypass checks
+        },
+        authUser: {
+          id: authenticatedUser.id,
+          email: authenticatedUser.email
+        },
+        message: 'Diego bypass access granted - profile updated with correct user ID'
+      });
 
   } catch (error) {
     console.error('❌ Diego bypass error:', error);
