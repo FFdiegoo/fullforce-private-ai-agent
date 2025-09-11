@@ -113,7 +113,6 @@ export default function DocumentUploader({
       onUploadError?.(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setIsUploading(false);
-      setIsProcessing(false);
     }
   };
 
