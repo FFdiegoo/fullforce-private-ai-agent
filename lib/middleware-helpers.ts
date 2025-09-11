@@ -14,7 +14,6 @@ const PUBLIC_PATHS = [
   '/signup',
   '/forgot-password',
   '/reset-password',
-  '/diego-login',
   '/emergency-access'
 ];
 

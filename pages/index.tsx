@@ -34,13 +34,6 @@ export default function Home() {
       const email = user.email?.toLowerCase();
       console.log('✅ User found for:', email);
 
-      // 🔓 DIEGO BYPASS: Check if this is Diego's account
-      if (email === 'diego.a.scognamiglio@gmail.com') {
-        console.log('🔓 Diego detected, bypassing 2FA checks');
-        router.push('/select-assistant');
-        return;
-      }
-
       // User is authenticated, check if they need 2FA setup
       console.log('👤 Checking user profile...');
       const { data: profile, error: profileError } = await supabase

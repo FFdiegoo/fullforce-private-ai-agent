@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { auditLogger } from '../../../lib/audit-logger';
 
+const DIEGO_EMAIL = process.env.DIEGO_EMAIL as string;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -12,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Create the user in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: 'diego@full-force.ai',
+      email: DIEGO_EMAIL,
       password: 'TempPassword123!', // Temporary password
       email_confirm: true, // Skip email confirmation
       user_metadata: {
@@ -36,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from('profiles')
       .insert({
         id: authData.user.id,
-        email: 'diego@full-force.ai',
+        email: DIEGO_EMAIL,
         name: 'Diego',
         role: 'admin',
         two_factor_enabled: false,
@@ -56,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Generate a magic link for password reset (this will allow them to set their own password)
     const { data: magicLinkData, error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
-      email: 'diego@full-force.ai',
+      email: DIEGO_EMAIL,
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/setup-2fa`
       }
@@ -71,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Log the action
     await auditLogger.logAuth('DIEGO_ADMIN_CREATED', authData.user.id, {
-      email: 'diego@full-force.ai',
+      email: DIEGO_EMAIL,
       name: 'Diego',
       phone: '0614759664',
       role: 'admin',
@@ -82,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true,
       user: {
         id: authData.user.id,
-        email: 'diego@full-force.ai',
+        email: DIEGO_EMAIL,
         name: 'Diego',
         phone: '0614759664',
         role: 'admin'

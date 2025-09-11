@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function CreateDiegoComplete() {
+  const diegoEmail = process.env.DIEGO_EMAIL || '';
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -106,7 +107,7 @@ CSrental AI Team`;
             </p>
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-700">
-                <strong>Target:</strong> diego.a.scognamiglio@gmail.com<br />
+                <strong>Target:</strong> {diegoEmail}<br />
                 <strong>UUID:</strong> 900098f4-785e-4c26-8a7b-55135f83bb16<br />
                 <strong>Role:</strong> Admin<br />
                 <strong>Security:</strong> Secure temporary password generated
