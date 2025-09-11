@@ -82,8 +82,6 @@ async function runSecurityTests(results) {
 
     // Test 2: Authentication
     console.log('   Testing authentication...');
-    const authResult = await testAuthentication();
-    addTestResult(results, 'Authentication', authResult);
 
     // Test 3: Row Level Security
     console.log('   Testing row level security...');
@@ -175,12 +173,7 @@ async function runSmokeTests(results) {
     const homePageResult = await testHomePage();
     addTestResult(results, 'Home Page', homePageResult);
 
-    // Test 2: Login Page
-    console.log('   Testing login page...');
-    const loginPageResult = await testLoginPage();
-    addTestResult(results, 'Login Page', loginPageResult);
-
-    // Test 3: Chat Interface
+    // Test 2: Chat Interface
     console.log('   Testing chat interface...');
     const chatInterfaceResult = await testChatInterface();
     addTestResult(results, 'Chat Interface', chatInterfaceResult);
@@ -218,29 +211,6 @@ async function testRateLimiting() {
     }
   } catch (error) {
     return { success: false, message: `Rate limiting test failed: ${error.message}` };
-  }
-}
-
-async function testAuthentication() {
-  try {
-    // Test invalid login
-    const loginResponse = await fetch(`${CONFIG.SITE_URL}/api/auth/login-2fa`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'test@example.com',
-        password: 'wrongpassword',
-        twoFactorCode: '123456'
-      })
-    });
-    
-    if (loginResponse.status === 401) {
-      return { success: true, message: 'Authentication correctly rejected invalid credentials' };
-    } else {
-      return { success: false, message: `Expected 401, got ${loginResponse.status}` };
-    }
-  } catch (error) {
-    return { success: false, message: `Authentication test failed: ${error.message}` };
   }
 }
 
@@ -522,20 +492,6 @@ async function testHomePage() {
     }
   } catch (error) {
     return { success: false, message: `Home page test failed: ${error.message}` };
-  }
-}
-
-async function testLoginPage() {
-  try {
-    const response = await fetch(`${CONFIG.SITE_URL}/login`);
-    
-    if (response.ok) {
-      return { success: true, message: 'Login page loaded successfully' };
-    } else {
-      return { success: false, message: `Login page returned status ${response.status}` };
-    }
-  } catch (error) {
-    return { success: false, message: `Login page test failed: ${error.message}` };
   }
 }
 

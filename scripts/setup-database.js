@@ -195,7 +195,6 @@ async function createAdminUser() {
         email: 'admin@csrental.nl',
         name: 'Admin User',
         role: 'admin',
-        two_factor_enabled: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
