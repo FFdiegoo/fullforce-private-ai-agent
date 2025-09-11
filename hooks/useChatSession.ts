@@ -206,19 +206,20 @@ export function useChatSession(mode: 'technical' | 'procurement') {
 
       // Get auth token for API call
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = session?.access_token || null;
 
-      if (!token) {
-        throw new Error('No valid authentication token');
+      // Build headers and include auth only when available
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       // Call API
       const response = await fetch(apiEndpoint, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify({ prompt: text, mode, model }),
       });
 
