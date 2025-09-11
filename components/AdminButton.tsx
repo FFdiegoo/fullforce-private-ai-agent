@@ -8,23 +8,22 @@ export default function AdminButton() {
   useEffect(() => {
     async function checkAccess() {
       try {
+        // Tel profielen zonder data op te halen
         const { count, error: countError } = await supabase
           .from('profiles')
           .select('id', { count: 'exact', head: true });
 
-        if (countError) {
+        // Als tellen faalt of er nog geen profielen zijn: toon knop
+        if (countError || (count ?? 0) === 0) {
           setVisible(true);
           return;
         }
 
-        if ((count ?? 0) === 0) {
-          setVisible(true);
-          return;
-        }
-
+        // Haal ingelogde user op
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        // Check rol van huidige user
         const { data: profile } = await supabase
           .from('profiles')
           .select('role')
@@ -35,6 +34,7 @@ export default function AdminButton() {
           setVisible(true);
         }
       } catch {
+        // In geval van fout: liever zichtbaar dan verstopt
         setVisible(true);
       }
     }
