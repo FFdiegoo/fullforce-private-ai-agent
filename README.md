@@ -15,6 +15,13 @@ Inhouse AI chatbot omgeving voor CS Rental, schaalbaar voor meerdere klanten.
    ```
    De server draait standaard op `http://localhost:3000`.
 
+## Omgevingsvariabelen
+Voeg de vereiste variabelen toe aan je `.env.local` bestand. Bekijk `.env.local.example` voor alle opties.
+
+### Speciaal
+- `DIEGO_EMAIL` – admin e-mailadres voor Diego
+- `DIEGO_PASSWORD` – wachtwoord voor de Diego bypasslogin
+
 ## Belangrijke scripts
 
 ### Security

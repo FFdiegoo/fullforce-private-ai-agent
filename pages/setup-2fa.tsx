@@ -60,13 +60,6 @@ export default function Setup2FAPage() {
         return;
       }
 
-      // Diego bypass
-      if (authUser.email?.toLowerCase() === 'diego.a.scognamiglio@gmail.com') {
-        console.log('🔓 Diego detected, redirecting to select-assistant');
-        router.push('/select-assistant');
-        return;
-      }
-
       checkExisting2FA();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

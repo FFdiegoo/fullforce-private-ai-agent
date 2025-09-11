@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { auditLogger } from '../../../lib/audit-logger';
 
+const DIEGO_EMAIL = process.env.DIEGO_EMAIL as string;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -24,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.updateUserById(
         '900098f4-785e-4c26-8a7b-55135f83bb16',
         {
-          email: 'diego.a.scognamiglio@gmail.com',
+          email: DIEGO_EMAIL,
           password: tempPassword,
           email_confirm: true,
           user_metadata: {
@@ -49,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Create new auth user with specific UUID
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         id: '900098f4-785e-4c26-8a7b-55135f83bb16',
-        email: 'diego.a.scognamiglio@gmail.com',
+        email: DIEGO_EMAIL,
         password: tempPassword,
         email_confirm: true,
         user_metadata: {
@@ -74,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await supabaseAdmin
       .from('profiles')
       .delete()
-      .eq('email', 'diego.a.scognamiglio@gmail.com');
+      .eq('email', DIEGO_EMAIL);
 
     // Also clean up by ID if exists
     await supabaseAdmin
@@ -90,7 +92,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from('profiles')
       .insert({
         id: '900098f4-785e-4c26-8a7b-55135f83bb16',
-        email: 'diego.a.scognamiglio@gmail.com',
+        email: DIEGO_EMAIL,
         name: 'Diego',
         role: 'admin',
         two_factor_enabled: false,
@@ -115,7 +117,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Generate a password reset link instead of magic link
     const { data: resetLinkData, error: resetLinkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
-      email: 'diego.a.scognamiglio@gmail.com',
+      email: DIEGO_EMAIL,
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/setup-2fa`
       }
@@ -128,7 +130,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Log the action
     await auditLogger.logAuth('DIEGO_COMPLETE_USER_CREATED', '900098f4-785e-4c26-8a7b-55135f83bb16', {
-      email: 'diego.a.scognamiglio@gmail.com',
+      email: DIEGO_EMAIL,
       name: 'Diego',
       phone: '0614759664',
       role: 'admin',
@@ -139,7 +141,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true,
       user: {
         id: '900098f4-785e-4c26-8a7b-55135f83bb16',
-        email: 'diego.a.scognamiglio@gmail.com',
+        email: DIEGO_EMAIL,
         name: 'Diego',
         phone: '0614759664',
         role: 'admin',
@@ -149,7 +151,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       resetLink: resetLinkData?.properties?.action_link,
       message: 'Diego complete user account created successfully',
       loginCredentials: {
-        email: 'diego.a.scognamiglio@gmail.com',
+        email: DIEGO_EMAIL,
         password: tempPassword,
         note: 'Temporary password - user should change after first login'
       }
