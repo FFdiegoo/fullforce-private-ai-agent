@@ -116,7 +116,7 @@ export default function UploadForm() {
         ...metadata,
         uploaded_by: user?.email || 'unknown',
         last_updated: new Date().toISOString(),
-        ready_for_indexing: true
+        ready_for_indexing: false
       };
 
       // Save metadata to database
@@ -140,7 +140,7 @@ export default function UploadForm() {
           versie: ''
         });
         setUploadProgress(0);
-        alert('Document succesvol geüpload!');
+        alert('Document succesvol geüpload en wacht op goedkeuring.');
       }, 500);
 
     } catch (error) {
