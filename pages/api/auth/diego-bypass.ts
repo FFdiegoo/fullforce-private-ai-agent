@@ -26,8 +26,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 🔧 FIX: First authenticate the user to get the correct user ID
     console.log('🔐 Authenticating user with Supabase Auth...');
     
-    let authenticatedUser;
-    let session;
+      let authenticatedUser;
+      let session;
+      let userCreated = false;
     try {
       const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
         email: normalizedEmail,
@@ -35,38 +36,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       if (authError || !authData.user || !authData.session) {
-        console.log('❌ Authentication failed, user might not exist in auth.users');
+        console.log('❌ Authentication failed, checking user existence...');
 
-        // Try to create the user in auth.users if they don't exist
-        console.log('🆕 Creating user in auth.users...');
-        const { data: createAuthData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-          email: 'diego.a.scognamiglio@gmail.com',
-          password: 'Hamkaastostimetkaka321@!',
-          email_confirm: true,
-          user_metadata: {
-            name: 'Diego',
-            bypass_2fa: true
+        const { data: existingUserData, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(normalizedEmail);
+
+        if (existingUserData?.user) {
+          console.log('ℹ️ User exists, updating password...');
+          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(existingUserData.user.id, { password });
+          if (updateError) {
+            console.error('❌ Failed to update existing user password:', updateError);
+            return res.status(401).json({ error: 'Invalid credentials' });
           }
-        });
 
-        if (createAuthError) {
-          console.error('❌ Failed to create auth user:', createAuthError);
-          return res.status(500).json({ error: 'Failed to create auth user: ' + createAuthError.message });
+          const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+            email: normalizedEmail,
+            password
+          });
+          if (signInError || !signInData.user || !signInData.session) {
+            console.error('❌ Failed to sign in after password update:', signInError);
+            return res.status(401).json({ error: 'Invalid credentials' });
+          }
+
+          authenticatedUser = signInData.user;
+          session = signInData.session;
+          console.log('✅ Existing user authenticated successfully with ID:', authenticatedUser.id);
+        } else {
+          if (getUserError && getUserError.message !== 'User not found') {
+            console.error('❌ Error fetching user by email:', getUserError);
+            return res.status(500).json({ error: 'Failed to fetch user' });
+          }
+
+          console.log('🆕 User does not exist, creating user in auth.users...');
+          const { error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
+            email: 'diego.a.scognamiglio@gmail.com',
+            password: 'Hamkaastostimetkaka321@!',
+            email_confirm: true,
+            user_metadata: {
+              name: 'Diego',
+              bypass_2fa: true
+            }
+          });
+
+          if (createAuthError) {
+            console.error('❌ Failed to create auth user:', createAuthError);
+            return res.status(500).json({ error: 'Failed to create auth user: ' + createAuthError.message });
+          }
+
+          const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+            email: normalizedEmail,
+            password
+          });
+          if (signInError || !signInData.user || !signInData.session) {
+            console.error('❌ Failed to sign in after creating user:', signInError);
+            return res.status(500).json({ error: 'Failed to authenticate user after creation' });
+          }
+
+          authenticatedUser = signInData.user;
+          session = signInData.session;
+          userCreated = true;
+          console.log('✅ Auth user created successfully with ID:', authenticatedUser.id);
         }
-
-        // Sign in again to obtain session for the newly created user
-        const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-          email: normalizedEmail,
-          password
-        });
-        if (signInError || !signInData.user || !signInData.session) {
-          console.error('❌ Failed to sign in after creating user:', signInError);
-          return res.status(500).json({ error: 'Failed to authenticate user' });
-        }
-
-        authenticatedUser = signInData.user;
-        session = signInData.session;
-        console.log('✅ Auth user created successfully with ID:', authenticatedUser.id);
       } else {
         authenticatedUser = authData.user;
         session = authData.session;
@@ -155,22 +184,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       console.log('✅ Diego bypass access granted successfully');
 
-      return res.status(200).json({
-        success: true,
-        session,
-        user: {
-          id: profile.id,
-          email: profile.email,
-          name: profile.name,
-          role: profile.role,
-          two_factor_enabled: true // Shows as enabled to bypass checks
-        },
-        authUser: {
-          id: authenticatedUser.id,
-          email: authenticatedUser.email
-        },
-        message: 'Diego bypass access granted - profile updated with correct user ID'
-      });
+        return res.status(200).json({
+          success: true,
+          session,
+          user: {
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role,
+            two_factor_enabled: true // Shows as enabled to bypass checks
+          },
+          authUser: {
+            id: authenticatedUser.id,
+            email: authenticatedUser.email
+          },
+          created: userCreated,
+          message: userCreated
+            ? 'Diego bypass access granted - new auth user created'
+            : 'Diego bypass access granted - profile updated with correct user ID'
+        });
 
   } catch (error) {
     console.error('❌ Diego bypass error:', error);
