@@ -66,7 +66,7 @@ export default function Setup2FAPage() {
   }, [authLoading, isAuthenticated, authUser, router]);
 
   const checkExisting2FA = async () => {
-    if (!authUser) return;
+    if (!authUser?.email) return;
 
     try {
       console.log('🔍 Checking existing 2FA setup...');
