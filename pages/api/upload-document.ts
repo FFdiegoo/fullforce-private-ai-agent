@@ -91,7 +91,7 @@ export default async function handler(
         versie: version,
         uploaded_by: uploadedBy,
         last_updated: new Date().toISOString(),
-        ready_for_indexing: true,
+        ready_for_indexing: false,
         processed: false,
       })
       .select()
