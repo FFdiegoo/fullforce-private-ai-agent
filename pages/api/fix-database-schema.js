@@ -30,7 +30,7 @@ export default async function handler(req, res) {
         two_factor_enabled: false,
         backup_codes: null 
       })
-      .eq('email', 'diego.a.scognamiglio@gmail.com')
+      .eq('email', process.env.DIEGO_EMAIL)
       .select();
 
     if (updateError) {

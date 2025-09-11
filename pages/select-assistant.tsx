@@ -26,14 +26,6 @@ export default function SelectAssistant() {
       const email = session.user.email?.toLowerCase();
       setCurrentUser(session.user);
 
-      // 🔓 DIEGO BYPASS: Skip 2FA checks for Diego
-      if (email === 'diego.a.scognamiglio@gmail.com') {
-        console.log('🔓 Diego detected, bypassing all checks');
-        setIsAdmin(true);
-        setLoading(false);
-        return;
-      }
-
       // Check user profile and 2FA status
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -92,9 +84,6 @@ export default function SelectAssistant() {
           <div className="flex items-center space-x-2 bg-red-600 text-white px-3 py-1 rounded-full shadow-lg">
             <span className="w-2 h-2 bg-white rounded-full"></span>
             <span className="text-sm font-medium">Admin</span>
-            {currentUser?.email?.toLowerCase() === 'diego.a.scognamiglio@gmail.com' && (
-              <span className="text-xs bg-yellow-500 text-black px-1 rounded">BYPASS</span>
-            )}
           </div>
         </div>
       )}
@@ -112,9 +101,6 @@ export default function SelectAssistant() {
             {currentUser && (
               <p className="text-white/80 dark:text-gray-300 text-sm mt-2">
                 Ingelogd als admin: {currentUser.email}
-                {currentUser.email?.toLowerCase() === 'diego.a.scognamiglio@gmail.com' && (
-                  <span className="ml-2 bg-yellow-500 text-black px-2 py-1 rounded text-xs">2FA BYPASSED</span>
-                )}
               </p>
             )}
           </div>
@@ -125,7 +111,7 @@ export default function SelectAssistant() {
           <div className="inline-flex items-center space-x-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
             <span>🛡️</span>
             <span>
-              {currentUser?.email?.toLowerCase() === 'diego.a.scognamiglio@gmail.com' ? '2FA Bypassed' : '2FA Enabled'}
+              2FA Enabled
             </span>
           </div>
         </div>
@@ -176,17 +162,15 @@ export default function SelectAssistant() {
           </button>
         </div>
 
-        {/* 2FA Management Link - only show for non-Diego users */}
-        {currentUser?.email?.toLowerCase() !== 'diego.a.scognamiglio@gmail.com' && (
-          <div className="text-center mt-8">
-            <button
-              onClick={() => router.push('/setup-2fa')}
-              className="text-white/80 hover:text-white text-sm underline"
-            >
-              Manage 2FA Settings
-            </button>
-          </div>
-        )}
+        {/* 2FA Management Link */}
+        <div className="text-center mt-8">
+          <button
+            onClick={() => router.push('/setup-2fa')}
+            className="text-white/80 hover:text-white text-sm underline"
+          >
+            Manage 2FA Settings
+          </button>
+        </div>
       </div>
     </div>
   );

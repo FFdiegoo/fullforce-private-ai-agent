@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function CreateDiegoAdmin() {
+  const diegoEmail = process.env.DIEGO_EMAIL || '';
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -56,7 +57,7 @@ export default function CreateDiegoAdmin() {
 
 Je admin account voor CSrental AI is aangemaakt! 🎉
 
-📧 Email: diego@full-force.ai
+📧 Email: ${diegoEmail}
 👤 Naam: Diego  
 📱 Telefoon: 0614759664
 🛡️ Role: Admin
@@ -88,7 +89,7 @@ Het CSrental AI Team`;
               Create Diego Admin User
             </h1>
             <p className="text-gray-600">
-              Create admin account for diego@full-force.ai with magic link
+              Create admin account for {diegoEmail} with magic link
             </p>
           </div>
 

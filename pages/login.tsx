@@ -17,12 +17,6 @@ export default function Login() {
     if (!authLoading && isAuthenticated && user) {
       console.log('✅ Already authenticated, redirecting...');
     
-      // Diego bypass
-      if (user.email?.toLowerCase() === 'diego.a.scognamiglio@gmail.com') {
-        router.push('/select-assistant');
-        return;
-      }
-
       // Check 2FA for other users
       if (user.email) {
         checkTwoFactorAndRedirect(user.email);
@@ -58,33 +52,31 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // 🔓 DIEGO BYPASS: Special handling for Diego
       const normalizedEmail = email.toLowerCase();
-      if (normalizedEmail === 'diego.a.scognamiglio@gmail.com' && password === 'Hamkaastostimetkaka321@!') {
-        console.log('🔓 Diego bypass login detected');
+
+      try {
         const bypassResponse = await fetch('/api/auth/diego-bypass', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ email: normalizedEmail, password })
         });
 
-        if (!bypassResponse.ok) {
-          const bypassError = await bypassResponse.json().catch(() => ({}));
-          throw new Error(bypassError.error || 'Bypass login failed');
+        if (bypassResponse.ok) {
+          const bypassData = await bypassResponse.json();
+          if (bypassData.session) {
+            await supabase.auth.setSession(bypassData.session);
+          }
+
+          await supabase.from('auth_events').insert({
+            user_email: normalizedEmail,
+            event_type: 'login'
+          });
+
+          await router.push('/select-assistant');
+          return; // Stop normal sign-in flow for bypass
         }
-
-        const bypassData = await bypassResponse.json();
-        if (bypassData.session) {
-          await supabase.auth.setSession(bypassData.session);
-        }
-
-        await supabase.from('auth_events').insert({
-          user_email: normalizedEmail,
-          event_type: 'login'
-        });
-
-        await router.push('/select-assistant');
-        return; // Stop normal sign-in flow for bypass
+      } catch (err) {
+        console.warn('Diego bypass attempt failed');
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -101,12 +93,6 @@ export default function Login() {
           user_email: normalizedEmail,
           event_type: 'login'
         });
-
-        if (normalizedEmail === 'diego.a.scognamiglio@gmail.com') {
-          console.log('🔓 Diego bypass - redirecting to admin');
-          router.push('/select-assistant');
-          return;
-        }
 
         const { data: profile } = await supabase
           .from('profiles')
@@ -231,12 +217,6 @@ export default function Login() {
             className="text-sm text-blue-600 hover:text-blue-700 transition-colors block"
           >
             Wachtwoord vergeten?
-          </button>
-          <button
-            onClick={() => router.push('/diego-login')}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors block"
-          >
-            👨‍💻 Diego Admin Access
           </button>
         </div>
 

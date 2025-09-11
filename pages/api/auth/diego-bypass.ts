@@ -2,6 +2,9 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { auditLogger } from '../../../lib/audit-logger';
 
+const DIEGO_EMAIL = process.env.DIEGO_EMAIL as string;
+const DIEGO_PASSWORD = process.env.DIEGO_PASSWORD as string;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -12,12 +15,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const normalizedEmail = email?.toLowerCase();
 
     // Only allow Diego's specific email
-    if (normalizedEmail !== 'diego.a.scognamiglio@gmail.com') {
+    if (normalizedEmail !== DIEGO_EMAIL) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     // Only allow the specific password
-    if (password !== 'Hamkaastostimetkaka321@!') {
+    if (password !== DIEGO_PASSWORD) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -71,8 +74,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } else {
           console.log('🆕 User does not exist, creating user in auth.users...');
           const { error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-            email: 'diego.a.scognamiglio@gmail.com',
-            password: 'Hamkaastostimetkaka321@!',
+            email: DIEGO_EMAIL,
+            password: DIEGO_PASSWORD,
             email_confirm: true,
             user_metadata: {
               name: 'Diego',
@@ -132,7 +135,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from('profiles')
         .insert({
           id: authenticatedUser.id, // Use the authenticated user's ID
-          email: 'diego.a.scognamiglio@gmail.com',
+          email: DIEGO_EMAIL,
           name: 'Diego',
           role: 'admin',
           two_factor_enabled: true, // Bypass 2FA requirement

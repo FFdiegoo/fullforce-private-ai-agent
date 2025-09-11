@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 
 export default function EmergencyAccess() {
   const router = useRouter();
-  const [email, setEmail] = useState('diego.a.scognamiglio@gmail.com');
+  const [email, setEmail] = useState('');
   const [emergencyCode, setEmergencyCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
