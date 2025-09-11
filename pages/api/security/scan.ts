@@ -32,16 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('email', user.email)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
+    // Admin role check removed to allow broader access
 
     const { scanType = 'full' } = req.body;
 
