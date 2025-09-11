@@ -38,11 +38,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (authError || !authData.user || !authData.session) {
         console.log('❌ Authentication failed, checking user existence...');
 
-        const { data: existingUserData, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(normalizedEmail);
+        const { data: userList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        if (listError) {
+          console.error('❌ Error fetching user list:', listError);
+          return res.status(500).json({ error: 'Failed to fetch user' });
+        }
 
-        if (existingUserData?.user) {
+        const existingUser = userList.users.find(
+          (user) => user.email?.toLowerCase() === normalizedEmail
+        );
+
+        if (existingUser) {
           console.log('ℹ️ User exists, updating password...');
-          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(existingUserData.user.id, { password });
+          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, { password });
           if (updateError) {
             console.error('❌ Failed to update existing user password:', updateError);
             return res.status(401).json({ error: 'Invalid credentials' });
@@ -61,11 +69,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           session = signInData.session;
           console.log('✅ Existing user authenticated successfully with ID:', authenticatedUser.id);
         } else {
-          if (getUserError && getUserError.message !== 'User not found') {
-            console.error('❌ Error fetching user by email:', getUserError);
-            return res.status(500).json({ error: 'Failed to fetch user' });
-          }
-
           console.log('🆕 User does not exist, creating user in auth.users...');
           const { error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
             email: 'diego.a.scognamiglio@gmail.com',
