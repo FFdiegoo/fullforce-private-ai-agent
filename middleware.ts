@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { EnhancedSessionManager } from './lib/enhanced-session-manager';
 import { githubActionsCIDRs } from './lib/ip/githubActionsIPs';
 import CidrMatcher from 'cidr-matcher';
 import { getAllowedIPs } from './lib/ip/allowedIPs';

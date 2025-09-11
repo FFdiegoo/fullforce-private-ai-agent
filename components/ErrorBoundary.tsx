@@ -75,10 +75,10 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
               
               <button
-                onClick={() => window.location.href = '/login'}
+                onClick={() => window.location.href = '/'}
                 className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-colors"
               >
-                🔑 Go to Login
+                🏠 Go Home
               </button>
             </div>
             

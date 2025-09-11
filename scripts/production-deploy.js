@@ -149,17 +149,7 @@ async function runProductionSmokeTests() {
       throw new Error(`Site returned status ${response.status}`);
     }
     
-    // Test 2: Check login page
-    console.log('   Testing login page...');
-    const loginResponse = await fetch(`${CONFIG.PRODUCTION_URL}/login`);
-    
-    if (loginResponse.ok) {
-      console.log('   ✅ Login page is accessible!');
-    } else {
-      throw new Error(`Login page returned status ${loginResponse.status}`);
-    }
-    
-    // Test 3: Check API health
+    // Test 2: Check API health
     console.log('   Testing API health...');
     const apiResponse = await fetch(`${CONFIG.PRODUCTION_URL}/api/test-rate-limit`);
     
