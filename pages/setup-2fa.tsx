@@ -66,7 +66,7 @@ export default function Setup2FAPage() {
   }, [authLoading, isAuthenticated, authUser, router]);
 
   const checkExisting2FA = async () => {
-    if (!authUser) return;
+    if (!authUser?.email) return;
 
     try {
       console.log('🔍 Checking existing 2FA setup...');
@@ -75,8 +75,8 @@ export default function Setup2FAPage() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('email', authUser.email)
-        .single();
+        .eq('email', authUser.email.toLowerCase())
+        .maybeSingle();
 
       setDebugInfo(prev => ({
         ...prev,
@@ -90,6 +90,23 @@ export default function Setup2FAPage() {
         console.error('❌ Profile error:', profileError);
         setError(`Profile error: ${profileError.message}`);
         return;
+      }
+
+      if (!profile) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({ email: authUser.email.toLowerCase() });
+        if (insertError) {
+          console.error('❌ Profile creation error:', insertError);
+          setError(`Profile creation error: ${insertError.message}`);
+          setDebugInfo(prev => ({
+            ...prev,
+            profileCreationError: insertError.message
+          }));
+          return;
+        }
+
+        setDebugInfo(prev => ({ ...prev, profileCreated: true }));
       }
 
       if (profile?.two_factor_enabled) {
