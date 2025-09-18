@@ -1,46 +1,109 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin';
 
+type ChatAgg = {
+  sessions: number;
+  messages: number;
+  last_message_at: string | null;
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const publicAdmin = process.env.NEXT_PUBLIC_PUBLIC_ADMIN === 'true' || process.env.PUBLIC_ADMIN === 'true';
+    // toggles: maak admin endpoint publiek
+    const publicAdmin =
+      process.env.NEXT_PUBLIC_PUBLIC_ADMIN === 'true' ||
+      process.env.PUBLIC_ADMIN === 'true';
+
     if (!publicAdmin) {
       res.status(403).json({ error: 'disabled' });
       return;
     }
 
-    const [{ data: docs }, { data: chunks }, { data: needsOcr }] = await Promise.all([
-      supabaseAdmin.rpc('sql', { query: 'select count(*)::int as c, sum((processed)::int)::int as p from documents_metadata' }).catch(async () => {
-        // fallback: normal selects
-        const { data: all } = await supabaseAdmin.from('documents_metadata').select('id, processed, chunk_count');
-        return { data: { c: all?.length || 0, p: (all || []).filter(x => x.processed).length } as any };
-      }),
-      supabaseAdmin.from('document_chunks').select('id', { count: 'exact', head: true }),
-      supabaseAdmin.from('documents_metadata').select('id', { count: 'exact', head: true }).eq('needs_ocr', true),
+    // --- RAG stats ---
+    const [docsRpcResp, chunksResp, needsOcrResp] = await Promise.all([
+      // Probeer een (optionele) RPC die raw SQL uitvoert; val terug op normale selects als die niet bestaat.
+      supabaseAdmin
+        .rpc('sql', {
+          query:
+            'select count(*)::int as c, sum((processed)::int)::int as p from documents_metadata',
+        })
+        .catch(() => ({ data: null, error: new Error('rpc sql not available') })),
+      supabaseAdmin
+        .from('document_chunks')
+        .select('id', { count: 'exact', head: true }),
+      supabaseAdmin
+        .from('documents_metadata')
+        .select('id', { count: 'exact', head: true })
+        .eq('needs_ocr', true),
     ]);
 
-    const total_docs = (docs as any)?.c ?? 0;
-    const processed_docs = (docs as any)?.p ?? 0;
-    const chunksCount = (chunks as any)?.count ?? 0;
-    const needsOcrCount = (needsOcr as any)?.count ?? 0;
+    let total_docs = 0;
+    let processed_docs = 0;
 
-    const { data: chatAgg } = await supabaseAdmin.rpc('sql', { query: `
-      select 
-        (select count(*) from chat_sessions)::int as sessions,
-        (select count(*) from chat_messages)::int as messages,
-        (select max(created_at) from chat_messages)::timestamptz as last_message_at
-    ` }).catch(async () => {
-      const [{ data: s }, { data: m }, { data: last }] = await Promise.all([
-        supabaseAdmin.from('chat_sessions').select('id', { count: 'exact', head: true }),
-        supabaseAdmin.from('chat_messages').select('id', { count: 'exact', head: true }),
-        supabaseAdmin.from('chat_messages').select('created_at').order('created_at', { ascending: false }).limit(1)
+    if ((docsRpcResp as any)?.data && !(docsRpcResp as any)?.error) {
+      // RPC succesvol; verwacht één record met velden c en p
+      const d = (docsRpcResp as any).data as { c?: number; p?: number };
+      total_docs = d?.c ?? 0;
+      processed_docs = d?.p ?? 0;
+    } else {
+      // Fallback: normale selects
+      const { data: all } = await supabaseAdmin
+        .from('documents_metadata')
+        .select('processed');
+      total_docs = all?.length ?? 0;
+      processed_docs = (all ?? []).filter((x: any) => x.processed).length;
+    }
+
+    const chunksCount = (chunksResp as any)?.count ?? 0;
+    const needsOcrCount = (needsOcrResp as any)?.count ?? 0;
+
+    // --- Chat aggregaties ---
+    let chatAgg: ChatAgg = { sessions: 0, messages: 0, last_message_at: null };
+
+    const chatRpcResp = await supabaseAdmin
+      .rpc('sql', {
+        query: `
+          select 
+            (select count(*) from chat_sessions)::int as sessions,
+            (select count(*) from chat_messages)::int as messages,
+            (select max(created_at) from chat_messages)::timestamptz as last_message_at
+        `,
+      })
+      .catch(() => null as any);
+
+    if (chatRpcResp?.data && !chatRpcResp?.error) {
+      chatAgg = chatRpcResp.data as ChatAgg;
+    } else {
+      // Fallback zonder RPC
+      const [sessionsRes, messagesRes, lastMsgRes] = await Promise.all([
+        supabaseAdmin
+          .from('chat_sessions')
+          .select('id', { count: 'exact', head: true }),
+        supabaseAdmin
+          .from('chat_messages')
+          .select('id', { count: 'exact', head: true }),
+        supabaseAdmin
+          .from('chat_messages')
+          .select('created_at')
+          .order('created_at', { ascending: false })
+          .limit(1),
       ]);
-      return { data: { sessions: s?.count || 0, messages: m?.count || 0, last_message_at: last?.[0]?.created_at || null } };
-    });
+
+      chatAgg = {
+        sessions: (sessionsRes as any)?.count ?? 0,
+        messages: (messagesRes as any)?.count ?? 0,
+        last_message_at: (lastMsgRes as any)?.data?.[0]?.created_at ?? null,
+      };
+    }
 
     res.status(200).json({
-      rag: { total_docs, processed_docs, chunks: chunksCount, needs_ocr: needsOcrCount },
-      chat: chatAgg
+      rag: {
+        total_docs,
+        processed_docs,
+        chunks: chunksCount,
+        needs_ocr: needsOcrCount,
+      },
+      chat: chatAgg,
     });
   } catch (e: any) {
     console.error(e);
