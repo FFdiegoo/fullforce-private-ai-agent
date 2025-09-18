@@ -20,14 +20,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // --- RAG stats ---
-    const [docsRpcResp, chunksResp, needsOcrResp] = await Promise.all([
-      // Probeer een (optionele) RPC die raw SQL uitvoert; val terug op normale selects als die niet bestaat.
-      supabaseAdmin
-        .rpc('sql', {
+    const docsRpcPromise = (async () => {
+      try {
+        return await supabaseAdmin.rpc('sql', {
           query:
             'select count(*)::int as c, sum((processed)::int)::int as p from documents_metadata',
-        })
-        .catch(() => ({ data: null, error: new Error('rpc sql not available') })),
+        });
+      } catch {
+        return { data: null, error: new Error('rpc sql not available') };
+      }
+    })();
+
+    const [docsRpcResp, chunksResp, needsOcrResp] = await Promise.all([
+      // Probeer een (optionele) RPC die raw SQL uitvoert; val terug op normale selects als die niet bestaat.
+      docsRpcPromise,
       supabaseAdmin
         .from('document_chunks')
         .select('id', { count: 'exact', head: true }),
@@ -60,16 +66,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // --- Chat aggregaties ---
     let chatAgg: ChatAgg = { sessions: 0, messages: 0, last_message_at: null };
 
-    const chatRpcResp = await supabaseAdmin
-      .rpc('sql', {
-        query: `
-          select 
+    const chatRpcResp = await (async () => {
+      try {
+        return await supabaseAdmin.rpc('sql', {
+          query: `
+          select
             (select count(*) from chat_sessions)::int as sessions,
             (select count(*) from chat_messages)::int as messages,
             (select max(created_at) from chat_messages)::timestamptz as last_message_at
         `,
-      })
-      .catch(() => null as any);
+        });
+      } catch {
+        return null as any;
+      }
+    })();
 
     if (chatRpcResp?.data && !chatRpcResp?.error) {
       chatAgg = chatRpcResp.data as ChatAgg;
