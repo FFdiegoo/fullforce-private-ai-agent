@@ -30,6 +30,7 @@
     "rag:mark-for-indexing": "node scripts/mark-documents-for-indexing.js",
     "rag:process-all": "node scripts/process-all-pending-documents.js",
     "rag:monitor": "node scripts/monitor-rag-status.js",
+    "rag:health": "next dev -p 3000",
     "bulk-upload": "node scripts/bulk-upload.js",
     "bulk-upload:handleidingen": "node scripts/bulk-upload-handleidingen.js",
     "bulk-upload:monitor": "node scripts/bulk-upload-monitor.js",

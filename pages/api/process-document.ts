@@ -193,7 +193,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { count: chunkCount, error: countError } = await supabase
       .from('document_chunks')
       .select('*', { count: 'exact', head: true })
-      .eq('metadata->id', id);
+      .eq('doc_id', id);
 
     if (countError) {
       console.error('❌ Error getting chunk count:', countError);

@@ -33,7 +33,7 @@ export default async function handler(
     const { data: chunkData, error: chunkError } = await supabaseAdmin
       .from('document_chunks')
       .select('count')
-      .eq('metadata->>id', id);
+      .eq('doc_id', id);
 
     if (chunkError) {
       console.error('Error getting chunk count:', chunkError);

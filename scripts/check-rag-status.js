@@ -80,7 +80,7 @@ async function main() {
     const { count: chunkCount, error: chunkErr } = await supabase
       .from('document_chunks')
       .select('*', { count: 'exact', head: true })
-      .eq('metadata->>id', docId);
+      .eq('doc_id', docId);
     if (chunkErr) {
       throw new Error(`Failed to verify chunks: ${chunkErr.message}`);
     }
