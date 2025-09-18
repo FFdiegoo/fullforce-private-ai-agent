@@ -21,7 +21,16 @@ jest.mock('../../lib/rag/vectorStore', () => ({
 }));
 
 jest.mock('../../lib/rag/config', () => ({
-  RAG_CONFIG: { embeddingModel: 'test-embed', similarityThreshold: 0.5, maxResults: 3 }
+  RAG_CONFIG: {
+    embeddingModel: 'test-embed',
+    similarityThreshold: 0.5,
+    maxResults: 3,
+    batchSize: 2,
+    concurrency: 1,
+    delayMs: 0,
+    ocrMinTextLength: 50,
+    retryMax: 2,
+  }
 }));
 
 describe('RAGPipeline', () => {
@@ -45,8 +54,8 @@ describe('RAGPipeline', () => {
 
     const pipeline = new RAGPipeline(supabase, 'key');
     const count = await pipeline.processDocument(
-      { id: 'doc1', filename: 'f' } as any,
-      {} as any
+      { id: 'doc1', filename: 'f', extractedText: 'hello world' } as any,
+      { chunkSize: 100, chunkOverlap: 10 } as any
     );
 
     expect(count).toBe(1);
@@ -60,7 +69,7 @@ describe('RAGPipeline', () => {
 
     const pipeline = new RAGPipeline(supabase, 'key');
     await expect(
-      pipeline.processDocument({ id: 'doc1', filename: 'f' } as any, {} as any)
+      pipeline.processDocument({ id: 'doc1', filename: 'f', extractedText: 'text' } as any, {} as any)
     ).rejects.toThrow('fail');
   });
 

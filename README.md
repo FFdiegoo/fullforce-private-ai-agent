@@ -38,6 +38,8 @@ Voeg de vereiste variabelen toe aan je `.env.local` bestand. Bekijk `.env.local.
 - `npm run rag:create-test-docs` – maak testdocumenten aan.
 - `npm run rag:test` – opent de RAG‑testpagina.
 
+De volledige ingest‑pipeline gebruikt de variabelen `SUPABASE_DOCUMENTS_BUCKET`, `RAG_EMBEDDING_MODEL`, `RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`, `RAG_BATCH_SIZE`, `RAG_CONCURRENCY` en `RAG_DELAY_MS`. Je kunt veilig herhaaldelijk `node scripts/process-all-pending-documents.js` draaien; reeds verwerkte documenten worden overgeslagen tenzij je `--force` meegeeft.
+
 ### Bulk upload
 - `npm run bulk-upload` – bulkupload van documenten.
 - `npm run bulk-upload:handleidingen` – upload handleidingen in bulk.

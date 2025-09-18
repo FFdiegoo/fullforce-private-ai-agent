@@ -30,6 +30,7 @@ create table if not exists documents_metadata (
   id uuid primary key default gen_random_uuid(),
   filename text not null,
   storage_path text not null,
+  bucket text null,
   mime_type text null,
   ready_for_indexing boolean not null default false,
   processed boolean not null default false,
@@ -53,6 +54,7 @@ create table if not exists document_chunks (
 );
 
 create index if not exists document_chunks_doc_id_idx on document_chunks(doc_id);
+create unique index if not exists document_chunks_doc_id_chunk_index_idx on document_chunks(doc_id, chunk_index);
 create index if not exists document_chunks_gin on document_chunks using ivfflat (embedding);
 
 -- Similarity search helper

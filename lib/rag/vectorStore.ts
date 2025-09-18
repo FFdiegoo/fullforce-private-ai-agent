@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { RetryableError } from './errors';
 import { TextChunk } from './types';
 
-const BATCH_SIZE = 50;
+type StoreOptions = {
+  dryRun?: boolean;
+};
 
 export class VectorStore {
   private supabaseAdmin: SupabaseClient;
@@ -10,8 +13,9 @@ export class VectorStore {
     this.supabaseAdmin = supabaseAdmin;
   }
 
-  async storeChunks(chunks: TextChunk[]): Promise<void> {
-    const validChunks = chunks.filter(chunk => {
+  async storeChunks(chunks: TextChunk[], options: StoreOptions = {}): Promise<void> {
+    const { dryRun } = options;
+    const validChunks = chunks.filter((chunk) => {
       if (!chunk.embedding) {
         console.warn(`⚠️ Chunk ${chunk.chunk_index} skipped: no embedding`);
         return false;
@@ -23,39 +27,66 @@ export class VectorStore {
       return true;
     });
 
-    console.log(`🔄 Storing ${validChunks.length} chunks in vector store...`);
-
-    const failedBatches: number[] = [];
-
-    for (let i = 0; i < validChunks.length; i += BATCH_SIZE) {
-      const batch = validChunks
-        .slice(i, i + BATCH_SIZE)
-        .map(({ content, embedding, docId, chunk_index }) => ({
-          content,
-          embedding,
-          doc_id: docId,
-          chunk_index,
-        }));
-
-      try {
-        const { error } = await this.supabaseAdmin
-          .from('document_chunks')
-          .insert(batch);
-
-        if (error) {
-          throw error;
-        }
-      } catch (error) {
-        console.error(`❌ Error storing batch starting at index ${i}:`, error);
-        failedBatches.push(i);
-        continue;
-      }
+    if (!validChunks.length) {
+      console.warn('⚠️ No valid chunks to store');
+      return;
     }
 
-    if (failedBatches.length) {
-      console.warn(`⚠️ Failed to store ${failedBatches.length} batch(es).`);
-    } else {
-      console.log(`✅ Successfully stored ${validChunks.length} chunks`);
+    const grouped = validChunks.reduce<Record<string, TextChunk[]>>((acc, chunk) => {
+      if (!chunk.docId) return acc;
+      acc[chunk.docId] = acc[chunk.docId] || [];
+      acc[chunk.docId].push(chunk);
+      return acc;
+    }, {});
+
+    for (const [docId, docChunks] of Object.entries(grouped)) {
+      await this.storeChunksForDocument(docId, docChunks, dryRun);
+    }
+  }
+
+  private async storeChunksForDocument(
+    documentId: string,
+    chunks: TextChunk[],
+    dryRun?: boolean
+  ): Promise<void> {
+    const payload = chunks.map(({ content, embedding, chunk_index }) => ({
+      doc_id: documentId,
+      chunk_index,
+      content,
+      embedding,
+    }));
+
+    if (dryRun) {
+      console.log(`💾 [dry-run] Skipping storage for ${payload.length} chunks of ${documentId}`);
+      return;
+    }
+
+    const { error } = await this.supabaseAdmin
+      .from('document_chunks')
+      .upsert(payload, { onConflict: 'doc_id,chunk_index' });
+
+    if (error) {
+      const status = (error as any)?.status ?? (error as any)?.code;
+      if (typeof status === 'number' && status >= 500) {
+        throw new RetryableError('Supabase upsert failed', error);
+      }
+      throw error;
+    }
+
+    const maxIndex = chunks.length ? Math.max(...chunks.map((chunk) => chunk.chunk_index)) : -1;
+    const cleanup = this.supabaseAdmin
+      .from('document_chunks')
+      .delete()
+      .eq('doc_id', documentId)
+      .gt('chunk_index', maxIndex);
+
+    const { error: cleanupError } = await cleanup;
+    if (cleanupError) {
+      const status = (cleanupError as any)?.status ?? (cleanupError as any)?.code;
+      if (typeof status === 'number' && status >= 500) {
+        throw new RetryableError('Supabase cleanup failed', cleanupError);
+      }
+      console.error('⚠️ Cleanup error after upsert:', cleanupError);
     }
   }
 
@@ -66,12 +97,10 @@ export class VectorStore {
     limit: number = 5
   ): Promise<any[]> {
     try {
-      console.log(`🔍 Searching for similar documents with threshold ${threshold}, limit ${limit}...`);
-
       const { data, error } = await this.supabaseAdmin.rpc('match_documents', {
         query_embedding: queryEmbedding,
         similarity_threshold: threshold,
-        match_count: limit
+        match_count: limit,
       });
 
       if (error) {
@@ -79,34 +108,23 @@ export class VectorStore {
         throw error;
       }
 
-      console.log(`✅ Found ${data?.length || 0} similar documents`);
       return data || [];
     } catch (error) {
       console.error('❌ Error in similarity search:', error instanceof Error ? error.message : error);
-      
-      // Fallback to text search if vector search fails
       return await this.fallbackTextSearch(originalQuery, limit);
     }
   }
 
-  private async fallbackTextSearch(
-    query: string,
-    limit: number
-  ): Promise<any[]> {
+  private async fallbackTextSearch(query: string, limit: number): Promise<any[]> {
     try {
-      console.log(`🔍 Falling back to text search with limit ${limit}...`);
-
-      // Start building the query
       let queryBuilder = this.supabaseAdmin
         .from('document_chunks')
         .select('doc_id, chunk_index, content');
 
-      // Apply text search if query is provided
       if (query && query.trim()) {
         queryBuilder = queryBuilder.textSearch('content', query);
       }
 
-      // Apply limit and execute query
       const { data, error } = await queryBuilder.limit(limit);
 
       if (error) {
@@ -114,7 +132,6 @@ export class VectorStore {
         return [];
       }
 
-      console.log(`✅ Found ${data?.length || 0} documents via text search`);
       return data || [];
     } catch (error) {
       console.error('❌ Fallback search error:', error instanceof Error ? error.message : error);
@@ -123,22 +140,12 @@ export class VectorStore {
   }
 
   async deleteChunksByDocumentId(documentId: string): Promise<void> {
-    try {
-      console.log(`🗑️ Deleting chunks for document ${documentId}...`);
+    const { error } = await this.supabaseAdmin
+      .from('document_chunks')
+      .delete()
+      .eq('doc_id', documentId);
 
-      const { error } = await this.supabaseAdmin
-        .from('document_chunks')
-        .delete()
-        .eq('doc_id', documentId);
-
-      if (error) {
-        console.error(`❌ Error deleting chunks for document ${documentId}:`, error);
-        throw error;
-      }
-      
-      console.log(`✅ Successfully deleted chunks for document ${documentId}`);
-    } catch (error) {
-      console.error(`❌ Error in deleteChunksByDocumentId:`, error);
+    if (error) {
       throw error;
     }
   }

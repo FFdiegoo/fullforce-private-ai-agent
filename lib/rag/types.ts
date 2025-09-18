@@ -3,6 +3,7 @@ export interface DocumentMetadata {
   filename: string;
   safe_filename: string;
   storage_path: string;
+  bucket?: string;
   file_size: number;
   mime_type: string;
   afdeling: string;
@@ -25,7 +26,7 @@ export interface TextChunk {
 }
 
 export interface ProcessingOptions {
-  chunkSize: number;       // max lengte van een chunk
-  chunkOverlap: number;    // overlap tussen chunks
-  skipExisting: boolean;   // skip als al in DB
+  chunkSize: number; // max lengte van een chunk
+  chunkOverlap: number; // overlap tussen chunks
+  dryRun?: boolean;
 }

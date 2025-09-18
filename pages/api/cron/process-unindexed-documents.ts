@@ -183,7 +183,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             pipeline.processDocument(metadata, {
               chunkSize: RAG_CONFIG.chunkSize,
               chunkOverlap: RAG_CONFIG.chunkOverlap,
-              skipExisting: false,
             })
           );
         } finally {

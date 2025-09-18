@@ -83,12 +83,11 @@ async function processTestDocument(documentId: string, res: NextApiResponse) {
     // Initialize RAG pipeline
     const pipeline = new RAGPipeline(supabase, openaiApiKey);
 
-    // Process the document
-    await pipeline.processDocument(document, {
-      chunkSize: RAG_CONFIG.chunkSize,
-      chunkOverlap: RAG_CONFIG.chunkOverlap,
-      skipExisting: false
-    });
+  // Process the document
+  await pipeline.processDocument(document, {
+    chunkSize: RAG_CONFIG.chunkSize,
+    chunkOverlap: RAG_CONFIG.chunkOverlap
+  });
 
     // Verify chunks were created
     const { data: chunks, error: chunksError } = await supabaseAdmin
