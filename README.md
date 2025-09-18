@@ -71,6 +71,15 @@ Supabase levert de Postgres‑database, authenticatie en opslag. De SQL‑migrat
    npm run schema:verify
    ```
 
+### Handmatige bootstrap
+Voer na het clonen éénmalig het script [`sql/bootstrap.sql`](./sql/bootstrap.sql) uit via de Supabase SQL Editor:
+
+1. Open het Supabase dashboard van je project.
+2. Ga naar **SQL** \> **SQL Editor**.
+3. Plak de inhoud van `sql/bootstrap.sql` en klik op **Run**.
+
+Het script is idempotent en kan veilig opnieuw gedraaid worden.
+
 ## Testen
 - `npm test` – draait de Jest‑test suite.
 - `npm run test:security` – voert beveiligingstests uit.

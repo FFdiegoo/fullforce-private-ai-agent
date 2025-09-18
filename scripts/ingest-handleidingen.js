@@ -279,15 +279,7 @@ async function generateEmbeddings(chunks, document) {
       embeddedChunks.push({
         content: chunk,
         embedding: embedding.embedding,
-        metadata: {
-          id: document.id,
-          filename: document.filename,
-          storage_path: document.storage_path,
-          afdeling: document.afdeling,
-          categorie: document.categorie,
-          onderwerp: document.onderwerp,
-          versie: document.versie
-        },
+        doc_id: document.id,
         chunk_index: i
       });
       
@@ -307,12 +299,17 @@ async function generateEmbeddings(chunks, document) {
 async function storeChunks(chunks) {
   for (const chunk of chunks) {
     try {
+      if (!chunk.doc_id) {
+        console.warn('⚠️ Skipping chunk without doc_id');
+        continue;
+      }
+
       const { error } = await supabase
         .from('document_chunks')
         .insert({
           content: chunk.content,
           embedding: chunk.embedding,
-          metadata: chunk.metadata,
+          doc_id: chunk.doc_id,
           chunk_index: chunk.chunk_index
         });
 
