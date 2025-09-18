@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { TextChunk } from './types.ts';
+import { TextChunk } from './types';
 
 const BATCH_SIZE = 50;
 
@@ -16,6 +16,10 @@ export class VectorStore {
         console.warn(`⚠️ Chunk ${chunk.chunk_index} skipped: no embedding`);
         return false;
       }
+      if (!chunk.docId) {
+        console.warn(`⚠️ Chunk ${chunk.chunk_index} skipped: missing docId`);
+        return false;
+      }
       return true;
     });
 
@@ -26,10 +30,10 @@ export class VectorStore {
     for (let i = 0; i < validChunks.length; i += BATCH_SIZE) {
       const batch = validChunks
         .slice(i, i + BATCH_SIZE)
-        .map(({ content, embedding, metadata, chunk_index }) => ({
+        .map(({ content, embedding, docId, chunk_index }) => ({
           content,
           embedding,
-          metadata,
+          doc_id: docId,
           chunk_index,
         }));
 
@@ -59,71 +63,16 @@ export class VectorStore {
     queryEmbedding: number[],
     originalQuery: string,
     threshold: number = 0.7,
-    limit: number = 5,
-    filter?: { afdeling?: string, categorie?: string, klant_id?: string }
+    limit: number = 5
   ): Promise<any[]> {
     try {
-      console.log(`🔍 Searching for similar documents with threshold ${threshold}, limit ${limit}${filter ? ', and filters' : ''}...`);
-      
-      // Build the filter conditions if provided
-      let filterConditions = '';
-      const filterParams: any = {
+      console.log(`🔍 Searching for similar documents with threshold ${threshold}, limit ${limit}...`);
+
+      const { data, error } = await this.supabaseAdmin.rpc('match_documents', {
         query_embedding: queryEmbedding,
-        match_threshold: threshold,
+        similarity_threshold: threshold,
         match_count: limit
-      };
-      
-      if (filter) {
-        // Add each filter condition if it exists
-        if (filter.afdeling) {
-          filterConditions += " AND metadata->>'afdeling' = :afdeling";
-          filterParams.afdeling = filter.afdeling;
-        }
-        
-        if (filter.categorie) {
-          filterConditions += " AND metadata->>'categorie' = :categorie";
-          filterParams.categorie = filter.categorie;
-        }
-        
-        if (filter.klant_id) {
-          filterConditions += " AND metadata->>'klant_id' = :klant_id";
-          filterParams.klant_id = filter.klant_id;
-        }
-        
-        console.log(`🔍 Applied filters: ${JSON.stringify(filter)}`);
-      }
-      
-      // If we have filters, we need to use a custom query instead of the match_documents function
-      let data, error;
-      
-      if (filterConditions) {
-        // Custom query with filters
-        const query = `
-          SELECT
-            id,
-            content,
-            metadata,
-            1 - (embedding <=> :query_embedding) AS similarity
-          FROM document_chunks
-          WHERE 1 - (embedding <=> :query_embedding) > :match_threshold
-          ${filterConditions}
-          ORDER BY embedding <=> :query_embedding
-          LIMIT :match_count
-        `;
-        
-        const result = await this.supabaseAdmin.rpc('sql', { query, params: filterParams });
-        data = result.data;
-        error = result.error;
-      } else {
-        // Use the standard match_documents function when no filters
-        const result = await this.supabaseAdmin.rpc('match_documents', {
-          query_embedding: queryEmbedding,
-          match_threshold: threshold,
-          match_count: limit
-        });
-        data = result.data;
-        error = result.error;
-      }
+      });
 
       if (error) {
         console.error('❌ Vector search error:', error);
@@ -136,43 +85,27 @@ export class VectorStore {
       console.error('❌ Error in similarity search:', error instanceof Error ? error.message : error);
       
       // Fallback to text search if vector search fails
-      return await this.fallbackTextSearch(originalQuery, limit, filter);
+      return await this.fallbackTextSearch(originalQuery, limit);
     }
   }
 
   private async fallbackTextSearch(
-    query: string, 
-    limit: number,
-    filter?: { afdeling?: string, categorie?: string, klant_id?: string }
+    query: string,
+    limit: number
   ): Promise<any[]> {
     try {
-      console.log(`🔍 Falling back to text search with limit ${limit}${filter ? ' and filters' : ''}...`);
-      
+      console.log(`🔍 Falling back to text search with limit ${limit}...`);
+
       // Start building the query
       let queryBuilder = this.supabaseAdmin
         .from('document_chunks')
-        .select('*');
-      
+        .select('doc_id, chunk_index, content');
+
       // Apply text search if query is provided
       if (query && query.trim()) {
         queryBuilder = queryBuilder.textSearch('content', query);
       }
-      
-      // Apply metadata filters if provided
-      if (filter) {
-        if (filter.afdeling) {
-          queryBuilder = queryBuilder.filter('metadata->afdeling', 'eq', filter.afdeling);
-        }
-        
-        if (filter.categorie) {
-          queryBuilder = queryBuilder.filter('metadata->categorie', 'eq', filter.categorie);
-        }
-        
-        if (filter.klant_id) {
-          queryBuilder = queryBuilder.filter('metadata->klant_id', 'eq', filter.klant_id);
-        }
-      }
-      
+
       // Apply limit and execute query
       const { data, error } = await queryBuilder.limit(limit);
 
@@ -192,11 +125,11 @@ export class VectorStore {
   async deleteChunksByDocumentId(documentId: string): Promise<void> {
     try {
       console.log(`🗑️ Deleting chunks for document ${documentId}...`);
-      
+
       const { error } = await this.supabaseAdmin
         .from('document_chunks')
         .delete()
-        .eq('metadata->id', documentId);
+        .eq('doc_id', documentId);
 
       if (error) {
         console.error(`❌ Error deleting chunks for document ${documentId}:`, error);

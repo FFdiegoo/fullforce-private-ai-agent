@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { TextChunk } from './types.ts';
+import { TextChunk } from './types';
 
 export class EmbeddingGenerator {
   private openai: OpenAI;

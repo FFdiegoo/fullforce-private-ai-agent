@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { DocumentMetadata, TextChunk, ProcessingOptions } from './types.ts';
+import { DocumentMetadata, TextChunk, ProcessingOptions } from './types';
 
 export class DocumentProcessor {
   private supabaseAdmin: SupabaseClient;
@@ -54,6 +54,7 @@ export class DocumentProcessor {
           versie: metadata.versie
         },
         chunk_index: index,
+        docId: metadata.id,
       }));
     } catch (error) {
       console.error(`❌ Error processing document ${metadata.filename}:`, error);

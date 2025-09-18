@@ -21,6 +21,7 @@ export interface TextChunk {
   metadata: any; // DocumentMetadata or subset
   chunk_index: number;
   embedding?: Embedding; // optioneel: alleen als AI embedding is gegenereerd
+  docId?: string;
 }
 
 export interface ProcessingOptions {

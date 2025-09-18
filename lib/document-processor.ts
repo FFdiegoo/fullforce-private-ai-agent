@@ -34,6 +34,8 @@ export interface DocumentChunk {
     page?: number;
     section?: string;
     title?: string;
+    doc_id?: string;
+    chunk_index?: number;
   };
   embedding?: number[];
 }
@@ -108,11 +110,17 @@ export class DocumentProcessor {
 
   private static async storeChunk(chunk: DocumentChunk, embedding: number[]): Promise<void> {
     try {
+      if (!chunk.metadata?.doc_id) {
+        console.warn('⚠️ Skipping chunk without doc_id metadata');
+        return;
+      }
+
       const { error } = await supabase
         .from('document_chunks')
         .insert({
           content: chunk.content,
-          metadata: chunk.metadata,
+          doc_id: chunk.metadata.doc_id,
+          chunk_index: chunk.metadata.chunk_index ?? 0,
           embedding: embedding,
           created_at: new Date().toISOString(),
         });
@@ -179,7 +187,7 @@ export class DocumentProcessor {
       // Use vector similarity search
       const { data, error } = await supabase.rpc('match_documents', {
         query_embedding: embedding,
-        match_threshold: threshold,
+        similarity_threshold: threshold,
         match_count: limit
       });
 
@@ -201,7 +209,7 @@ export class DocumentProcessor {
     try {
       const { data, error } = await supabase
         .from('document_chunks')
-        .select('*')
+        .select('doc_id, chunk_index, content')
         .textSearch('content', query)
         .limit(limit);
 

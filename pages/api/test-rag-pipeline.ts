@@ -94,7 +94,7 @@ async function processTestDocument(documentId: string, res: NextApiResponse) {
     const { data: chunks, error: chunksError } = await supabaseAdmin
       .from('document_chunks')
       .select('id, chunk_index, content')
-      .eq('metadata->id', documentId);
+    .eq('doc_id', documentId);
 
     if (chunksError) {
       throw chunksError;
@@ -164,7 +164,8 @@ async function testVectorSearch(query: string, res: NextApiResponse) {
         results: allChunks?.map(chunk => ({
           content: chunk.content.substring(0, 200) + '...',
           similarity: 'N/A',
-          metadata: chunk.metadata
+          doc_id: chunk.doc_id,
+          chunk_index: chunk.chunk_index
         })) || []
       });
     }
@@ -176,7 +177,8 @@ async function testVectorSearch(query: string, res: NextApiResponse) {
       results: results?.map((result: any) => ({
         content: result.content.substring(0, 200) + '...',
         similarity: result.similarity,
-        metadata: result.metadata
+        doc_id: result.doc_id,
+        chunk_index: result.chunk_index
       })) || []
     });
 
@@ -232,7 +234,7 @@ async function verifyChunksStorage(documentId: string, res: NextApiResponse) {
     const { data: chunks, error } = await supabaseAdmin
       .from('document_chunks')
       .select('*')
-      .eq('metadata->id', documentId)
+    .eq('doc_id', documentId)
       .order('chunk_index');
 
     if (error) {
@@ -277,7 +279,7 @@ async function testAIResponse(query: string, res: NextApiResponse) {
     // Get relevant chunks (simplified version)
     const { data: chunks } = await supabaseAdmin
       .from('document_chunks')
-      .select('content, metadata')
+      .select('content')
       .limit(3);
 
     const context = chunks?.map(chunk => chunk.content).join('\n\n') || '';
