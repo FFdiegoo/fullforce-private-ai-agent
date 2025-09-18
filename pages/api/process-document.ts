@@ -186,7 +186,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await pipeline.processDocument(document, {
       chunkSize: RAG_CONFIG.chunkSize,
       chunkOverlap: RAG_CONFIG.chunkOverlap,
-      skipExisting: false,
     });
 
     // Get chunk count after processing

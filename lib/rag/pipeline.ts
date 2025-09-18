@@ -1,78 +1,74 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DocumentProcessor } from './documentProcessor';
 import { EmbeddingGenerator } from './embeddingGenerator';
-import { VectorStore } from './vectorStore';
-import type { DocumentMetadata, ProcessingOptions } from './types';
+import { RetryableError } from './errors';
 import { RAG_CONFIG } from './config';
+import type { DocumentMetadata, ProcessingOptions } from './types';
+import { VectorStore } from './vectorStore';
+
+type PipelineOptions = {
+  dryRun?: boolean;
+};
 
 export class RAGPipeline {
-  private supabaseAdmin: SupabaseClient;
   private documentProcessor: DocumentProcessor;
   private embeddingGenerator: EmbeddingGenerator;
   private vectorStore: VectorStore;
 
   constructor(supabaseAdmin: SupabaseClient, openAIKey: string) {
-    this.supabaseAdmin = supabaseAdmin;
-    this.documentProcessor = new DocumentProcessor(supabaseAdmin);
+    this.documentProcessor = new DocumentProcessor();
     this.embeddingGenerator = new EmbeddingGenerator(openAIKey);
     this.vectorStore = new VectorStore(supabaseAdmin);
   }
 
   async processDocument(
     metadata: DocumentMetadata,
-    options: ProcessingOptions
+    options: ProcessingOptions,
+    pipelineOptions: PipelineOptions = {}
   ): Promise<number> {
-    try {
-      console.log(`🔄 Starting RAG pipeline for document: ${metadata.filename}`);
-
-      console.log('📄 Processing document and creating chunks...');
-      const rawChunks = await this.documentProcessor.processDocument(metadata, options);
-      console.log(`✅ Created ${rawChunks.length} chunks`);
-
-      console.log('🧠 Generating embeddings for chunks...');
-      const embeddedChunks = await this.embeddingGenerator.generateEmbeddings(
-        rawChunks,
-        RAG_CONFIG.embeddingModel
-      );
-      console.log(`✅ Generated ${embeddedChunks.length} embeddings`);
-
-      console.log('💾 Storing chunks with embeddings...');
-      await this.vectorStore.storeChunks(embeddedChunks);
-      console.log(`✅ Stored ${embeddedChunks.length} chunks in vector store`);
-
-      console.log('✅ Document processing complete');
-      return embeddedChunks.length;
-    } catch (error) {
-      console.error(
-        `❌ Error in RAG pipeline for document ${metadata.filename}:`,
-        error
-      );
-      throw error;
+    if (!metadata.extractedText || !metadata.extractedText.trim()) {
+      throw new Error('Document metadata is missing extracted text');
     }
+
+    const rawChunks = await this.documentProcessor.processDocument(metadata, options);
+
+    if (!rawChunks.length) {
+      return 0;
+    }
+
+    const embeddedChunks = await this.embeddingGenerator.generateEmbeddings(
+      rawChunks,
+      RAG_CONFIG.embeddingModel
+    );
+
+    if (!embeddedChunks.length) {
+      throw new RetryableError('No embeddings generated');
+    }
+
+    await this.vectorStore.storeChunks(embeddedChunks, {
+      dryRun: pipelineOptions.dryRun || options.dryRun,
+    });
+
+    return embeddedChunks.length;
   }
 
   async searchSimilarDocuments(query: string): Promise<any[]> {
     try {
-      console.log(`🔍 Searching for documents similar to: "${query.substring(0, 50)}..."`);
-
       const embeddingResponse = await this.embeddingGenerator.generateEmbeddings(
         [{ content: query, metadata: {} as DocumentMetadata, chunk_index: 0 }],
         RAG_CONFIG.embeddingModel
       );
 
       if (embeddingResponse.length === 0 || !embeddingResponse[0].embedding) {
-        throw new Error('Failed to generate query embedding');
+        return [];
       }
 
-      const results = await this.vectorStore.searchSimilarDocuments(
+      return await this.vectorStore.searchSimilarDocuments(
         embeddingResponse[0].embedding,
         query,
         RAG_CONFIG.similarityThreshold,
         RAG_CONFIG.maxResults
       );
-
-      console.log(`✅ Found ${results.length} similar documents`);
-      return results;
     } catch (error) {
       console.error('❌ Error searching similar documents:', error);
       return [];
