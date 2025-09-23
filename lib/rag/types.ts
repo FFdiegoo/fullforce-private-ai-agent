@@ -13,6 +13,13 @@ export interface DocumentMetadata {
   uploaded_by: string;
   last_updated: string; // ISO-datum als string
   extractedText?: string; // Added field for pre-extracted text
+  processed?: boolean;
+  processed_at?: string | null;
+  needs_ocr?: boolean;
+  chunk_count?: number;
+  retry_count?: number;
+  last_error?: string | null;
+  ready_for_indexing?: boolean;
 }
 
 export type Embedding = number[]; // vector van floats

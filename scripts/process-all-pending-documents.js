@@ -22,7 +22,14 @@ const { createClient } = require('@supabase/supabase-js');
 const { RAGPipeline } = require('../lib/rag/pipeline');
 const { RAG_CONFIG, openaiApiKey } = require('../lib/rag/config');
 const { extractText } = require('../lib/rag/extract-text');
-const { RetryableError, isRetryableError } = require('../lib/rag/errors');
+const {
+  RetryableError,
+  isRetryableError,
+  ContentError,
+  NeedsOcrError,
+  isContentError,
+  isNeedsOcrError,
+} = require('../lib/rag/errors');
 
 const args = process.argv.slice(2);
 const FORCE = args.includes('--force');
@@ -52,10 +59,22 @@ process.on('unhandledRejection', (err) => {
   process.exit(1);
 });
 
-const summary = { ok: true, total: 0, processed_ok: 0, needs_ocr: 0, retried: 0, failed: 0 };
+const summary = {
+  ok: true,
+  total: 0,
+  processed_ok: 0,
+  needs_ocr: 0,
+  retried: 0,
+  failed: 0,
+  skipped: 0,
+  content_errors: 0,
+};
 
-const IGNORED_FILENAMES = new Set(['thumbs.db']);
+const IGNORED_FILENAMES = new Set(['thumbs.db', '.ds_store', 'desktop.ini']);
+const CLEAN_FILENAME_PREFIXES = ['._'];
 const UNSUPPORTED_EXTENSIONS = new Set(['.zip', '.nlbl']);
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tif', '.tiff']);
+const MIN_IMAGE_BYTES = 2048;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -84,18 +103,60 @@ async function fetchPendingDocuments() {
 
 function shouldSkipDocument(document) {
   const filename = (document.filename || '').toLowerCase();
-  if (IGNORED_FILENAMES.has(filename)) {
-    return { skip: true, lastError: 'ignored-system-file', result: 'ignored-system-file' };
+  if (!filename) {
+    return { skip: false };
   }
-  const ext = path.extname(filename);
+
+  if (IGNORED_FILENAMES.has(filename) || CLEAN_FILENAME_PREFIXES.some((prefix) => filename.startsWith(prefix))) {
+    return { skip: true, lastError: 'ignored-system-file', result: 'ignored-system-file', markProcessed: true };
+  }
+
+  const ext = path.extname(filename).toLowerCase();
   if (UNSUPPORTED_EXTENSIONS.has(ext)) {
-    return { skip: true, lastError: 'unsupported-archive', result: 'unsupported-archive' };
+    return { skip: true, lastError: 'unsupported-archive', result: 'unsupported-archive', markProcessed: true };
   }
+
+  const mime = (document.mime_type || '').toLowerCase();
+  const fileSize = Number(document.file_size ?? document.size ?? 0);
+  if (
+    fileSize > 0 &&
+    fileSize < MIN_IMAGE_BYTES &&
+    (IMAGE_EXTENSIONS.has(ext) || mime.startsWith('image/'))
+  ) {
+    return { skip: true, lastError: 'image-too-small', result: 'image-too-small', markProcessed: true };
+  }
+
   return { skip: false };
 }
 
 function classifyError(error) {
+  if (isNeedsOcrError(error) || error instanceof NeedsOcrError) {
+    const detail = error?.detail || error?.message || 'needs-ocr';
+    return {
+      retryable: false,
+      status: null,
+      message: 'needs-ocr',
+      code: 'needs-ocr',
+      detail,
+      type: 'needs-ocr',
+    };
+  }
+
+  if (isContentError(error) || error instanceof ContentError) {
+    const code = error?.code || 'content-error';
+    const detail = error?.detail || error?.message || code;
+    return {
+      retryable: false,
+      status: null,
+      message: code,
+      code,
+      detail,
+      type: 'content',
+    };
+  }
+
   const status = error?.status ?? error?.statusCode ?? error?.response?.status ?? error?.code;
+  const baseMessage = error?.message || (typeof error === 'string' ? error : 'unknown-error');
   const retryable = Boolean(
     isRetryableError(error) ||
       status === 429 ||
@@ -103,8 +164,14 @@ function classifyError(error) {
       (error?.message && /timeout/i.test(error.message))
   );
 
-  const message = error?.message || (typeof error === 'string' ? error : 'unknown-error');
-  return { retryable, status, message };
+  return {
+    retryable,
+    status,
+    message: baseMessage,
+    code: typeof error?.code === 'string' ? error.code : null,
+    detail: baseMessage,
+    type: retryable ? 'retryable' : 'error',
+  };
 }
 
 async function updateDocument(id, patch) {
@@ -137,16 +204,18 @@ async function processDocument(document) {
     const skipInfo = shouldSkipDocument(document);
     if (skipInfo.skip) {
       await updateDocument(document.id, {
-        processed: false,
-        processed_at: null,
+        processed: true,
+        processed_at: new Date().toISOString(),
         needs_ocr: false,
         last_error: skipInfo.lastError,
         chunk_count: 0,
+        retry_count: 0,
       });
 
-      logEntry.result = skipInfo.result;
+      logEntry.result = skipInfo.result || 'skipped';
       logEntry.error = skipInfo.lastError;
-      summary.failed += 1;
+      logEntry.chunks = 0;
+      summary.skipped += 1;
       return logEntry;
     }
 
@@ -179,19 +248,24 @@ async function processDocument(document) {
     logEntry.text_len = extracted.text.length;
 
     if (extracted.text.length === 0) {
-      const lastError = extracted.usedOcr ? 'ocr-failed' : 'needs-ocr';
-      await updateDocument(document.id, {
-        processed: false,
-        processed_at: null,
-        needs_ocr: true,
-        last_error: lastError,
-        chunk_count: 0,
-      });
+      if (extracted.usedOcr) {
+        const lastError = 'needs-ocr';
+        await updateDocument(document.id, {
+          processed: false,
+          processed_at: null,
+          needs_ocr: true,
+          last_error: lastError,
+          chunk_count: 0,
+        });
 
-      logEntry.result = lastError;
-      logEntry.error = lastError;
-      summary.needs_ocr += 1;
-      return logEntry;
+        logEntry.result = lastError;
+        logEntry.error = lastError;
+        logEntry.chunks = 0;
+        summary.needs_ocr += 1;
+        return logEntry;
+      }
+
+      throw new ContentError('empty-document', 'Document bevat geen tekst');
     }
 
     const metadata = {
@@ -219,15 +293,49 @@ async function processDocument(document) {
     summary.processed_ok += 1;
     return logEntry;
   } catch (error) {
-    const { message } = classifyError(error);
+    const classification = classifyError(error);
+
+    if (classification.type === 'needs-ocr') {
+      await updateDocument(document.id, {
+        processed: false,
+        processed_at: null,
+        needs_ocr: true,
+        last_error: classification.code,
+        chunk_count: 0,
+      });
+
+      logEntry.result = 'needs-ocr';
+      logEntry.error = classification.detail || classification.code;
+      logEntry.chunks = 0;
+      summary.needs_ocr += 1;
+      return logEntry;
+    }
+
+    if (classification.type === 'content') {
+      await updateDocument(document.id, {
+        processed: true,
+        processed_at: new Date().toISOString(),
+        needs_ocr: false,
+        last_error: classification.code || classification.message,
+        chunk_count: 0,
+        retry_count: 0,
+      });
+
+      logEntry.result = 'content-error';
+      logEntry.error = classification.detail || classification.code || classification.message;
+      logEntry.chunks = 0;
+      summary.content_errors += 1;
+      return logEntry;
+    }
+
     await updateDocument(document.id, {
       processed: false,
       processed_at: null,
-      last_error: message,
+      last_error: classification.message,
     });
 
     logEntry.result = 'failed';
-    logEntry.error = message;
+    logEntry.error = classification.detail || classification.message;
     summary.failed += 1;
     return logEntry;
   }

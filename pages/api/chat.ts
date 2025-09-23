@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const sources = (results || [])
       .slice(0, RAG_CONFIG.maxResults)
       .map((r: any) => ({
-        doc_id: r.doc_id || r.document_id || null,
+        doc_id: r.doc_id ?? null,
         chunk_index: r.chunk_index ?? null,
         similarity: r.similarity ?? null,
       }));
