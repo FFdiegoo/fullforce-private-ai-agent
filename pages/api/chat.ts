@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../../lib/server/supabaseAdmin';
 import { getOrCreateSession } from '../../lib/chat/session';
 import { RAGPipeline } from '../../lib/rag/pipeline';
 import { RAG_CONFIG, openaiApiKey } from '../../lib/rag/config';
+import { buildCeesSystemPrompt } from '../../lib/prompts/ceesPrompt';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -45,8 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const prompt: ChatCompletionMessageParam[] = [
-      { role: 'system', content: 'Je bent een behulpzame bedrijfsspecifieke assistent.' },
-      { role: 'system', content: `Context uit documenten:\n${contextText || '(geen)'}\n` },
+      { role: 'system', content: buildCeesSystemPrompt({ context: contextText }) },
       { role: 'user', content: message },
     ];
 

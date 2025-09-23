@@ -3,6 +3,7 @@ import { OpenAI } from 'openai';
 import { supabaseAdmin } from '../../lib/server/supabaseAdmin';
 import { RAGPipeline } from '../../lib/rag/pipeline';
 import { openaiApiKey } from '../../lib/rag/config';
+import { buildCeesSystemPrompt } from '../../lib/prompts/ceesPrompt';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -76,14 +77,10 @@ export default async function handler(
     }
 
     // 4. Choose the appropriate system prompt based on mode
-    const systemPrompt = mode === 'technical' 
-      ? `Je bent CeeS, een technische AI-assistent voor CS Rental. Help gebruikers met technische documentatie en ondersteuning. Geef duidelijke, praktische antwoorden.
-      
-${context ? 'Gebruik de volgende context om je antwoorden te verbeteren:' : 'Ik kon geen relevante informatie vinden in de documentatie. Geef een algemeen antwoord of stel voor om de vraag anders te formuleren.'}
-
-${context}`
+    const systemPrompt = mode === 'technical'
+      ? buildCeesSystemPrompt({ context })
       : `Je bent ChriS, een inkoop AI-assistent voor CS Rental. Help gebruikers met inkoop en onderdelen informatie. Focus op praktische inkoop-gerelateerde vragen.
-      
+
 ${context ? 'Gebruik de volgende context om je antwoorden te verbeteren:' : 'Ik kon geen relevante informatie vinden in de documentatie. Geef een algemeen antwoord of stel voor om de vraag anders te formuleren.'}
 
 ${context}`;
@@ -152,7 +149,9 @@ ${context}`;
         
         // Generate fallback response
         const fallbackSystemPrompt = mode === 'technical'
-          ? 'Je bent CeeS, een technische AI-assistent voor CS Rental. Help gebruikers met technische documentatie en ondersteuning. Geef duidelijke, praktische antwoorden. Als je het antwoord niet weet, geef dan aan dat je geen relevante informatie in de documentatie kon vinden.'
+          ? buildCeesSystemPrompt({
+              retrievalWarning: 'De automatische documentzoekactie is mislukt. Geef duidelijk aan dat je zonder actuele context werkt en vraag om ontbrekende gegevens voordat je adviseert.',
+            })
           : 'Je bent ChriS, een inkoop AI-assistent voor CS Rental. Help gebruikers met inkoop en onderdelen informatie. Focus op praktische inkoop-gerelateerde vragen. Als je het antwoord niet weet, geef dan aan dat je geen relevante informatie in de documentatie kon vinden.';
         
         const completion = await openai.chat.completions.create({
