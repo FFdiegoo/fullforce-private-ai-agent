@@ -4,7 +4,6 @@ import { supabaseAdmin } from '../../lib/server/supabaseAdmin';
 import { getOrCreateSession } from '../../lib/chat/session';
 import { RAGPipeline } from '../../lib/rag/pipeline';
 import { RAG_CONFIG, openaiApiKey } from '../../lib/rag/config';
-import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -32,13 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // RAG retrieval
-    // Tip: als RLS het lezen van vector-data blokkeert, vervang dan supabaseUserClient door supabaseAdmin
-    const supabaseUserClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const pipeline = new RAGPipeline(supabaseUserClient, openaiApiKey);
+    const pipeline = new RAGPipeline(supabaseAdmin, openaiApiKey);
     const results = await pipeline.searchSimilarDocuments(message);
 
     // Context opbouwen (optioneel inkorten tot maxResults)

@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { OpenAI } from 'openai';
-import { supabase } from '../../lib/supabaseClient';
+import { supabaseAdmin } from '../../lib/server/supabaseAdmin';
 import { RAGPipeline } from '../../lib/rag/pipeline';
 import { openaiApiKey } from '../../lib/rag/config';
 
@@ -46,7 +46,7 @@ export default async function handler(
     }
 
     // 1. Create RAG pipeline
-    const pipeline = new RAGPipeline(supabase, openaiApiKey);
+    const pipeline = new RAGPipeline(supabaseAdmin, openaiApiKey);
 
     // 2. Search for relevant documents
     console.log(`🔍 Searching for documents relevant to: "${prompt.substring(0, 50)}..."`);
@@ -113,7 +113,7 @@ ${context}`;
     
     // 8. Log the prompt, context, and response to chat_logs table
     try {
-      await supabase.from('chat_logs').insert({
+      await supabaseAdmin.from('chat_logs').insert({
         prompt,
         context: context || 'No relevant context found',
         response: reply,
