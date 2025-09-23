@@ -81,19 +81,19 @@ async function processTestDocument(documentId: string, res: NextApiResponse) {
     }
 
     // Initialize RAG pipeline
-    const pipeline = new RAGPipeline(supabase, openaiApiKey);
+    const pipeline = new RAGPipeline(supabaseAdmin, openaiApiKey);
 
-  // Process the document
-  await pipeline.processDocument(document, {
-    chunkSize: RAG_CONFIG.chunkSize,
-    chunkOverlap: RAG_CONFIG.chunkOverlap
-  });
+    // Process the document
+    await pipeline.processDocument(document, {
+      chunkSize: RAG_CONFIG.chunkSize,
+      chunkOverlap: RAG_CONFIG.chunkOverlap
+    });
 
     // Verify chunks were created
     const { data: chunks, error: chunksError } = await supabaseAdmin
       .from('document_chunks')
       .select('id, chunk_index, content')
-    .eq('doc_id', documentId);
+      .eq('doc_id', documentId);
 
     if (chunksError) {
       throw chunksError;
