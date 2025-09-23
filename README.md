@@ -37,8 +37,20 @@ Voeg de vereiste variabelen toe aan je `.env.local` bestand. Bekijk `.env.local.
 - `npm run rag:monitor` – monitor de RAG‑status.
 - `npm run rag:create-test-docs` – maak testdocumenten aan.
 - `npm run rag:test` – opent de RAG‑testpagina.
+- `npm run rag:verify` – voer de schema/health check uit (`scripts/verify-rag-health.js`).
 
-De volledige ingest‑pipeline gebruikt de variabelen `SUPABASE_DOCUMENTS_BUCKET`, `RAG_EMBEDDING_MODEL`, `RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`, `RAG_BATCH_SIZE`, `RAG_CONCURRENCY` en `RAG_DELAY_MS`. Je kunt veilig herhaaldelijk `node scripts/process-all-pending-documents.js` draaien; reeds verwerkte documenten worden overgeslagen tenzij je `--force` meegeeft.
+De volledige ingest‑pipeline gebruikt de variabelen `SUPABASE_DOCUMENTS_BUCKET`, `RAG_EMBEDDING_MODEL`, `RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`, `RAG_BATCH_SIZE`, `RAG_CONCURRENCY` en `RAG_DELAY_MS`. Alle scripts zijn idempotent: je kunt veilig `npm run rag:mark-for-indexing` en `npm run rag:process-all` herhaaldelijk draaien. Reeds verwerkte documenten worden overgeslagen, terwijl bestanden die een OCR‑herkansing nodig hebben als `needs_ocr` gemarkeerd blijven staan.
+
+#### End-to-end RAG workflow
+1. **Migraties draaien** – `npm run db:setup` zorgt dat het Supabase schema up-to-date is.
+2. **Health check** – `npm run rag:verify` controleert verplichte kolommen, orphan chunks en de `match_documents` RPC.
+3. **Documenten uploaden** – gebruik `npm run upload:all-docs -- <pad>` of één van de bulk‑upload scripts. De metadata tabel krijgt automatisch de juiste `storage_path` en `ready_for_indexing`-vlaggen.
+4. **Indexeren voorbereiden** – markeer nieuwe of gewijzigde bestanden met `npm run rag:mark-for-indexing`.
+5. **Verwerken** – `npm run rag:process-all` downloadt bestanden, extraheert tekst (inclusief OCR), genereert embeddings en schrijft chunks naar `document_chunks`.
+   - Bestanden zoals `Thumbs.db`, `.DS_Store` of extreem kleine afbeeldingen worden als “skipped” geregistreerd zonder fouten.
+   - OCR-fouten markeren het document als `needs_ocr` met een duidelijke `last_error`, zonder dat het batchproces stopt.
+   - Contentproblemen (bijv. lege bestanden of onbekende mime-types) worden als verwerkt gemarkeerd met `chunk_count = 0`, zodat het proces niet blijft hangen.
+6. **Health check herhalen** – `npm run rag:verify` toont dat er geen orphan chunks zijn, dat alle kolommen beschikbaar zijn en dat de `match_documents` RPC resultaten levert.
 
 ### Bulk upload
 - `npm run bulk-upload` – bulkupload van documenten.
