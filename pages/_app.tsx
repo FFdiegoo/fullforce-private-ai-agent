@@ -1,9 +1,10 @@
 import '../styles/globals.css';
 import type { AppProps } from 'next/app';
-import AdminButton from '../components/AdminButton';
-import { ThemeProvider } from '../contexts/ThemeContext';
-import { ErrorBoundary } from '../components/ErrorBoundary';
+import Image from 'next/image';
 import { useEffect } from 'react';
+import AdminButton from '../components/AdminButton';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ThemeProvider } from '../contexts/ThemeContext';
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   useEffect(() => {
@@ -36,8 +37,19 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <Component {...pageProps} />
-        <AdminButton />
+        <div className="min-h-screen">
+          <div className="fixed left-4 top-4 z-50">
+            <Image
+              src="/csrental-logo.svg"
+              alt="CS Rental logo"
+              width={160}
+              height={60}
+              priority
+            />
+          </div>
+          <Component {...pageProps} />
+          <AdminButton />
+        </div>
       </ThemeProvider>
     </ErrorBoundary>
   );
