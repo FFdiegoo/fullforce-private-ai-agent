@@ -9,16 +9,6 @@ type ChatAgg = {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // toggles: maak admin endpoint publiek
-    const publicAdmin =
-      process.env.NEXT_PUBLIC_PUBLIC_ADMIN === 'true' ||
-      process.env.PUBLIC_ADMIN === 'true';
-
-    if (!publicAdmin) {
-      res.status(403).json({ error: 'disabled' });
-      return;
-    }
-
     // --- RAG stats ---
     const docsRpcPromise = (async () => {
       try {

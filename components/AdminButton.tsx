@@ -1,9 +1,6 @@
 import Link from 'next/link';
 
 export default function AdminButton() {
-  const visible = process.env.NEXT_PUBLIC_PUBLIC_ADMIN === 'true' || process.env.PUBLIC_ADMIN === 'true';
-  if (!visible) return null;
-
   return (
     <Link
       href="/admin"
