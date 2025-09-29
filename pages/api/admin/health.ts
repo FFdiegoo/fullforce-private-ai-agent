@@ -3,14 +3,7 @@ import { OpenAI } from 'openai';
 import { RAG_CONFIG } from '../../../lib/rag/config';
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin';
 
-const isPublicAdminEnabled = () =>
-  process.env.NEXT_PUBLIC_PUBLIC_ADMIN === 'true' || process.env.PUBLIC_ADMIN === 'true';
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (!isPublicAdminEnabled()) {
-    return res.status(403).json({ error: 'disabled' });
-  }
-
   try {
     const [documentsResp, chunksResp] = await Promise.all([
       supabaseAdmin.from('documents_metadata').select('id', { count: 'exact', head: true }),

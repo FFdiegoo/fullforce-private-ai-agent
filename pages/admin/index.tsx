@@ -4,22 +4,16 @@ type CountRes = { total_docs: number; processed_docs: number; chunks: number; ne
 type ChatStat = { messages: number; sessions: number; last_message_at: string | null; };
 
 export default function AdminHome() {
-  const [allowed, setAllowed] = useState(false);
   const [counts, setCounts] = useState<CountRes | null>(null);
   const [chat, setChat] = useState<ChatStat | null>(null);
 
   useEffect(() => {
-    const ok = process.env.NEXT_PUBLIC_PUBLIC_ADMIN === 'true' || process.env.PUBLIC_ADMIN === 'true';
-    setAllowed(!!ok);
-
     (async () => {
       const a = await fetch('/api/admin/stats').then(r => r.json()).catch(() => null);
       setCounts(a?.rag || null);
       setChat(a?.chat || null);
     })();
   }, []);
-
-  if (!allowed) return <div className="p-6">403 — Admin tijdelijk uitgeschakeld</div>;
 
   return (
     <div className="max-w-5xl mx-auto p-6">
