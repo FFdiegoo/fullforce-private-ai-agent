@@ -71,6 +71,11 @@ Je kunt deze script handmatig draaien of automatiseren met een cron-job om nieuw
 ## Supabase
 Supabase levert de Postgres‑database, authenticatie en opslag. De SQL‑migraties staan in `supabase/migrations`.
 
+### Inloggen testen
+- Start de Next.js app (`npm run dev`) en navigeer naar [`/login`](http://localhost:3000/login).
+- Gebruik het Supabase-account `diego.a.scognamiglio@gmail.com` met wachtwoord `Hamkaastostimetkaka321@!` om in te loggen.
+- De repository bevat een fallback Supabase-configuratie zodat deze inlog werkt zonder aanvullende `.env` variabelen. Voor productie is het wel aan te raden eigen `NEXT_PUBLIC_SUPABASE_URL` en `NEXT_PUBLIC_SUPABASE_ANON_KEY` te configureren.
+
 ### Migratiestappen
 1. Voer Supabase‑migraties uit met:
    ```bash
